@@ -1,0 +1,39 @@
+services:
+  backend:
+    build: ./backend
+    container_name: mqc-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=mysql+pymysql://mqc_user:mqc_pass@db/mqc_db
+      - SECRET_KEY=prod-secret-key
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+    restart: always
+
+  db:
+    image: mysql:8.0
+    container_name: mqc-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mqc_db
+      MYSQL_USER: mqc_user
+      MYSQL_PASSWORD: mqc_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/mysql_data:/var/lib/mysql
+    restart: always
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: mqc-pma
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
+    depends_on:
+      - db

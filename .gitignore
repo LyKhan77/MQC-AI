@@ -1,0 +1,94 @@
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.project
+.pydevproject
+.settings/
+*.sublime-project
+
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/
+*.egg-info/
+dist-info/
+
+# Database
+*.db
+*.sqlite3
+*.sql
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production
+
+# AI Models
+*.pt
+*.pth
+*.onnx
+*.safetensors
+yolo*.pt
+runs/
+
+# Static uploads
+backend/static/snapshots/*
+!backend/static/snapshots/.gitkeep
+backend/static/sample_videos/*
+!backend/static/sample_videos/.gitkeep
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+.pytest_cache/
+.htmlcov/
+
+# Temporary
+*.tmp
+*.bak
+*.cache
+.parcel-cache
+
+# Docker
+.dockerignore
+
+# Migrations
+migrations/versions/*.pyc
+migrations/versions/__pycache__
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# other
+GEMINI.md
+GIT_SETUP.md
+DEPLOYMENT.md
+conductor/
+crowd-test.mp4

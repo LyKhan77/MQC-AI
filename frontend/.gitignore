@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build output
+dist/
+dist-ssr/
+build/
+.nuxt/
+.vuepress/dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/snippets.json
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.svelte-kit/
+
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+
+# Misc
+.cache
+.temp
+.parcel-cache
+.vite/

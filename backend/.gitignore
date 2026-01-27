@@ -1,0 +1,99 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Flask
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite3
+*.sql
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# AI Models (large files)
+*.pt
+*.pth
+*.onnx
+*.safetensors
+yolo*.pt
+runs/
+
+# Static uploads
+static/snapshots/*
+!static/snapshots/.gitkeep
+static/sample_videos/*
+!static/sample_videos/.gitkeep
+static/uploads/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.project
+.pydevproject
+.settings/
+*.sublime-project
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.mypy_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Migrations (only keep schema)
+migrations/versions/*.pyc
+migrations/versions/__pycache__
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
