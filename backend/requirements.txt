@@ -1,11 +1,13 @@
-# Core Flask
+# Flask Core
 Flask==3.0.0
 Flask-SocketIO==5.3.6
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.5
 PyMySQL==1.1.0
 python-dotenv==1.0.0
-eventlet==0.33.3
+
+# FIX: Use older eventlet version compatible with Python 3.12
+eventlet==0.30.5
 
 # Computer Vision - Core
 opencv-python-headless==4.9.0.80
@@ -14,8 +16,10 @@ pillow>=10.0.0
 
 # AI Models - YOLO
 ultralytics==8.1.0
-torch>=2.0.0
-torchvision>=0.15.0
+
+# PyTorch - Use compatible versions
+torch>=2.0.0,<2.2.0
+torchvision>=0.15.0,<0.16.0
 
 # Utilities
 requests==2.31.0
