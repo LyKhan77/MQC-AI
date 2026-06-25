@@ -1,0 +1,12 @@
+# Dependencies
+**/node_modules/
+# Build output
+**/dist/
+# Plans tidak di-commit (AGENTS.md)
+docs/superpowers/plans/
+docs/superpowers/specs/
+# Env & logs
+*.log
+.env
+.env.local
+.DS_Store
