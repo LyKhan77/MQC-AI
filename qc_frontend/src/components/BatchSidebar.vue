@@ -28,7 +28,7 @@ async function onLoad() {
         :class="{ active: img.id === selectedId }"
         @click="selectImage(img.id)"
       >
-        <span class="dot" :class="img.status === 'defect' ? 'bad' : 'ok'"></span>
+        <span class="dot" :class="img.status === 'defect' ? 'bad' : 'ok'" :title="img.status"></span>
         <span class="fname mono">{{ img.filename }}</span>
         <span v-if="img.defects.length" class="count mono">{{ img.defects.length }}</span>
       </li>
@@ -50,7 +50,7 @@ async function onLoad() {
   background: var(--accent-primary); color: var(--text-primary);
   border: none; border-radius: var(--radius-btn); font-weight: 600;
 }
-.btn-load:hover { background: #2b7bff; }
+.btn-load:hover { background: var(--accent-primary); filter: brightness(1.15); }
 .batch-meta { font-size: 0.75rem; color: var(--text-secondary); margin: 0.5rem 0 0.15rem; }
 .batch-path { font-size: 0.7rem; color: var(--text-muted); margin: 0; word-break: break-all; }
 
@@ -70,7 +70,7 @@ async function onLoad() {
 .dot.ok { background: var(--status-success); }
 .fname { font-size: 0.75rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .count {
-  font-size: 0.7rem; background: var(--status-error); color: #fff;
+  font-size: 0.7rem; background: var(--status-error); color: var(--text-primary);
   padding: 0 0.35rem; border-radius: 8px;
 }
 .empty { color: var(--text-muted); font-size: 0.8rem; padding: 1rem; }
