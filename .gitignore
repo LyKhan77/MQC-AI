@@ -2,9 +2,15 @@
 **/node_modules/
 # Build output
 **/dist/
-# Plans tidak di-commit (AGENTS.md)
+# Plans & specs tidak di-commit (AGENTS.md)
 docs/superpowers/plans/
 docs/superpowers/specs/
+# SDD subagent workspace (briefs, reports, review diffs, ledger)
+.superpowers/
+# Temp / testing scratch
+**/.vitest/
+**/coverage/
+*.tmp
 # Env & logs
 *.log
 .env
