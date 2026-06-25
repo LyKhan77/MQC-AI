@@ -1,0 +1,43 @@
+{
+  "batch_name": "Shift 1 — 2026-06-25",
+  "source_path": "//NAS/qc/2026-06-25/shift1",
+  "images": [
+    {
+      "id": "img_001",
+      "filename": "weld_0001.jpg",
+      "url": "/mock/images/weld_0001.jpg",
+      "width": 1280,
+      "height": 960,
+      "status": "defect",
+      "defects": [
+        { "id": "d1", "type": "porosity", "category": "welding", "confidence": 0.94,
+          "polygon": [[420,310],[500,295],[540,370],[450,400],[400,360]] },
+        { "id": "d2", "type": "spatter", "category": "welding", "confidence": 0.81,
+          "polygon": [[820,560],[880,545],[905,600],[840,620]] }
+      ]
+    },
+    {
+      "id": "img_002",
+      "filename": "coat_0002.jpg",
+      "url": "/mock/images/coat_0002.jpg",
+      "width": 1280,
+      "height": 960,
+      "status": "defect",
+      "defects": [
+        { "id": "d3", "type": "scratch", "category": "coating", "confidence": 0.88,
+          "polygon": [[200,200],[600,210],[610,250],[210,245]] },
+        { "id": "d4", "type": "color", "category": "coating", "confidence": 0.76,
+          "polygon": [[700,650],[860,640],[880,780],[710,790]] }
+      ]
+    },
+    {
+      "id": "img_003",
+      "filename": "weld_0003.jpg",
+      "url": "/mock/images/weld_0001.jpg",
+      "width": 1280,
+      "height": 960,
+      "status": "clean",
+      "defects": []
+    }
+  ]
+}
