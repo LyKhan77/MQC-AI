@@ -11,6 +11,35 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-26 — Backend Planning (`qc_server`)
+
+### Summary
+
+Planning-only milestone (no code yet). Locked backend architecture for `qc_server` and clarified the end-to-end flow. Edge app re-scoped to **product** object detection + counting + a count-approval gate; QC re-scoped to **defect** segmentation with a pluggable, Settings-selectable strategy.
+
+### Added
+
+- `docs/superpowers/plans/qc-server-plan.md` (gitignored) — locked decisions, folder structure, SQLite schema, API endpoints, pluggable defect-strategy interface, polling job flow, milestones M0→M4, and edge-app flow reference.
+
+### Changed
+
+- **Architecture decisions locked**: build `qc_server` first; async via **polling**; **SQLite + filesystem** persistence; **single-user** (auth deferred); Edge→QC trigger via **folder drop + `POST /api/batches`**; per-camera counting mode (`tracking` via `supervision` ByteTrack+LineZone, or `single` for 1-frame-1-object metal sheet); QC defect inference **pluggable** (`mock` → `sam3_prompt` → future `detector_refine`/`anomaly`).
+- `docs/PRD.md` → v1.2.0: corrected component responsibilities + pluggable defect strategy + tech/NFR updates.
+- `docs/workflow.md`: updated architecture diagram and operational phases (added count inspection gate + trigger; renumbered to 5 phases).
+- `AGENTS.md`: updated Backend/Edge planned features + Current State (Backend planning approved).
+- `README.md`: updated workspace table, end-to-end workflow, and implementation-plans list.
+
+### Current Codebase State
+
+| Area | State |
+|---|---|
+| `qc_frontend/` | Unchanged — functional with mock data. |
+| `qc_server/` | **Planned, approved.** No code yet; plan at `docs/superpowers/plans/qc-server-plan.md`. Next: milestone M0 scaffold. |
+| `edge_app/` | Planned (after `qc_server`). Flow documented. |
+| Docs | PRD/workflow/AGENTS/README synced to corrected flow. |
+
+---
+
 ## [0.2.0] - 2026-06-26
 
 ### Summary

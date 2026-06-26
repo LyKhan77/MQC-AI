@@ -74,16 +74,22 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
 
-### Backend (planned)
+### Backend (planned — `qc_server` first)
 
-- Async batch SAM3 segmentation processing.
-- JSON metadata storage for segmentation results.
+- Async batch **defect** segmentation over folders of crops, via **polling** (`job_id` → poll status).
+- **Pluggable defect strategy** selectable from Settings: `mock` → `sam3_prompt` (SAM3 promptable concept segmentation, zero-training) → future `detector_refine` / `anomaly` (anomalib).
+- **SQLite** for queryable metadata (batches/images/defects/cameras/audit/settings/defect_classes) + filesystem/NAS for images & result JSON.
+- Editable `defect_classes` driving QC batching (replaces frontend's hardcoded defect color map).
+- Single-user MVP (auth deferred; reviewer from config).
+- Full plan: `docs/superpowers/plans/qc-server-plan.md` (gitignored).
 
-### Edge (planned)
+### Edge (planned — after qc_server)
 
-- Real-time YOLO object detection on Jetson Nano.
+- Real-time **object (product) detection + counting** on Jetson Nano from trained `.pt` (Detection/Segmentation), using `supervision`.
+- Per-camera count mode: `tracking` (ByteTrack + LineZone/PolygonZone) or `single` (1-frame-1-object).
+- **Count inspection gate**: technician approves count, then triggers `POST /api/batches` with crop folder path.
+- Auto-crop detected objects (bbox/mask) to shared NAS storage.
 - Live video stream (MJPEG/WebRTC) to dashboard.
-- Auto-crop detected objects to shared NAS storage.
 
 ---
 
@@ -244,9 +250,9 @@ All commands run from `qc_frontend/` directory.
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Frontend Active Development
+### Status: Frontend Active Development · Backend Planning Approved
 
-**What is being developed now**: Frontend UI dashboard with mock data. All 6 pages are functional with mock data layer and localStorage persistence. Backend (SAM3 server) and Edge app (Jetson) are not yet started.
+**What is being developed now**: Frontend UI dashboard with mock data. All 6 pages are functional with mock data layer and localStorage persistence. **Backend (`qc_server`) architecture is planned and approved** (see `docs/superpowers/plans/qc-server-plan.md`); implementation pending (milestones M0→M4). Edge app (Jetson) comes after `qc_server`.
 
 ### Component Status
 

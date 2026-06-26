@@ -11,15 +11,15 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 | Component | Status | Description |
 |---|---|---|
 | `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, mock data layer |
-| `qc_server/` | Planned | FastAPI + PyTorch + SAM3 untuk async batch defect segmentation |
-| `edge_app/` | Planned | Jetson Nano + TensorRT + OpenCV untuk real-time YOLO detection dan live streaming |
+| `qc_server/` | **Planned (next)** | FastAPI + SQLite + PyTorch + SAM3 untuk async batch **defect** segmentation (polling, pluggable strategy). Plan: `docs/superpowers/plans/qc-server-plan.md` |
+| `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
 ### End-to-End Workflow
 
 ```
-[Select Camera] → [Start Detection] → [Monitor Live Feed + Object Counter]
-    → [Send to QC: batch name + auto-timestamp]
-    → [SAM3 Batch Processing]
+[Edge] Detect+Count product objects (.pt) → Crop → [Count Inspection Gate: approve]
+    → [Trigger: POST /api/batches dengan folder crop]
+    → [qc_server: async defect segmentation (pluggable: mock→SAM3 prompt), polling]
     → [QC Studio: Review defects (zoom/pan) + mark reviewed]
     → [Export: Crop/Full PNG + PDF Audit Report]
     → [Audit Log: auto-trails all actions]
@@ -95,8 +95,9 @@ Detail lengkap: [`DESIGN.md`](./DESIGN.md)
 
 ## Implementation Plans
 
-Rencana implementasi disimpan di `docs/superpowers/plans/`:
-- [`frontend-overhaul-plan.md`](./docs/superpowers/plans/frontend-overhaul-plan.md) - Full frontend overhaul (Carbon Design System, 6 pages, i18n, mock data)
+Rencana implementasi disimpan di `docs/superpowers/plans/` (gitignored):
+- `frontend-overhaul-plan.md` - Full frontend overhaul (Carbon Design System, 6 pages, i18n, mock data)
+- `qc-server-plan.md` - Backend `qc_server` plan: locked decisions, folder structure, SQLite schema, endpoints, pluggable defect strategy, milestones M0→M4 (+ edge flow reference)
 
 ---
 *Dokumen ini harus selalu diperbarui setiap kali ada penambahan fitur utama atau perubahan arsitektur. Lihat protocol di `AGENTS.md` > Documentation Maintenance.*
