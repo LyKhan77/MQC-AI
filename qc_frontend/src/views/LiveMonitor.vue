@@ -4,14 +4,13 @@ import { useRouter } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
-import { useBatchHistory } from '../composables/useBatchHistory.js'
+import { submitBatch } from '../api/batches.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t } = useI18n()
 const router = useRouter()
 const { cameras } = useCameras()
 const { settings } = useSettings()
-const { addBatch } = useBatchHistory()
 const { log } = useAuditLog()
 
 const selectedCameraId = ref('')
@@ -22,6 +21,8 @@ const fps = ref(0)
 const tempC = ref(0)
 const showSendDialog = ref(false)
 const batchNameInput = ref('')
+const sourcePathInput = ref('')
+const sendError = ref('')
 
 let mockInterval = null
 
@@ -66,27 +67,23 @@ function openSendDialog() {
   showSendDialog.value = true
 }
 
-function sendToQC() {
+async function sendToQC() {
   const cam = selectedCamera.value
-  addBatch({
-    name: batchNameInput.value,
-    cameraId: cam.id,
-    cameraName: cam.name,
-    imageCount: objectCount.value,
-    defectCount: 0,
-    modelInfo: {
-      detection: settings.detectionModel,
-      segmentation: settings.segmentationModel,
-      confidence: settings.confidenceThreshold,
-    },
-  })
-
-  log('BATCH_SENT', `Sent batch ${batchNameInput.value} to QC (${objectCount.value} images)`)
-
-  showSendDialog.value = false
-  stopDetection()
-  objectCount.value = 0
-  router.push({ name: 'qc' })
+  sendError.value = ''
+  try {
+    const { batch_id } = await submitBatch({
+      batchName: batchNameInput.value,
+      sourcePath: sourcePathInput.value,
+      cameraId: cam?.id ?? null,
+    })
+    log('BATCH_SENT', `Sent batch ${batchNameInput.value} to QC`)
+    showSendDialog.value = false
+    stopDetection()
+    objectCount.value = 0
+    router.push({ name: 'qc', query: { batch: batch_id } })
+  } catch (e) {
+    sendError.value = e.message || t('sendToQC.sendFailed')
+  }
 }
 
 function onCameraChange() {
@@ -185,6 +182,13 @@ function onCameraChange() {
             <span class="form-hint">{{ t('sendToQC.autoTimestamp') }}</span>
           </div>
 
+          <div class="form-row">
+            <label>{{ t('sendToQC.sourcePath') }}</label>
+            <input v-model="sourcePathInput" class="text-input" :placeholder="t('sendToQC.sourcePathPlaceholder')" />
+          </div>
+
+          <p v-if="sendError" class="send-error">{{ sendError }}</p>
+
           <div class="info-grid">
             <div class="info-item">
               <span class="info-label">{{ t('sendToQC.sourceCamera') }}</span>
@@ -207,7 +211,7 @@ function onCameraChange() {
 
         <div class="dialog-actions">
           <button class="btn-ghost" @click="showSendDialog = false">{{ t('sendToQC.cancel') }}</button>
-          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim()">{{ t('sendToQC.send') }}</button>
+          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim() || !sourcePathInput.trim()">{{ t('sendToQC.send') }}</button>
         </div>
       </div>
     </div>
@@ -510,6 +514,12 @@ function onCameraChange() {
   gap: 8px;
   padding: 16px 24px;
   border-top: 1px solid var(--color-hairline);
+}
+.send-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-error);
+  letter-spacing: 0.16px;
 }
 .mono {
   font-family: var(--font-mono);
