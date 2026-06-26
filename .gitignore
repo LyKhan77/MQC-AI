@@ -26,3 +26,10 @@ temp/
 # External design references (bukan bagian codebase)
 IBM-darkmode.md
 IBM-lightmode.md
+
+# qc_server backend
+qc_server/.venv/
+qc_server/data/
+__pycache__/
+*.pyc
+.pytest_cache/
