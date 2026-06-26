@@ -27,6 +27,17 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md)
 
+### Quick Start (Linux server)
+
+```bash
+git clone https://github.com/LyKhan77/MQC-AI.git && cd MQC-AI
+bash scripts/setup.sh    # backend venv + deps, frontend deps, runs backend tests
+bash scripts/dev.sh      # runs BE (:8787) + FE (:5757) together, combined [BE]/[FE] logs
+```
+
+Override ports with `BE_PORT=... FE_PORT=... bash scripts/dev.sh`. The setup script
+targets Linux; on the Windows dev laptop use the per-workspace commands below.
+
 ## Frontend Dashboard (`qc_frontend/`)
 
 ### Tech Stack
