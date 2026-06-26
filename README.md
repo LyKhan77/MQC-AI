@@ -66,7 +66,7 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 | Command | Description |
 |---|---|
 | `cd qc_frontend && npm install` | Install dependencies |
-| `cd qc_frontend && npm run dev` | Start Vite dev server (`http://localhost:5173`) |
+| `cd qc_frontend && npm run dev` | Start Vite dev server (`http://localhost:5757`) |
 | `cd qc_frontend && npm run build` | Production build to `dist/` |
 | `cd qc_frontend && npm run preview` | Preview production build |
 | `cd qc_frontend && npm test` | Run unit tests (Vitest) |
@@ -87,7 +87,7 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 |---|---|
 | `cd qc_server && python -m venv .venv` | Create backend virtualenv |
 | `cd qc_server && .\.venv\Scripts\python.exe -m pip install -r requirements.txt` | Install backend dependencies |
-| `cd qc_server && .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000` | Start backend API |
+| `cd qc_server && .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8787` | Start backend API |
 | `cd qc_server && .\.venv\Scripts\python.exe -m pytest -v` | Run backend tests |
 
 ### Current Scope

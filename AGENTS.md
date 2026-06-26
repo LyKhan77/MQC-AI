@@ -193,11 +193,11 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 | Command | Description |
 |---|---|
 | `npm install` | Install dependencies |
-| `npm run dev` | Start Vite dev server (default: `http://localhost:5173`) |
+| `npm run dev` | Start Vite dev server (`http://localhost:5757`) |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm test` | Run unit tests (Vitest) |
-| `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000` | Start backend API |
+| `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8787` | Start backend API |
 | `.\.venv\Scripts\python.exe -m pytest -v` | Run backend tests |
 
 **Do not change** these command definitions in `package.json` without updating this section.

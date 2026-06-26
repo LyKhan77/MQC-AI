@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/mqc.db"
     data_dir: str = "./data"
     reviewer_email: str = "inspector@gspemail.com"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5757"
 
 
 settings = Settings()

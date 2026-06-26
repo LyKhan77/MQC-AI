@@ -14,10 +14,10 @@ python -m venv .venv
 ## Run
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8787
 ```
 
-Open http://localhost:8000/docs for the interactive API.
+Open http://localhost:8787/docs for the interactive API.
 
 ## Test
 
