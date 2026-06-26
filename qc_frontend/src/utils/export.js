@@ -1,12 +1,11 @@
 import { polygonBBox } from './defect.js'
 
-// Resolusi CSS var warna defect ke nilai nyata untuk dipakai di <canvas>.
-const FALLBACK = '#557799'
 function resolveColor(type) {
-  const map = {
-    scratch: '#FFD700', porosity: '#FF24BD', spatter: '#00E5FF', color: '#FFA500',
-  }
-  return map[type] ?? FALLBACK
+  const key = `--defect-${type}`
+  const val = getComputedStyle(document.documentElement).getPropertyValue(key).trim()
+  if (val) return val
+  const fallback = getComputedStyle(document.documentElement).getPropertyValue('--color-ink-subtle').trim()
+  return fallback || '#8c8c8c'
 }
 
 export function defectsBBox(defects, pad, maxW, maxH) {
@@ -26,7 +25,6 @@ export function defectsBBox(defects, pad, maxW, maxH) {
   return { x, y, w: x2 - x, h: y2 - y }
 }
 
-// Gambar full-res + overlay poligon. `imgEl` = HTMLImageElement yang sudah load.
 export function renderAnnotated(imgEl, image) {
   const canvas = document.createElement('canvas')
   canvas.width = image.width

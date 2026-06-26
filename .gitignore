@@ -16,3 +16,13 @@ docs/superpowers/specs/
 .env
 .env.local
 .DS_Store
+
+# MCP / browser testing artifacts
+.playwright-mcp/
+.commandcode/
+temp/
+**/*.png
+
+# External design references (bukan bagian codebase)
+IBM-darkmode.md
+IBM-lightmode.md

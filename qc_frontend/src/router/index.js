@@ -1,11 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LiveMonitor from '../views/LiveMonitor.vue'
 import QCStudio from '../views/QCStudio.vue'
+import BatchHistory from '../views/BatchHistory.vue'
+import Reports from '../views/Reports.vue'
+import AuditLog from '../views/AuditLog.vue'
+import Settings from '../views/Settings.vue'
 
 const routes = [
   { path: '/', redirect: '/live' },
-  { path: '/live', component: LiveMonitor },
-  { path: '/qc', component: QCStudio },
+  { path: '/live', name: 'live', component: LiveMonitor },
+  { path: '/qc', name: 'qc', component: QCStudio },
+  { path: '/batches', name: 'batches', component: BatchHistory },
+  { path: '/reports', name: 'reports', component: Reports },
+  { path: '/audit', name: 'audit', component: AuditLog },
+  { path: '/settings', name: 'settings', component: Settings },
 ]
 
 export const router = createRouter({

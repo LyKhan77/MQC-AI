@@ -1,61 +1,517 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from '../composables/useI18n.js'
+import { useCameras } from '../composables/useCameras.js'
+import { useSettings } from '../composables/useSettings.js'
+import { useBatchHistory } from '../composables/useBatchHistory.js'
+import { useAuditLog } from '../composables/useAuditLog.js'
 
-// ponytail: status mock; ganti dengan polling endpoint Jetson saat Edge App siap.
-const status = ref({ online: false, fps: 0, tempC: 0 })
-const streamUrl = ref('http://192.168.1.50:8080/stream') // MJPEG endpoint Jetson
+const { t } = useI18n()
+const router = useRouter()
+const { cameras } = useCameras()
+const { settings } = useSettings()
+const { addBatch } = useBatchHistory()
+const { log } = useAuditLog()
+
+const selectedCameraId = ref('')
+const detecting = ref(false)
+const connecting = ref(false)
+const objectCount = ref(0)
+const fps = ref(0)
+const tempC = ref(0)
+const showSendDialog = ref(false)
+const batchNameInput = ref('')
+
+let mockInterval = null
+
+const selectedCamera = computed(() =>
+  cameras.value.find((c) => c.id === selectedCameraId.value),
+)
+
+const onlineCameras = computed(() => cameras.value.filter((c) => c.status === 'online'))
+
+async function startDetection() {
+  if (!selectedCamera.value) return
+  connecting.value = true
+  await new Promise((r) => setTimeout(r, 800))
+  connecting.value = false
+  detecting.value = true
+
+  fps.value = selectedCamera.value.fps
+  tempC.value = 42 + Math.floor(Math.random() * 8)
+
+  mockInterval = setInterval(() => {
+    objectCount.value += Math.floor(Math.random() * 3) + 1
+    tempC.value = 42 + Math.floor(Math.random() * 8)
+    fps.value = selectedCamera.value.fps + Math.floor(Math.random() * 5 - 2)
+  }, 1000)
+
+  log('CAMERA_STARTED', `Started ${selectedCamera.value.name} (${selectedCameraId.value})`)
+}
+
+function stopDetection() {
+  detecting.value = false
+  if (mockInterval) {
+    clearInterval(mockInterval)
+    mockInterval = null
+  }
+  log('CAMERA_STOPPED', `Stopped ${selectedCamera.value.name} (${selectedCameraId.value})`)
+}
+
+function openSendDialog() {
+  const now = new Date()
+  const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19)
+  batchNameInput.value = `batch_${ts}`
+  showSendDialog.value = true
+}
+
+function sendToQC() {
+  const cam = selectedCamera.value
+  addBatch({
+    name: batchNameInput.value,
+    cameraId: cam.id,
+    cameraName: cam.name,
+    imageCount: objectCount.value,
+    defectCount: 0,
+    modelInfo: {
+      detection: settings.detectionModel,
+      segmentation: settings.segmentationModel,
+      confidence: settings.confidenceThreshold,
+    },
+  })
+
+  log('BATCH_SENT', `Sent batch ${batchNameInput.value} to QC (${objectCount.value} images)`)
+
+  showSendDialog.value = false
+  stopDetection()
+  objectCount.value = 0
+  router.push({ name: 'qc' })
+}
+
+function onCameraChange() {
+  if (detecting.value) stopDetection()
+  objectCount.value = 0
+}
 </script>
 
 <template>
-  <div class="live-container">
-    <div class="live-header">
-      <h2>Live Inference — Jetson Nano</h2>
-      <div class="status-bar">
-        <span class="status-pill" :class="status.online ? 'on' : 'off'">
-          <span class="dot"></span>{{ status.online ? 'ONLINE' : 'OFFLINE' }}
-        </span>
-        <span class="metric mono">FPS <b>{{ status.fps }}</b></span>
-        <span class="metric mono">TEMP <b>{{ status.tempC }}°C</b></span>
+  <div class="live-page">
+    <div class="control-bar">
+      <div class="camera-select-group">
+        <label class="control-label">{{ t('live.selectCamera') }}</label>
+        <select v-model="selectedCameraId" @change="onCameraChange" class="text-input" :disabled="detecting">
+          <option value="">-- {{ t('live.noCameraSelected') }} --</option>
+          <option v-for="cam in cameras" :key="cam.id" :value="cam.id">
+            {{ cam.name }} ({{ t(`live.cameraType.${cam.type}`) }}) - {{ cam.location }}
+          </option>
+        </select>
+      </div>
+
+      <div class="action-buttons">
+        <button
+          v-if="!detecting"
+          class="btn-primary"
+          :disabled="!selectedCameraId || connecting || selectedCamera?.status === 'offline'"
+          @click="startDetection"
+        >
+          {{ connecting ? t('live.connecting') : t('live.startDetection') }}
+        </button>
+        <button v-else class="btn-danger" @click="stopDetection">
+          {{ t('live.stopDetection') }}
+        </button>
+
+        <button
+          v-if="detecting && objectCount > 0"
+          class="btn-secondary"
+          @click="openSendDialog"
+        >
+          {{ t('live.sendToQC') }} ({{ objectCount }})
+        </button>
       </div>
     </div>
 
-    <div class="video-frame">
-      <img v-if="status.online" :src="streamUrl" alt="Live stream" class="video-img" />
+    <div class="status-strip">
+      <div class="status-item">
+        <span class="status-led" :class="detecting ? 'on' : 'off'"></span>
+        <span class="status-text">{{ detecting ? t('live.detectionActive') : t('live.detectionIdle') }}</span>
+      </div>
+      <div class="status-item">
+        <span class="metric-label">{{ t('live.objectCount') }}</span>
+        <span class="metric-value mono">{{ objectCount }}</span>
+      </div>
+      <div class="status-item">
+        <span class="metric-label">{{ t('live.fps') }}</span>
+        <span class="metric-value mono">{{ fps }}</span>
+      </div>
+      <div class="status-item">
+        <span class="metric-label">{{ t('live.temp') }}</span>
+        <span class="metric-value mono">{{ tempC }}C</span>
+      </div>
+    </div>
+
+    <div class="video-stage">
+      <div v-if="detecting" class="video-feed">
+        <div class="mock-feed">
+          <div class="bbox-overlay">
+            <div class="bbox" v-for="n in Math.min(objectCount, 5)" :key="n"
+              :style="{ top: `${15 + n * 12}%`, left: `${10 + n * 15}%`, width: '80px', height: '60px' }">
+              <span class="bbox-label">obj_{{ String(n).padStart(3, '0') }} ({{ (0.8 + Math.random() * 0.19).toFixed(2) }})</span>
+            </div>
+          </div>
+          <p class="feed-placeholder">Live Feed: {{ selectedCamera?.name }}<br />{{ selectedCamera?.resolution }} @ {{ fps }}fps</p>
+        </div>
+      </div>
       <div v-else class="video-placeholder">
-        <p>Menunggu stream MJPEG / WebRTC dari Jetson Nano…</p>
-        <p class="mono hint">{{ streamUrl }}</p>
+        <div v-if="selectedCamera" class="placeholder-content">
+          <p>{{ t('live.waitingStream') }}</p>
+          <p class="mono endpoint">{{ selectedCamera.source }}</p>
+          <p class="hint">{{ selectedCamera.resolution }} | {{ selectedCamera.fps }}fps max</p>
+        </div>
+        <div v-else class="placeholder-content">
+          <p>{{ onlineCameras.length === 0 ? t('live.noCameraAvailable') : t('live.noCameraSelected') }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showSendDialog" class="dialog-overlay" @click.self="showSendDialog = false">
+      <div class="dialog">
+        <h3 class="dialog-title">{{ t('sendToQC.title') }}</h3>
+
+        <div class="dialog-body">
+          <div class="form-row">
+            <label>{{ t('sendToQC.batchName') }}</label>
+            <input v-model="batchNameInput" class="text-input" :placeholder="t('sendToQC.batchNamePlaceholder')" />
+            <span class="form-hint">{{ t('sendToQC.autoTimestamp') }}</span>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">{{ t('sendToQC.sourceCamera') }}</span>
+              <span class="info-value">{{ selectedCamera?.name }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ t('sendToQC.imagesCaptured') }}</span>
+              <span class="info-value mono">{{ objectCount }} frames</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ t('sendToQC.detectionModel') }}</span>
+              <span class="info-value">{{ settings.detectionModel }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ t('sendToQC.confidence') }}</span>
+              <span class="info-value">{{ Math.round(settings.confidenceThreshold * 100) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="btn-ghost" @click="showSendDialog = false">{{ t('sendToQC.cancel') }}</button>
+          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim()">{{ t('sendToQC.send') }}</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.live-container {
-  padding: 1.5rem; height: 100%;
-  display: flex; flex-direction: column; gap: 1rem;
+.live-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+  background: var(--color-canvas);
+  overflow: hidden;
 }
-.live-header { display: flex; align-items: center; justify-content: space-between; }
-h2 { margin: 0; font-size: 1.1rem; }
-.status-bar { display: flex; align-items: center; gap: 1rem; }
-.status-pill {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-btn); border: 1px solid var(--border-subtle);
+.control-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
 }
-.status-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
-.status-pill.on { color: var(--status-success); }
-.status-pill.on .dot { background: var(--status-success); }
-.status-pill.off { color: var(--text-muted); }
-.status-pill.off .dot { background: var(--text-muted); }
-.metric { font-size: 0.8rem; color: var(--text-secondary); }
-.metric b { color: var(--text-primary); }
+.camera-select-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  max-width: 400px;
+}
+.control-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.text-input {
+  padding: 8px 12px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  border-bottom: 2px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  letter-spacing: 0.16px;
+}
+.text-input:focus {
+  border-bottom-color: var(--color-primary);
+}
+.text-input:disabled {
+  opacity: 0.6;
+}
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+.btn-primary {
+  padding: 9px 16px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-danger {
+  padding: 9px 16px;
+  background: var(--color-error);
+  color: var(--color-on-primary);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.btn-secondary {
+  padding: 9px 16px;
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.btn-secondary:hover {
+  background: var(--color-surface-1);
+}
+.btn-ghost {
+  padding: 9px 16px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.btn-ghost:hover {
+  background: var(--color-surface-1);
+}
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 16px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  flex-shrink: 0;
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-led.on {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+.status-led.off {
+  background: var(--color-ink-subtle);
+}
+.status-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.metric-label {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: 0.16px;
+}
+.video-stage {
+  flex: 1;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-placeholder,
+.video-feed {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-content {
+  text-align: center;
+  color: var(--color-ink-subtle);
+}
+.placeholder-content p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  letter-spacing: 0.16px;
+}
+.endpoint {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+.hint {
+  font-size: 12px;
+  color: var(--color-ink-subtle);
+}
+.mock-feed {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #0a0a0a;
+}
+.feed-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #333;
+  font-size: 14px;
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.16px;
+}
+.bbox-overlay {
+  position: absolute;
+  inset: 0;
+}
+.bbox {
+  position: absolute;
+  border: 2px solid var(--color-success);
+  background: rgba(36, 161, 72, 0.08);
+}
+.bbox-label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: #0a0a0a;
+  padding: 1px 4px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
 
-.video-frame {
-  flex: 1; background: var(--bg-canvas);
-  border: 1px solid var(--accent-primary); border-radius: var(--radius-panel);
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
+/* Dialog */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
-.video-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.video-placeholder { text-align: center; color: var(--text-muted); }
-.video-placeholder .hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
+.dialog {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  width: 480px;
+  max-width: 90vw;
+}
+.dialog-title {
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-hairline);
+  letter-spacing: 0.16px;
+}
+.dialog-body {
+  padding: 24px;
+}
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.form-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.form-hint {
+  font-size: 11px;
+  color: var(--color-ink-subtle);
+  letter-spacing: 0.16px;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+}
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.info-label {
+  font-size: 11px;
+  color: var(--color-ink-subtle);
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+}
+.info-value {
+  font-size: 14px;
+  color: var(--color-ink);
+  letter-spacing: 0.16px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-hairline);
+}
+.mono {
+  font-family: var(--font-mono);
+}
 </style>

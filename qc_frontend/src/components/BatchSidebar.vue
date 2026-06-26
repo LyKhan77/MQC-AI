@@ -1,77 +1,315 @@
 <script setup>
+import { ref, computed } from 'vue'
 import { useInspection } from '../composables/useInspection.js'
+import { useI18n } from '../composables/useI18n.js'
+import { useAuditLog } from '../composables/useAuditLog.js'
 
-const { batch, images, selectedId, loadBatch, selectImage } = useInspection()
+const { batch, images, selectedId, loading, error, reviewedCount, loadBatch, selectImage, toggleReviewed, isReviewed } =
+  useInspection()
+const { t } = useI18n()
+const { log } = useAuditLog()
+
+const search = ref('')
+const filterMode = ref('all')
+const sortBy = ref('name')
 
 async function onLoad() {
   try {
     await loadBatch()
+    log('BATCH_LOADED', `Loaded batch ${batch.value?.batch_name ?? ''}`)
   } catch (e) {
     console.error(e)
   }
+}
+
+const filteredImages = computed(() => {
+  let result = images.value
+  if (search.value) {
+    const q = search.value.toLowerCase()
+    result = result.filter((img) => img.filename.toLowerCase().includes(q))
+  }
+  if (filterMode.value === 'defect') result = result.filter((i) => i.status === 'defect')
+  if (filterMode.value === 'clean') result = result.filter((i) => i.status === 'clean')
+  if (filterMode.value === 'reviewed') result = result.filter((i) => isReviewed(i.id))
+  if (filterMode.value === 'unreviewed') result = result.filter((i) => !isReviewed(i.id))
+
+  const sorted = [...result]
+  if (sortBy.value === 'name') {
+    sorted.sort((a, b) => a.filename.localeCompare(b.filename))
+  } else if (sortBy.value === 'defects') {
+    sorted.sort((a, b) => b.defects.length - a.defects.length)
+  }
+  return sorted
+})
+
+function handleToggleReviewed(img) {
+  toggleReviewed(img.id)
+  const action = isReviewed(img.id) ? 'IMAGE_REVIEWED' : 'IMAGE_UNREVIEWED'
+  log(action, `${isReviewed(img.id) ? 'Marked' : 'Unmarked'} ${img.filename}`)
 }
 </script>
 
 <template>
   <aside class="batch-sidebar">
     <div class="batch-head">
-      <button class="btn-load" @click="onLoad">Load Batch</button>
-      <p v-if="batch" class="batch-meta mono">{{ batch.batch_name }}</p>
-      <p v-if="batch" class="batch-path mono">{{ batch.source_path }}</p>
+      <button class="btn-load" :disabled="loading" @click="onLoad">
+        {{ loading ? t('qc.loadingBatch') : t('qc.loadBatch') }}
+      </button>
+
+      <div v-if="loading" class="skeleton-meta">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+      </div>
+
+      <div v-else-if="batch" class="batch-info">
+        <p class="batch-name mono">{{ batch.batch_name }}</p>
+        <p class="batch-path mono">{{ batch.source_path }}</p>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" :style="{ width: `${images.length ? (reviewedCount / images.length) * 100 : 0}%` }"></div>
+        </div>
+        <p class="progress-text">{{ t('qc.reviewProgress') }}: {{ reviewedCount }}/{{ images.length }}</p>
+      </div>
+
+      <p v-if="error" class="error-msg">{{ t('common.error') }}: {{ error }}</p>
+    </div>
+
+    <div v-if="images.length" class="filter-section">
+      <input v-model="search" class="search-input" :placeholder="t('qc.searchPlaceholder')" />
+      <div class="filter-chips">
+        <button :class="{ active: filterMode === 'all' }" @click="filterMode = 'all'">{{ t('qc.filterAll') }}</button>
+        <button :class="{ active: filterMode === 'defect' }" @click="filterMode = 'defect'">{{ t('qc.filterDefect') }}</button>
+        <button :class="{ active: filterMode === 'clean' }" @click="filterMode = 'clean'">{{ t('qc.filterClean') }}</button>
+        <button :class="{ active: filterMode === 'unreviewed' }" @click="filterMode = 'unreviewed'">{{ t('qc.filterUnreviewed') }}</button>
+      </div>
+      <select v-model="sortBy" class="sort-select">
+        <option value="name">{{ t('qc.sortName') }}</option>
+        <option value="defects">{{ t('qc.sortDefects') }}</option>
+      </select>
     </div>
 
     <ul class="batch-list">
       <li
-        v-for="img in images"
+        v-for="img in filteredImages"
         :key="img.id"
         class="batch-item"
-        :class="{ active: img.id === selectedId }"
+        :class="{ active: img.id === selectedId, reviewed: isReviewed(img.id) }"
         @click="selectImage(img.id)"
       >
-        <span class="dot" :class="img.status === 'defect' ? 'bad' : 'ok'" :title="img.status"></span>
+        <span class="dot" :class="img.status === 'defect' ? 'bad' : 'ok'"></span>
         <span class="fname mono">{{ img.filename }}</span>
         <span v-if="img.defects.length" class="count mono">{{ img.defects.length }}</span>
+        <span v-if="isReviewed(img.id)" class="check-mark" title="Reviewed">&#10003;</span>
       </li>
     </ul>
 
-    <p v-if="!images.length" class="empty">Belum ada batch dimuat.</p>
+    <p v-if="!images.length && !loading" class="empty">{{ t('qc.batchEmpty') }}</p>
+    <p v-if="images.length && !filteredImages.length" class="empty">{{ t('common.noResults') }}</p>
   </aside>
 </template>
 
 <style scoped>
 .batch-sidebar {
-  width: var(--sidebar-left); flex-shrink: 0;
-  background: var(--bg-panel); border-right: 1px solid var(--border-subtle);
-  display: flex; flex-direction: column; overflow: hidden;
+  width: var(--sidebar-left);
+  flex-shrink: 0;
+  background: var(--color-canvas);
+  border-right: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.batch-head { padding: 0.75rem; border-bottom: 1px solid var(--border-subtle); }
+.batch-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-hairline);
+}
 .btn-load {
-  width: 100%; padding: 0.5rem; cursor: pointer;
-  background: var(--accent-primary); color: var(--text-primary);
-  border: none; border-radius: var(--radius-btn); font-weight: 600;
+  width: 100%;
+  padding: 9px 16px;
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  letter-spacing: 0.16px;
 }
-.btn-load:hover { background: var(--accent-primary); filter: brightness(1.15); }
-.batch-meta { font-size: 0.75rem; color: var(--text-secondary); margin: 0.5rem 0 0.15rem; }
-.batch-path { font-size: 0.7rem; color: var(--text-muted); margin: 0; word-break: break-all; }
-
-.batch-list { list-style: none; margin: 0; padding: 0.25rem; overflow-y: auto; flex: 1; }
+.btn-load:hover {
+  background: var(--color-primary-hover);
+}
+.btn-load:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.skeleton-meta {
+  margin-top: 12px;
+}
+.skeleton-line {
+  height: 12px;
+  background: var(--color-surface-2);
+  margin-bottom: 6px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.skeleton-line.short {
+  width: 60%;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.batch-info {
+  margin-top: 12px;
+}
+.batch-name {
+  font-size: 12px;
+  color: var(--color-ink);
+  margin: 0 0 4px;
+  font-weight: 600;
+  letter-spacing: 0.16px;
+}
+.batch-path {
+  font-size: 11px;
+  color: var(--color-ink-subtle);
+  margin: 0 0 8px;
+  word-break: break-all;
+  letter-spacing: 0.16px;
+}
+.progress-bar-wrap {
+  height: 4px;
+  background: var(--color-surface-2);
+}
+.progress-bar {
+  height: 100%;
+  background: var(--color-success);
+  transition: width 0.2s ease;
+}
+.progress-text {
+  font-size: 11px;
+  color: var(--color-ink-muted);
+  margin: 4px 0 0;
+  letter-spacing: 0.16px;
+}
+.error-msg {
+  font-size: 12px;
+  color: var(--color-error);
+  margin: 8px 0 0;
+  letter-spacing: 0.16px;
+}
+.filter-section {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-input {
+  padding: 6px 10px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  border-bottom: 2px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+  letter-spacing: 0.16px;
+}
+.search-input:focus {
+  border-bottom-color: var(--color-primary);
+}
+.filter-chips {
+  display: flex;
+  gap: 2px;
+}
+.filter-chips button {
+  flex: 1;
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.filter-chips button.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+.sort-select {
+  padding: 4px 8px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  outline: none;
+}
+.batch-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  flex: 1;
+}
 .batch-item {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.4rem 0.5rem; cursor: pointer; border-radius: var(--radius-btn);
-  border-left: 3px solid transparent; color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--color-ink-muted);
 }
-.batch-item:hover { background: var(--bg-hover); }
+.batch-item:hover {
+  background: var(--color-surface-1);
+}
 .batch-item.active {
-  background: var(--bg-hover); border-left-color: var(--accent-primary);
-  color: var(--text-primary);
+  background: var(--color-surface-1);
+  border-left-color: var(--color-primary);
+  color: var(--color-ink);
 }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dot.bad { background: var(--status-error); }
-.dot.ok { background: var(--status-success); }
-.fname { font-size: 0.75rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-item.reviewed {
+  opacity: 0.6;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot.bad {
+  background: var(--color-error);
+}
+.dot.ok {
+  background: var(--color-success);
+}
+.fname {
+  font-size: 13px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.16px;
+}
 .count {
-  font-size: 0.7rem; background: var(--status-error); color: var(--text-primary);
-  padding: 0 0.35rem; border-radius: 8px;
+  font-size: 11px;
+  background: var(--color-error);
+  color: var(--color-on-primary);
+  padding: 0 5px;
+  letter-spacing: 0.32px;
 }
-.empty { color: var(--text-muted); font-size: 0.8rem; padding: 1rem; }
+.check-mark {
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 600;
+}
+.empty {
+  color: var(--color-ink-subtle);
+  font-size: 14px;
+  padding: 16px;
+  letter-spacing: 0.16px;
+}
+.mono {
+  font-family: var(--font-mono);
+}
 </style>
