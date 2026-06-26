@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import Base, engine
+from .routers import cameras
 
 app = FastAPI(title="MQC-AI qc_server")
 
@@ -26,3 +27,6 @@ def on_startup():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+app.include_router(cameras.router)
