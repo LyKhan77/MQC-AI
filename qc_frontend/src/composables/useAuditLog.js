@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { postAudit, listAudit } from '../api/audit.js'
 import { MOCK } from '../utils/mockData.js'
 
 const STORAGE_KEY = 'mqc-audit-log'
@@ -34,8 +35,17 @@ function log(action, detail, user = 'inspector@gspemail.com') {
     detail,
   })
   persist()
+  postAudit({ user, action, detail }).catch(() => {})
+}
+
+async function refresh() {
+  try {
+    logs.value = await listAudit()
+  } catch {
+    // keep local logs if the server is unreachable
+  }
 }
 
 export function useAuditLog() {
-  return { logs, log }
+  return { logs, log, refresh }
 }

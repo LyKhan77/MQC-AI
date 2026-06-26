@@ -1,10 +1,11 @@
 <script setup>
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const { t } = useI18n()
-const { logs } = useAuditLog()
+const { logs, refresh } = useAuditLog()
+onMounted(refresh)
 
 const search = ref('')
 const filterAction = ref('')

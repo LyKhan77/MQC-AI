@@ -27,6 +27,8 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md)
 
+> **Phase C integration note:** QC Studio and Live Monitor's "Send to QC" now use the live `qc_server` API via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Cameras, Settings, and Batch History still use the localStorage mock data and will be migrated in a later pass.
+
 ### Quick Start (Linux server)
 
 ```bash

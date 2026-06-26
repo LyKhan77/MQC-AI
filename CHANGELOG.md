@@ -11,6 +11,47 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-26 — Phase C Core Slice: Frontend ↔ Backend Integration
+
+### Summary
+
+Wired the Vue frontend's core QC vertical slice to the live `qc_server` API. Live Monitor "Send to QC" now POSTs a real batch, QC Studio polls for status then loads the live result, image review fires a best-effort PATCH, and the Audit Log reads/writes through the API. A new pure `src/api/` layer (unit-tested with mocked `fetch`) isolates all HTTP and snake_case mapping from Vue components. Cameras, Settings, and Batch History remain on localStorage mock (deferred to Phase C-2).
+
+### Added
+
+- `qc_frontend/src/api/client.js` — `apiGet`/`apiPost`/`apiPatch` helpers; base `import.meta.env.VITE_API_BASE ?? '/api'`; throw `HTTP <status> ...` on non-2xx.
+- `qc_frontend/src/api/batches.js` — `submitBatch`, `getBatchStatus`, `getBatchResult`, `patchImageReviewed`, `pollBatchUntilDone` (resolves on `done`/`reviewed`, throws on `failed`).
+- `qc_frontend/src/api/audit.js` — `postAudit`, `listAudit`.
+- Unit tests for `src/api/client.test.js` (3), `src/api/batches.test.js` (3), `src/api/audit.test.js` (2). Full frontend suite: 14 tests green. No jsdom / @vue/test-utils added.
+- Vite dev proxy: `/api` → `http://localhost:8787` (no CORS, same-origin calls only).
+- i18n keys `sendToQC.sourcePath`, `sourcePathPlaceholder`, `sendFailed` (id + en).
+
+### Changed
+
+- `useInspection.js`: `loadBatch(batchId)` now polls the live API then fetches the result; exposes `currentBatchId` and `progress` refs; `toggleReviewed` also best-effort PATCHes the image review state (keeps localStorage for offline resilience).
+- `BatchSidebar.vue`: auto-loads the batch from `route.query.batch` on mount and on route change; shows polling progress while loading.
+- `LiveMonitor.vue`: "Send to QC" now calls `submitBatch` and navigates to `/qc?batch=<batch_id>`; dialog gained a server-side Source Folder (crops path) field; removed `useBatchHistory` from this path.
+- `useAuditLog.js`: `log()` also POSTs to `/api/audit` (best-effort); new `refresh()` replaces logs from `GET /api/audit`.
+- `AuditLog.vue`: calls `refresh()` on mount.
+- `README.md`: notes that QC Studio + Live Monitor "Send to QC" now use the live API via the Vite `/api` proxy, and that `source_path` is a folder on the `qc_server` host.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Frontend QC batch flow | 2026-06-26 | Live Monitor submit → poll → QC Studio live load → review PATCH → audit API | Live-API for the core slice; verified by `npm run build` + 14 unit tests. Server end-to-end smoke pending on Linux server. |
+| `qc_frontend/src/api/` | 2026-06-26 | Pure HTTP + polling layer with snake_case mapping | Unit-tested (8 new tests); no Vue/DOM dependencies. |
+| Cameras / Settings / Batch History | 2026-06-26 | Untouched | Still localStorage mock; migration deferred to Phase C-2 (Appendix A of the integration plan). |
+| `qc_server/` | 2026-06-26 | Unchanged (M0-M3) | Backend contract matched; no server changes required for this slice. |
+
+### Notes
+
+- Branch: `feat/fe-be-integration` (unmerged; left for plan-author review).
+- Deviations: none. All API shapes match `qc_server/app/schemas.py` (`BatchCreate`, `BatchStatusOut`, `BatchResult`, `ImagePatch`, `AuditLogIn`).
+- Open questions: server-side smoke (Task 6 Step 4) to be run by the user on the Linux server.
+
+---
+
 ## [Unreleased] - 2026-06-26 — Backend Planning (`qc_server`)
 
 ### Summary
