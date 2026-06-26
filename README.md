@@ -11,7 +11,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 | Component | Status | Description |
 |---|---|---|
 | `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, mock data layer |
-| `qc_server/` | **Planned (next)** | FastAPI + SQLite + PyTorch + SAM3 untuk async batch **defect** segmentation (polling, pluggable strategy). Plan: `docs/superpowers/plans/qc-server-plan.md` |
+| `qc_server/` | **Active (M0-M3)** | FastAPI + SQLite backend untuk async batch **defect** segmentation (polling, pluggable `mock` strategy), CRUD metadata APIs, result JSON, image serving |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
 ### End-to-End Workflow
@@ -70,6 +70,29 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 | `cd qc_frontend && npm run build` | Production build to `dist/` |
 | `cd qc_frontend && npm run preview` | Preview production build |
 | `cd qc_frontend && npm test` | Run unit tests (Vitest) |
+
+## Backend Server (`qc_server/`)
+
+### Tech Stack
+
+- **FastAPI** + **Uvicorn**
+- **SQLAlchemy 2.0** + **SQLite**
+- **Pydantic v2** + `pydantic-settings`
+- **Pillow** for image metadata
+- **pytest** + FastAPI TestClient
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `cd qc_server && python -m venv .venv` | Create backend virtualenv |
+| `cd qc_server && .\.venv\Scripts\python.exe -m pip install -r requirements.txt` | Install backend dependencies |
+| `cd qc_server && .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000` | Start backend API |
+| `cd qc_server && .\.venv\Scripts\python.exe -m pytest -v` | Run backend tests |
+
+### Current Scope
+
+Implemented M0-M3: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, and crop image serving. Real `sam3_prompt` inference is deferred to M4.
 
 ## Design System
 

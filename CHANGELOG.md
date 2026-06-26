@@ -40,6 +40,37 @@ Planning-only milestone (no code yet). Locked backend architecture for `qc_serve
 
 ---
 
+## [0.3.0] - 2026-06-26
+
+### Summary
+
+Implemented `qc_server` milestones M0-M3 with FastAPI, SQLite, CRUD endpoints, async batch polling, deterministic `mock` defect strategy, result JSON writing, and crop image serving. Real SAM3 remains deferred to the later M4 plan.
+
+### Added
+
+- `qc_server/` backend application with FastAPI app/config, SQLAlchemy 2.0 SQLite models, Pydantic schemas, startup table creation, and seeded cameras/defect classes/settings.
+- CRUD APIs for `/api/cameras`, `/api/defect-classes`, `/api/settings`, and `/api/audit`.
+- Async batch API: `POST /api/batches`, status polling, result fetch, history list, batch patch, and per-image review patch.
+- Pluggable inference interface under `app/services/inference/` with deterministic `MockStrategy`; filenames containing `clean` return no defects.
+- Storage helpers, in-memory job progress map, batch pipeline, `result.json` output, and `/api/images/{image_id}/file` crop serving.
+- Backend test suite covering health/startup/models/seeding/CRUD/mock strategy/pipeline/batches/images.
+- `qc_server/README.md` with setup, run, test, configuration, and strategy notes.
+
+### Changed
+
+- `AGENTS.md`: backend tech stack, project structure, commands, key features, and current state now reflect `qc_server` M0-M3 completion.
+- `README.md`: workspace table now marks `qc_server/` active and includes backend commands.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| `qc_server/` | 2026-06-26 | FastAPI + SQLite backend through M0-M3 | Active: mock strategy, polling batch pipeline, CRUD APIs, image serving, 23 backend tests passing |
+| Defect Inference | 2026-06-26 | `DefectStrategy` protocol + deterministic `MockStrategy` | `sam3_prompt` intentionally deferred to M4; API/DB ready for strategy switch |
+| Docs | 2026-06-26 | Backend README + root docs sync | README/AGENTS/CHANGELOG reflect backend implementation state |
+
+---
+
 ## [0.2.0] - 2026-06-26
 
 ### Summary

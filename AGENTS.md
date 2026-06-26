@@ -17,7 +17,7 @@ README.md is the canonical, detailed project doc. AGENTS.md orients an agent fas
 The system has three decoupled components managed in one monorepo:
 
 1. **`qc_frontend/`** — Interactive dashboard for live camera monitoring and batch QC inspection review. **(Active development)**
-2. **`qc_server/`** — Backend SAM3 server for async batch defect segmentation. **(Not yet started)**
+2. **`qc_server/`** — Backend server for async batch defect segmentation. **(Active: M0-M3 done with mock strategy)**
 3. **`edge_app/`** — Jetson Nano edge app for real-time object detection (YOLO) and live streaming. **(Not yet started)**
 
 **End-to-end workflow**: Edge app detects objects on the production line and live-streams to the dashboard. Inspector monitors the live feed, triggers batch processing, reviews SAM3 segmentation results in QC Studio, and exports PDF audit reports.
@@ -41,13 +41,16 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 | CSS | Vanilla CSS with CSS Variables (no Tailwind, no UI library) | — |
 | Design system | Carbon Design System (IBM) with light/dark mode | — |
 
-### Backend (`qc_server/` — planned)
+### Backend (`qc_server/`)
 
 | Layer | Technology |
 |---|---|
-| Framework | FastAPI |
-| ML framework | PyTorch |
-| Segmentation model | SAM3 |
+| Framework | FastAPI + Uvicorn |
+| Database | SQLite via SQLAlchemy 2.0 |
+| Schemas/config | Pydantic v2 + pydantic-settings |
+| Image metadata | Pillow |
+| Testing | pytest + FastAPI TestClient |
+| Defect strategy | Pluggable interface, `mock` implemented; `sam3_prompt` deferred |
 
 ### Edge (`edge_app/` — planned)
 
@@ -74,14 +77,14 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
 
-### Backend (planned — `qc_server` first)
+### Backend (current — `qc_server` M0-M3)
 
-- Async batch **defect** segmentation over folders of crops, via **polling** (`job_id` → poll status).
-- **Pluggable defect strategy** selectable from Settings: `mock` → `sam3_prompt` (SAM3 promptable concept segmentation, zero-training) → future `detector_refine` / `anomaly` (anomalib).
-- **SQLite** for queryable metadata (batches/images/defects/cameras/audit/settings/defect_classes) + filesystem/NAS for images & result JSON.
-- Editable `defect_classes` driving QC batching (replaces frontend's hardcoded defect color map).
-- Single-user MVP (auth deferred; reviewer from config).
-- Full plan: `docs/superpowers/plans/qc-server-plan.md` (gitignored).
+- FastAPI backend under `qc_server/` with `/health`, startup table creation, CORS, and `.env` config.
+- SQLite metadata for cameras, defect classes, settings, audit logs, batches, images, and defects.
+- CRUD APIs for cameras, defect classes, settings, and audit logs.
+- Async batch **defect** segmentation over crop folders via **polling** (`job_id` → poll status).
+- Pluggable defect strategy interface with deterministic `mock` strategy implemented; real `sam3_prompt` deferred to M4.
+- Filesystem result output under `qc_server/data/batches/<batch_id>/result.json` and crop serving via `/api/images/{image_id}/file`.
 
 ### Edge (planned — after qc_server)
 
@@ -141,7 +144,33 @@ MQC-AI/
 │           ├── defect.js            # Defect type -> CSS variable color mapping
 │           ├── export.js            # Canvas render + crop/full export (dynamic color)
 │           └── mockData.js          # Seed data (3 cameras, 5 batches, 15 logs)
-├── qc_server/                # Backend SAM3 server (not yet started)
+├── qc_server/                # FastAPI backend (M0-M3 done, mock strategy)
+│   ├── requirements.txt
+│   ├── pyproject.toml
+│   ├── .env.example
+│   ├── README.md
+│   ├── app/
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── storage.py
+│   │   ├── routers/
+│   │   │   ├── audit.py
+│   │   │   ├── batches.py
+│   │   │   ├── cameras.py
+│   │   │   ├── defect_classes.py
+│   │   │   ├── images.py
+│   │   │   └── settings.py
+│   │   └── services/
+│   │       ├── job_queue.py
+│   │       ├── pipeline.py
+│   │       ├── seed.py
+│   │       └── inference/
+│   │           ├── base.py
+│   │           └── mock.py
+│   └── tests/
 ├── edge_app/                 # Jetson Nano edge app (not yet started)
 ├── docs/
 │   ├── PRD.md                # Product Requirements Document
@@ -159,7 +188,7 @@ MQC-AI/
 
 ## Project Commands · `[KEEP UPDATED]`
 
-All commands run from `qc_frontend/` directory.
+Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/`.
 
 | Command | Description |
 |---|---|
@@ -168,6 +197,8 @@ All commands run from `qc_frontend/` directory.
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm test` | Run unit tests (Vitest) |
+| `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000` | Start backend API |
+| `.\.venv\Scripts\python.exe -m pytest -v` | Run backend tests |
 
 **Do not change** these command definitions in `package.json` without updating this section.
 
@@ -250,16 +281,16 @@ All commands run from `qc_frontend/` directory.
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Frontend Active Development · Backend Planning Approved
+### Status: Frontend Active Development · Backend M0-M3 Implemented
 
-**What is being developed now**: Frontend UI dashboard with mock data. All 6 pages are functional with mock data layer and localStorage persistence. **Backend (`qc_server`) architecture is planned and approved** (see `docs/superpowers/plans/qc-server-plan.md`); implementation pending (milestones M0→M4). Edge app (Jetson) comes after `qc_server`.
+**What is developed now**: Frontend UI dashboard with mock data remains functional. **Backend (`qc_server`) M0-M3 is implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, and crop image serving. Real SAM3 (`sam3_prompt`) remains deferred to M4. Edge app (Jetson) comes after `qc_server`.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
 | `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, mock data. All UI functional with mock data. |
-| `qc_server/` | **Not started** | FastAPI + SAM3 batch segmentation server. Planned. |
+| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 done with mock strategy; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
 ### Frontend Page Status
@@ -277,7 +308,7 @@ All commands run from `qc_frontend/` directory.
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [0.2.0] - 2026-06-26 (Full frontend overhaul: Carbon Design System, sidebar nav, 6 pages, i18n, mock data layer).
+**Latest version**: [0.3.0] - 2026-06-26 (`qc_server` M0-M3 backend: FastAPI + SQLite, CRUD APIs, mock batch pipeline, image serving).
 
 ---
 
