@@ -1,7 +1,10 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .database import Base, engine
 
 app = FastAPI(title="MQC-AI qc_server")
 
@@ -11,6 +14,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def on_startup():
+    os.makedirs(os.path.join(settings.data_dir, "batches"), exist_ok=True)
+    from . import models  # noqa: F401  (register tables)
+    Base.metadata.create_all(engine)
 
 
 @app.get("/health")
