@@ -1,26 +1,37 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
-const { batch, images, selectedId, loading, error, reviewedCount, loadBatch, selectImage, toggleReviewed, isReviewed } =
-  useInspection()
+const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
+  loadBatch, selectImage, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
+
+const route = useRoute()
 
 const search = ref('')
 const filterMode = ref('all')
 const sortBy = ref('name')
 
-async function onLoad() {
+async function loadFor(batchId) {
+  if (!batchId) return
   try {
-    await loadBatch()
-    log('BATCH_LOADED', `Loaded batch ${batch.value?.batch_name ?? ''}`)
+    await loadBatch(batchId)
+    if (batch.value) log('BATCH_LOADED', `Loaded batch ${batch.value.batch_name}`)
   } catch (e) {
     console.error(e)
   }
 }
+
+function onLoad() {
+  loadFor(route.query.batch)
+}
+
+onMounted(() => loadFor(route.query.batch))
+watch(() => route.query.batch, (id) => loadFor(id))
 
 const filteredImages = computed(() => {
   let result = images.value
@@ -57,6 +68,7 @@ function handleToggleReviewed(img) {
       </button>
 
       <div v-if="loading" class="skeleton-meta">
+        <p class="progress-text mono">{{ progress.done }}/{{ progress.total }}</p>
         <div class="skeleton-line"></div>
         <div class="skeleton-line short"></div>
       </div>

@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { pollBatchUntilDone, getBatchResult, patchImageReviewed } from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
 
@@ -8,6 +9,8 @@ const hoveredDefectId = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const reviewed = ref(new Set())
+const currentBatchId = ref(null)
+const progress = ref({ done: 0, total: 0 })
 
 function loadReviewed() {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -35,15 +38,20 @@ const reviewedCount = computed(() =>
   images.value.filter((img) => reviewed.value.has(img.id)).length,
 )
 
-async function loadBatch(url = '/mock/batch-shift1.json') {
+async function loadBatch(batchId) {
+  if (!batchId) {
+    error.value = 'No batch selected'
+    batch.value = null
+    selectedId.value = null
+    return
+  }
   loading.value = true
   error.value = null
+  currentBatchId.value = batchId
+  progress.value = { done: 0, total: 0 }
   try {
-    // Simulate network delay for realistic UX
-    await new Promise((r) => setTimeout(r, 1200))
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    batch.value = await res.json()
+    await pollBatchUntilDone(batchId, { onProgress: (p) => { progress.value = p } })
+    batch.value = await getBatchResult(batchId)
     selectedId.value = images.value[0]?.id ?? null
   } catch (e) {
     error.value = e.message || 'Failed to load batch'
@@ -60,13 +68,17 @@ function selectImage(id) {
 
 function toggleReviewed(id) {
   if (!id) return
-  if (reviewed.value.has(id)) {
-    reviewed.value.delete(id)
-  } else {
+  const nowReviewed = !reviewed.value.has(id)
+  if (nowReviewed) {
     reviewed.value.add(id)
+  } else {
+    reviewed.value.delete(id)
   }
   reviewed.value = new Set(reviewed.value)
   persistReviewed()
+  if (currentBatchId.value) {
+    patchImageReviewed(currentBatchId.value, id, nowReviewed).catch(() => {})
+  }
 }
 
 function isReviewed(id) {
@@ -84,6 +96,8 @@ export function useInspection() {
     error,
     reviewed,
     reviewedCount,
+    currentBatchId,
+    progress,
     loadBatch,
     selectImage,
     toggleReviewed,
