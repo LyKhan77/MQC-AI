@@ -20,8 +20,15 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     os.makedirs(os.path.join(settings.data_dir, "batches"), exist_ok=True)
-    from . import models  # noqa: F401  (register tables)
+    from . import models  # noqa: F401
+    from .database import SessionLocal
+    from .services.seed import seed_if_empty
     Base.metadata.create_all(engine)
+    db = SessionLocal()
+    try:
+        seed_if_empty(db)
+    finally:
+        db.close()
 
 
 @app.get("/health")
