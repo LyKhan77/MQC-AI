@@ -41,4 +41,32 @@ describe('batches api', () => {
     ]))
     await expect(pollBatchUntilDone('b1', { intervalMs: 0 })).rejects.toThrow(/failed/i)
   })
+
+  it('listBatches maps snake_case to the frontend shape', async () => {
+    vi.stubGlobal('fetch', fetchSequence([{
+      status: 200,
+      body: [{
+        id: 'batch_1', name: 'Shift 1', source_path: '/crops', camera_id: 'cam-01',
+        created_at: '2026-06-27T08:00:00', image_count: 3, defect_count: 2,
+        status: 'done', reviewer: null, model_info: { detection: 'YOLOv8n' },
+      }],
+    }]))
+    const { listBatches } = await import('./batches.js')
+    const rows = await listBatches()
+    expect(rows[0]).toEqual({
+      id: 'batch_1', name: 'Shift 1', sourcePath: '/crops', cameraId: 'cam-01',
+      cameraName: 'cam-01', createdAt: '2026-06-27T08:00:00', imageCount: 3,
+      defectCount: 2, status: 'done', reviewer: null, modelInfo: { detection: 'YOLOv8n' },
+    })
+  })
+
+  it('pollBatchUntilDone throws after maxAttempts', async () => {
+    vi.stubGlobal('fetch', fetchSequence([
+      { status: 200, body: { batch_id: 'b1', status: 'processing', progress: { done: 0, total: 3 } } },
+    ]))
+    const { pollBatchUntilDone } = await import('./batches.js')
+    await expect(
+      pollBatchUntilDone('b1', { intervalMs: 0, maxAttempts: 2 }),
+    ).rejects.toThrow(/timed out/i)
+  })
 })
