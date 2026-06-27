@@ -29,6 +29,7 @@ export function mapBatchSummary(s) {
     status: s.status,
     reviewer: s.reviewer,
     modelInfo: s.model_info ?? {},
+    reviewedCount: s.reviewed_count ?? 0,
   }
 }
 
@@ -39,6 +40,10 @@ export async function listBatches() {
 
 export function patchImageReviewed(batchId, imageId, reviewed) {
   return apiPatch(`/batches/${batchId}/images/${imageId}`, { reviewed })
+}
+
+export function patchBatch(batchId, { status, reviewer }) {
+  return apiPatch(`/batches/${batchId}`, { status, reviewer })
 }
 
 export async function pollBatchUntilDone(batchId, { onProgress, intervalMs = 1000, maxAttempts = 600 } = {}) {

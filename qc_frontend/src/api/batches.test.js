@@ -49,6 +49,7 @@ describe('batches api', () => {
         id: 'batch_1', name: 'Shift 1', source_path: '/crops', camera_id: 'cam-01',
         created_at: '2026-06-27T08:00:00', image_count: 3, defect_count: 2,
         status: 'done', reviewer: null, model_info: { detection: 'YOLOv8n' },
+        reviewed_count: 1,
       }],
     }]))
     const { listBatches } = await import('./batches.js')
@@ -57,6 +58,19 @@ describe('batches api', () => {
       id: 'batch_1', name: 'Shift 1', sourcePath: '/crops', cameraId: 'cam-01',
       cameraName: 'cam-01', createdAt: '2026-06-27T08:00:00', imageCount: 3,
       defectCount: 2, status: 'done', reviewer: null, modelInfo: { detection: 'YOLOv8n' },
+      reviewedCount: 1,
+    })
+  })
+
+  it('patchBatch sends status + reviewer', async () => {
+    const f = fetchSequence([{ status: 200, body: { id: 'b1', status: 'reviewed' } }])
+    vi.stubGlobal('fetch', f)
+    const { patchBatch } = await import('./batches.js')
+    await patchBatch('b1', { status: 'reviewed', reviewer: 'inspector@gspemail.com' })
+    expect(f).toHaveBeenCalledWith('/api/batches/b1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'reviewed', reviewer: 'inspector@gspemail.com' }),
     })
   })
 
