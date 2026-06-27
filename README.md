@@ -10,7 +10,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, mock data layer |
+| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration |
 | `qc_server/` | **Active (M0-M3)** | FastAPI + SQLite backend untuk async batch **defect** segmentation (polling, pluggable `mock` strategy), CRUD metadata APIs, result JSON, image serving |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
@@ -27,7 +27,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md)
 
-> **Phase C integration note:** QC Studio, Live Monitor's "Send to QC", Batch History, and Reports now use the live `qc_server` API via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Only Cameras and Settings still use the localStorage mock data and will be migrated in Phase C-3.
+> **Phase C-3 integration note:** The dashboard now uses the live `qc_server` API for QC Studio, Live Monitor's "Send to QC", Batch History, Reports, Audit Log, Cameras, and Settings via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Settings now persists model configuration, confidence threshold, and `defect_strategy` to `/api/settings`.
 >
 > **Phase C-2.1 review sign-off:** QC Studio has an explicit **"Mark Reviewed"** sign-off button (enabled only once every image is reviewed) that transitions a batch from `done` → `reviewed` (reviewer `inspector@gspemail.com`) and logs `BATCH_REVIEWED`. Batch History shows a **Reviewed (X/Y)** column and visually distinct pills: `done` is neutral, `reviewed` is green, `failed` is red. The backend `GET /api/batches` includes a computed `reviewed_count` per batch.
 
@@ -62,7 +62,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status |
 | `/reports` | **Reports** | PDF audit report generator with summary, defect table, approval fields |
 | `/audit` | **Audit Log** | Auto-logged activity trail, filterable by action type |
-| `/settings` | **Settings** | Camera CRUD, model config, language/theme preferences |
+| `/settings` | **Settings** | Camera CRUD, model config, defect strategy, language/theme preferences |
 
 ### Key Features
 
@@ -71,7 +71,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Collapsible sidebar navigation** dengan 6 menu items
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
-- **Rich mock data**: 3 cameras, 5 batch history, 15 audit logs, semua persistent di localStorage
+- **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; mock behavior remains only for the Live Monitor detection simulation
 - **Dynamic defect colors**: CSS variable resolution, siap untuk dynamic colors dari SAM3 backend
 
 ### Commands
@@ -136,6 +136,7 @@ Detail lengkap: [`DESIGN.md`](./DESIGN.md)
 Rencana implementasi disimpan di `docs/superpowers/plans/` (gitignored):
 - `frontend-overhaul-plan.md` - Full frontend overhaul (Carbon Design System, 6 pages, i18n, mock data)
 - `qc-server-plan.md` - Backend `qc_server` plan: locked decisions, folder structure, SQLite schema, endpoints, pluggable defect strategy, milestones M0→M4 (+ edge flow reference)
+- `2026-06-27-phase-c3-cameras-settings.md` - Cameras + Settings live API integration plan
 
 ---
 *Dokumen ini harus selalu diperbarui setiap kali ada penambahan fitur utama atau perubahan arsitektur. Lihat protocol di `AGENTS.md` > Documentation Maintenance.*

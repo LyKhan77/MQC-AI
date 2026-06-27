@@ -16,7 +16,7 @@ README.md is the canonical, detailed project doc. AGENTS.md orients an agent fas
 
 The system has three decoupled components managed in one monorepo:
 
-1. **`qc_frontend/`** — Interactive dashboard for live camera monitoring and batch QC inspection review. **(Active development)**
+1. **`qc_frontend/`** — Interactive dashboard for live camera monitoring and batch QC inspection review. **(Active; live API-backed dashboard data)**
 2. **`qc_server/`** — Backend server for async batch defect segmentation. **(Active: M0-M3 done with mock strategy)**
 3. **`edge_app/`** — Jetson Nano edge app for real-time object detection (YOLO) and live streaming. **(Not yet started)**
 
@@ -68,12 +68,12 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 ### Frontend (current)
 
 - **Sidebar navigation shell** (collapsible) with 6 pages.
-- **Live Monitor**: camera selector (RaspyCam/RTSP/USB), Start/Stop detection trigger, mock object counter, FPS/temperature, Send to QC dialog with batch name + auto-timestamp.
+- **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), Start/Stop detection trigger, mock object counter, FPS/temperature, Send to QC dialog with batch name + auto-timestamp.
 - **QC Studio**: 3-column layout with batch sidebar (filter/search/sort/skeleton loading), inspection canvas (zoom/pan/annotation toggle), defect panel (keyboard navigation, review workflow).
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
-- **Settings**: camera CRUD, model config (confidence threshold, detection/segmentation model), preferences (language, theme).
+- **Settings**: API-backed camera CRUD, model config (confidence threshold, detection/segmentation model, defect strategy), preferences (language, theme).
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
 
@@ -113,6 +113,12 @@ MQC-AI/
 │       ├── main.js                  # App entry
 │       ├── App.vue                  # Root: sidebar + topbar shell
 │       ├── style.css                # Carbon CSS variables (light/dark) + shared styles
+│       ├── api/
+│       │   ├── client.js            # HTTP helpers (GET/POST/PATCH/PUT/DELETE)
+│       │   ├── audit.js             # Audit log API
+│       │   ├── batches.js           # Batch submit/status/result/list/review API
+│       │   ├── cameras.js           # Camera CRUD API
+│       │   └── settings.js          # Settings API with snake/camel mapping
 │       ├── router/
 │       │   └── index.js             # 6 named routes
 │       ├── assets/
@@ -129,10 +135,10 @@ MQC-AI/
 │       │   ├── useTheme.js          # Light/dark theme toggle (localStorage)
 │       │   ├── useI18n.js           # ID/EN language toggle (localStorage)
 │       │   ├── useInspection.js     # Batch loading, image selection, review workflow
-│       │   ├── useCameras.js        # Camera CRUD (localStorage)
-│       │   ├── useBatchHistory.js   # Batch history list (localStorage)
-│       │   ├── useAuditLog.js       # Audit trail logging (localStorage)
-│       │   └── useSettings.js       # Model config + preferences (localStorage)
+│       │   ├── useCameras.js        # Camera CRUD (live API)
+│       │   ├── useBatchHistory.js   # Batch history list (live API)
+│       │   ├── useAuditLog.js       # Audit trail logging (live API + local cache)
+│       │   └── useSettings.js       # Model config + defect strategy (live API)
 │       ├── views/
 │       │   ├── LiveMonitor.vue      # Camera selector + detection + send-to-QC
 │       │   ├── QCStudio.vue         # 3-column inspection studio
@@ -225,7 +231,8 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 ### Composables
 
 - Singleton pattern: module-scoped `ref()` outside the exported function.
-- `localStorage` persistence with seed-on-first-load from `mockData.js`.
+- API-backed composables expose `refresh()` and keep current/default state if the server is unreachable.
+- `localStorage` is still used for UI preferences and local review/offline cache where already established.
 - Each composable returns refs + methods, no state mutation from outside.
 
 ### i18n
@@ -281,15 +288,15 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Frontend Active Development · Backend M0-M3 Implemented
+### Status: Frontend Live API Integration · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend UI dashboard with mock data remains functional. **Backend (`qc_server`) M0-M3 is implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, and crop image serving. Real SAM3 (`sam3_prompt`) remains deferred to M4. Edge app (Jetson) comes after `qc_server`.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor still uses a mock detection loop until the Jetson edge stream exists. **Backend (`qc_server`) M0-M3 is implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, and crop image serving. Real SAM3 (`sam3_prompt`) remains deferred to M4. Edge app (Jetson) comes after `qc_server`.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, mock data. All UI functional with mock data. |
+| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, live API-backed data. Mock remains for Live Monitor detection simulation. |
 | `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 done with mock strategy; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
@@ -297,18 +304,18 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 | Page | Status | Mock Data | Backend Ready |
 |---|---|---|---|
-| Live Monitor | **Functional** | Mock detection loop, 3 cameras | Needs Jetson stream endpoint |
-| QC Studio | **Functional** | Mock batch JSON (3 images) | Needs SAM3 server endpoint |
-| Batch History | **Functional** | 5 mock batches in localStorage | Needs batch persistence API |
-| Reports | **Functional** | Uses mock batch data | Needs batch data API |
-| Audit Log | **Functional** | 15 mock entries in localStorage | Needs audit persistence API |
-| Settings | **Functional** | 3 mock cameras in localStorage | Needs camera config API |
+| Live Monitor | **Functional** | Mock detection loop | Camera list + Send to QC API wired; needs Jetson stream endpoint |
+| QC Studio | **Functional** | None for live batches | Batch polling/result/review/sign-off API wired; real SAM3 deferred |
+| Batch History | **Functional** | None | Live batch list API wired |
+| Reports | **Functional** | None | Live batch/result API wired |
+| Audit Log | **Functional** | Local cache fallback | Live audit API wired |
+| Settings | **Functional** | None | Camera CRUD + settings API wired |
 
 ### Detailed Log
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [0.3.0] - 2026-06-26 (`qc_server` M0-M3 backend: FastAPI + SQLite, CRUD APIs, mock batch pipeline, image serving).
+**Latest version**: [Unreleased] - 2026-06-27 (Phase C-3: Cameras + Settings on live API; `defect_strategy` selectable in Settings).
 
 ---
 

@@ -11,6 +11,49 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-27 - Phase C-3: Cameras + Settings on Live API
+
+### Summary
+
+Finished the remaining frontend/backend integration gap for Cameras and Settings. Camera CRUD now uses `GET/POST/PATCH/DELETE /api/cameras`, Settings persists model config through `GET/PUT /api/settings`, and the UI can select `defect_strategy` so new batches record the chosen backend strategy in `model_info.strategy`.
+
+### Added
+
+- `qc_frontend/src/api/client.js` - `apiPut()` and `apiDelete()` helpers.
+- `qc_frontend/src/api/cameras.js` - live camera CRUD API wrapper.
+- `qc_frontend/src/api/settings.js` - settings API wrapper with snake_case/camelCase mapping and numeric confidence coercion.
+- Unit tests for client PUT/DELETE, camera create/delete, and settings mapping/update. Frontend suite: 23 tests green.
+- i18n keys `settings.defectStrategy`, `settings.strategyMock`, and `settings.strategySam3` in `id.js` and `en.js`.
+
+### Changed
+
+- `useCameras.js` now sources cameras from the live API, exposes `refresh()`, and refreshes after add/edit/delete.
+- `useSettings.js` now sources model settings from the live API and includes `defectStrategy`.
+- `Settings.vue` refreshes cameras/settings on mount, awaits async camera CRUD, saves settings through the API, and adds a defect-strategy selector.
+- `LiveMonitor.vue` refreshes cameras on mount so its selector reflects backend camera state.
+- `README.md` and `AGENTS.md` now describe the dashboard as live API-backed.
+
+### Fixed
+
+- `Settings.vue` `saveSettings()` now reads `settings.value.*` in script setup instead of the ref object itself, so detection model, segmentation model, confidence threshold, and defect strategy persist correctly.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Camera data | 2026-06-27 | `src/api/cameras.js` + API-backed `useCameras` | Settings camera CRUD and Live Monitor camera selector read/write `qc_server`. |
+| Settings data | 2026-06-27 | `src/api/settings.js` + API-backed `useSettings` | Model config persists through `/api/settings`; `defectStrategy` is user-selectable. |
+| Frontend API client | 2026-06-27 | `apiPut` and `apiDelete` helpers | `src/api/*` supports all methods needed by dashboard CRUD. |
+| Settings UI | 2026-06-27 | Async handlers + defect-strategy selector | Settings drives backend behavior for future real inference strategy. |
+| Dashboard integration | 2026-06-27 | Cameras + Settings migrated off localStorage mock | Dashboard data is API-backed; Live Monitor detection simulation remains mock until edge app exists. |
+
+### Notes
+
+- Branch: `feat/phase-c3-cameras-settings` (unmerged; pushed for plan-author review).
+- Deviations: none in implementation scope. `AGENTS.md` was also updated to satisfy the repo documentation-maintenance contract.
+
+---
+
 ## [Unreleased] - 2026-06-27 — Phase C-2.1: Batch Review Sign-off + Review-Progress Column
 
 ### Summary

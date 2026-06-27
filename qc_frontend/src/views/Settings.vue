@@ -1,13 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t, locale, setLocale } = useI18n()
-const { cameras, addCamera, updateCamera, deleteCamera } = useCameras()
-const { settings, update } = useSettings()
+const { cameras, refresh: refreshCameras, addCamera, updateCamera, deleteCamera } = useCameras()
+const { settings, refresh: refreshSettings, update } = useSettings()
 const { log } = useAuditLog()
 
 const editingId = ref(null)
@@ -19,6 +19,11 @@ const cameraTypes = [
   { value: 'rtsp', label: 'RTSP Stream' },
   { value: 'usb', label: 'USB Camera' },
 ]
+
+onMounted(() => {
+  refreshCameras()
+  refreshSettings()
+})
 
 function startAdd() {
   editingId.value = null
@@ -32,31 +37,32 @@ function startEdit(cam) {
   showForm.value = true
 }
 
-function saveCamera() {
+async function saveCamera() {
   if (editingId.value) {
-    updateCamera(editingId.value, form.value)
+    await updateCamera(editingId.value, form.value)
     log('CAMERA_EDITED', `Edited camera: ${form.value.name}`)
   } else {
-    const id = addCamera(form.value)
+    const id = await addCamera(form.value)
     log('CAMERA_ADDED', `Added camera: ${form.value.name} (${id})`)
   }
   showForm.value = false
 }
 
-function removeCamera(cam) {
+async function removeCamera(cam) {
   if (confirm(t('settings.confirmDelete'))) {
-    deleteCamera(cam.id)
+    await deleteCamera(cam.id)
     log('CAMERA_DELETED', `Deleted camera: ${cam.name} (${cam.id})`)
   }
 }
 
-function saveSettings() {
-  update({
-    confidenceThreshold: settings.confidenceThreshold,
-    detectionModel: settings.detectionModel,
-    segmentationModel: settings.segmentationModel,
+async function saveSettings() {
+  await update({
+    confidenceThreshold: Number(settings.value.confidenceThreshold),
+    detectionModel: settings.value.detectionModel,
+    segmentationModel: settings.value.segmentationModel,
+    defectStrategy: settings.value.defectStrategy,
   })
-  log('SETTINGS_CHANGED', `Updated model configuration`)
+  log('SETTINGS_CHANGED', 'Updated model configuration')
 }
 
 function changeLanguage(lang) {
@@ -157,6 +163,13 @@ function changeLanguage(lang) {
           <div class="form-row">
             <label>{{ t('settings.confidenceThreshold') }}: {{ Math.round(settings.confidenceThreshold * 100) }}%</label>
             <input type="range" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="slider" />
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.defectStrategy') }}</label>
+            <select v-model="settings.defectStrategy" class="text-input">
+              <option value="mock">{{ t('settings.strategyMock') }}</option>
+              <option value="sam3_prompt">{{ t('settings.strategySam3') }}</option>
+            </select>
           </div>
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>

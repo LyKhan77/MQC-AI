@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
@@ -9,7 +9,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t } = useI18n()
 const router = useRouter()
-const { cameras } = useCameras()
+const { cameras, refresh: refreshCameras } = useCameras()
 const { settings } = useSettings()
 const { log } = useAuditLog()
 
@@ -31,6 +31,8 @@ const selectedCamera = computed(() =>
 )
 
 const onlineCameras = computed(() => cameras.value.filter((c) => c.status === 'online'))
+
+onMounted(refreshCameras)
 
 async function startDetection() {
   if (!selectedCamera.value) return
