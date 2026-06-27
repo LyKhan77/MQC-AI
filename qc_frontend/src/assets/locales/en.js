@@ -80,8 +80,6 @@ export default {
     markReviewed: 'Mark Reviewed',
     markUnreviewed: 'Unmark Review',
     reviewProgress: 'Review Progress',
-    markReviewed: 'Mark Reviewed',
-    reviewed: 'Reviewed ✓',
     filterAll: 'All',
     filterDefect: 'Defect',
     filterClean: 'Clean',

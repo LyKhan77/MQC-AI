@@ -6,7 +6,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
-  loadBatch, selectImage, toggleReviewed, isReviewed, markReviewed } = useInspection()
+  loadBatch, selectImage, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 
@@ -16,20 +16,7 @@ const search = ref('')
 const filterMode = ref('all')
 const sortBy = ref('name')
 
-const signedOff = ref(false)
-
-async function handleSignOff() {
-  try {
-    await markReviewed()
-    signedOff.value = true
-    log('BATCH_REVIEWED', `Completed review: ${batch.value?.batch_name ?? ''}`)
-  } catch (e) {
-    console.error(e)
-  }
-}
-
 async function loadFor(batchId) {
-  signedOff.value = false
   if (!batchId) return
   try {
     await loadBatch(batchId)
@@ -67,9 +54,14 @@ const filteredImages = computed(() => {
 })
 
 function handleToggleReviewed(img) {
+  const wasComplete = images.value.length > 0 && reviewedCount.value === images.value.length
   toggleReviewed(img.id)
   const action = isReviewed(img.id) ? 'IMAGE_REVIEWED' : 'IMAGE_UNREVIEWED'
   log(action, `${isReviewed(img.id) ? 'Marked' : 'Unmarked'} ${img.filename}`)
+  const isComplete = images.value.length > 0 && reviewedCount.value === images.value.length
+  if (isComplete && !wasComplete) {
+    log('BATCH_REVIEWED', `Completed review: ${batch.value?.batch_name ?? ''}`)
+  }
 }
 </script>
 
@@ -93,13 +85,6 @@ function handleToggleReviewed(img) {
           <div class="progress-bar" :style="{ width: `${images.length ? (reviewedCount / images.length) * 100 : 0}%` }"></div>
         </div>
         <p class="progress-text">{{ t('qc.reviewProgress') }}: {{ reviewedCount }}/{{ images.length }}</p>
-        <button
-          class="btn-signoff"
-          :disabled="signedOff || !images.length || reviewedCount < images.length"
-          @click="handleSignOff"
-        >
-          {{ signedOff ? t('qc.reviewed') : t('qc.markReviewed') }}
-        </button>
       </div>
 
       <p v-if="error" class="error-msg">{{ t('common.error') }}: {{ error }}</p>
@@ -218,25 +203,6 @@ function handleToggleReviewed(img) {
   color: var(--color-ink-muted);
   margin: 4px 0 0;
   letter-spacing: 0.16px;
-}
-.btn-signoff {
-  margin-top: 12px;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border: none;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  cursor: pointer;
-  letter-spacing: 0.16px;
-}
-.btn-signoff:hover {
-  background: var(--color-primary-hover);
-}
-.btn-signoff:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 .error-msg {
   font-size: 12px;

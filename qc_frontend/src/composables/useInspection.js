@@ -13,6 +13,7 @@ const error = ref(null)
 const reviewed = ref(new Set())
 const currentBatchId = ref(null)
 const progress = ref({ done: 0, total: 0 })
+const lastAllReviewed = ref(false)
 
 function loadReviewed() {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -55,6 +56,7 @@ async function loadBatch(batchId) {
     await pollBatchUntilDone(batchId, { onProgress: (p) => { progress.value = p } })
     batch.value = await getBatchResult(batchId)
     selectedId.value = images.value[0]?.id ?? null
+    lastAllReviewed.value = images.value.length > 0 && reviewedCount.value === images.value.length
   } catch (e) {
     error.value = e.message || 'Failed to load batch'
     batch.value = null
@@ -80,12 +82,22 @@ function toggleReviewed(id) {
   persistReviewed()
   if (currentBatchId.value) {
     patchImageReviewed(currentBatchId.value, id, nowReviewed).catch(() => {})
+    syncBatchStatus()
   }
 }
 
-async function markReviewed() {
-  if (!currentBatchId.value) return
-  await patchBatch(currentBatchId.value, { status: 'reviewed', reviewer: REVIEWER })
+// Batch status follows review completeness automatically:
+// all images reviewed -> "reviewed"; otherwise -> "done". Only PATCHes on change.
+function syncBatchStatus() {
+  const total = images.value.length
+  if (!currentBatchId.value || total === 0) return
+  const allReviewed = reviewedCount.value === total
+  if (allReviewed === lastAllReviewed.value) return
+  lastAllReviewed.value = allReviewed
+  patchBatch(currentBatchId.value, {
+    status: allReviewed ? 'reviewed' : 'done',
+    reviewer: allReviewed ? REVIEWER : null,
+  }).catch(() => {})
 }
 
 function isReviewed(id) {
@@ -109,6 +121,5 @@ export function useInspection() {
     selectImage,
     toggleReviewed,
     isReviewed,
-    markReviewed,
   }
 }
