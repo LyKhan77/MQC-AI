@@ -1,34 +1,28 @@
 import { ref } from 'vue'
-import { MOCK } from '../utils/mockData.js'
+import { getSettings, updateSettings } from '../api/settings.js'
 
-const STORAGE_KEY = 'mqc-settings'
+const settings = ref({
+  confidenceThreshold: 0.5,
+  detectionModel: 'YOLOv8n',
+  segmentationModel: 'SAM3',
+  defectStrategy: 'mock',
+})
 
-const defaults = {
-  confidenceThreshold: MOCK.settings.confidenceThreshold,
-  detectionModel: MOCK.settings.detectionModel,
-  segmentationModel: MOCK.settings.segmentationModel,
-}
-
-const settings = ref({ ...defaults })
-
-function load() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    try {
-      settings.value = { ...defaults, ...JSON.parse(saved) }
-    } catch {
-      // keep defaults
-    }
+async function refresh() {
+  try {
+    settings.value = await getSettings()
+  } catch {
+    // keep defaults if the server is unreachable
   }
 }
 
-load()
-
-function update(patch) {
+async function update(patch) {
   settings.value = { ...settings.value, ...patch }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value))
+  await updateSettings(patch)
 }
 
+refresh()
+
 export function useSettings() {
-  return { settings, update }
+  return { settings, refresh, update }
 }
