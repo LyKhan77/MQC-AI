@@ -88,6 +88,7 @@ class BatchSummary(BaseModel):
     status: str
     reviewer: str | None
     model_info: dict
+    reviewed_count: int = 0
 
 
 class DefectOut(BaseModel):

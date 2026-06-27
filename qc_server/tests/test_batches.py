@@ -58,3 +58,15 @@ def test_patch_image_reviewed(client, tmp_path):
     patched = client.patch(f"/api/batches/{batch_id}/images/{image_id}",
                            json={"reviewed": True}).json()
     assert patched["reviewed"] is True
+
+
+def test_list_batches_includes_reviewed_count(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = client.post("/api/batches", json={"batch_name": "RC",
+                                                 "source_path": folder}).json()["batch_id"]
+    images = client.get(f"/api/batches/{batch_id}").json()["images"]
+    client.patch(f"/api/batches/{batch_id}/images/{images[0]['id']}", json={"reviewed": True})
+
+    row = next(b for b in client.get("/api/batches").json() if b["id"] == batch_id)
+    assert row["image_count"] == 3
+    assert row["reviewed_count"] == 1

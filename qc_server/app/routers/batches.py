@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal, get_db
@@ -50,7 +51,22 @@ def submit_batch(payload: BatchCreate, background: BackgroundTasks,
 
 @router.get("", response_model=list[BatchSummary])
 def list_batches(db: Session = Depends(get_db)):
-    return db.query(Batch).order_by(Batch.created_at.desc()).all()
+    batches = db.query(Batch).order_by(Batch.created_at.desc()).all()
+    reviewed_counts = dict(
+        db.query(Image.batch_id, func.count(Image.id))
+        .filter(Image.reviewed.is_(True))
+        .group_by(Image.batch_id)
+        .all()
+    )
+    return [
+        BatchSummary(
+            id=b.id, name=b.name, source_path=b.source_path, camera_id=b.camera_id,
+            created_at=b.created_at, image_count=b.image_count, defect_count=b.defect_count,
+            status=b.status, reviewer=b.reviewer, model_info=b.model_info,
+            reviewed_count=reviewed_counts.get(b.id, 0),
+        )
+        for b in batches
+    ]
 
 
 @router.get("/{batch_id}/status", response_model=BatchStatusOut)
