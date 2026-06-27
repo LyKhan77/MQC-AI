@@ -184,9 +184,8 @@ const statusClass = (s) => `status-${s}`
   color: var(--color-on-primary);
 }
 .status-pill.status-done {
-  background: var(--color-surface-1);
+  background: var(--color-warning);
   color: var(--color-ink);
-  border: 1px solid var(--color-hairline);
 }
 .status-pill.status-failed {
   background: var(--color-error);
