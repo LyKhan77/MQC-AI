@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useBatchHistory } from '../composables/useBatchHistory.js'
 import { useInspection } from '../composables/useInspection.js'
@@ -7,12 +7,14 @@ import { defectColor } from '../utils/defect.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t } = useI18n()
-const { batches } = useBatchHistory()
+const { batches, refresh } = useBatchHistory()
 const { batch, loadBatch } = useInspection()
 const { log } = useAuditLog()
 
 const selectedBatchId = ref('')
 const generating = ref(false)
+
+onMounted(refresh)
 
 const selectedBatch = computed(() =>
   batches.value.find((b) => b.id === selectedBatchId.value),
@@ -30,10 +32,7 @@ const summary = computed(() => {
 async function selectBatch(id) {
   selectedBatchId.value = id
   if (id) {
-    const b = batches.value.find((x) => x.id === id)
-    if (b) {
-      await loadBatch('/mock/batch-shift1.json')
-    }
+    await loadBatch(id)
   }
 }
 

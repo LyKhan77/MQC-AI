@@ -11,6 +11,49 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-27 — Phase C-2: Batch History + Reports on Live API
+
+### Summary
+
+Fixed the two regressions left by Phase C. Batch History and Reports now source their batch lists from `GET /api/batches` (via a new `listBatches()` + `mapBatchSummary` snake_case→camelCase mapper in `src/api/batches.js`). `useBatchHistory` dropped localStorage/mock and now exposes a `refresh()` that pulls from the API. `BatchHistory.vue` "Open" passes the real `batch.id` to QC Studio (`/qc?batch=<id>`), and the status filter + pills cover backend statuses (`done`/`failed` added alongside `reviewed`/`processing`). `Reports.vue` selects a batch and loads the real result via `loadBatch(id)`, removing the `/mock/batch-shift1.json` 404 source. Also hardened `pollBatchUntilDone` with a `maxAttempts` timeout (default 600) that throws `Batch polling timed out`. Cameras and Settings remain on localStorage mock (Phase C-3, see Appendix A of the C-2 plan).
+
+### Added
+
+- `qc_frontend/src/api/batches.js` — `mapBatchSummary(s)` (snake_case → camelCase) and `listBatches()` (`GET /batches`).
+- `pollBatchUntilDone` gained `{ maxAttempts = 600 }`; throws `Error('Batch polling timed out')` after `maxAttempts` non-terminal polls (open review finding from Phase C).
+- i18n keys `batches.filterDone` / `batches.filterFailed` (id + en).
+- Unit tests for `listBatches` (mapping) and the poll timeout (2 new). Full frontend suite: 16 tests green (5 in `batches.test.js`).
+
+### Changed
+
+- `useBatchHistory.js`: localStorage/mock removed; now `batches` starts empty and `refresh()` populates from `listBatches()`. Removed unused `addBatch`/`updateBatch`/`getById`/`pendingCount` (verified no `.vue` consumer).
+- `BatchHistory.vue`: calls `refresh()` on mount; `openBatch` navigates to `/qc?batch=<id>`; status filter options now `reviewed`/`done`/`processing`/`failed` (dropped mock-only `pending`); added `.status-pill.status-done` / `.status-failed` CSS.
+- `Reports.vue`: calls `refresh()` on mount; `selectBatch(id)` calls `loadBatch(id)` (removed the hard-coded `loadBatch('/mock/batch-shift1.json')` 404 source).
+- `README.md`: Phase C integration note updated to say Batch History + Reports are now live-API too; only Cameras and Settings remain on mock pending Phase C-3.
+
+### Fixed
+
+- `Reports.vue` no longer triggers `GET /api/batches//mock/batch-shift1.json/status → 404` (regression from Phase C).
+- `BatchHistory.vue` "Open" no longer navigates to an empty QC Studio (now passes the real `batch.id`).
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Batch History page | 2026-06-27 | Sourced from `GET /api/batches`; opens QC Studio by real id | Live-API; status filter covers backend vocab. |
+| Reports page | 2026-06-27 | Sourced from `GET /api/batches`; loads real result by id | Live-API; mock-path 404 eliminated. |
+| `pollBatchUntilDone` | 2026-06-27 | `maxAttempts` timeout guard | Bounded polling; throws on timeout. |
+| `useBatchHistory` | 2026-06-27 | Dropped localStorage/mock; exposes `refresh()` | Thin API consumer. |
+| Cameras / Settings | 2026-06-27 | Untouched | Still localStorage mock; deferred to Phase C-3. |
+
+### Notes
+
+- Branch: `feat/fe-be-integration` (unmerged; left for plan-author review).
+- Deviations: none. API boundary mapping matches `qc_server/app/schemas.py` `BatchSummary`.
+- Open questions: server end-to-end smoke (Task 4 Step 3) to be run on the Linux server.
+
+---
+
 ## [Unreleased] - 2026-06-26 — Phase C Core Slice: Frontend ↔ Backend Integration
 
 ### Summary
