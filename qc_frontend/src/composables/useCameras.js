@@ -1,53 +1,44 @@
 import { ref } from 'vue'
-import { MOCK } from '../utils/mockData.js'
+import {
+  listCameras,
+  createCamera,
+  updateCamera as apiUpdateCamera,
+  deleteCamera as apiDeleteCamera,
+} from '../api/cameras.js'
 
-const STORAGE_KEY = 'mqc-cameras'
 const cameras = ref([])
 
-function load() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    try {
-      cameras.value = JSON.parse(saved)
-      return
-    } catch {
-      // fallthrough to seed
-    }
+async function refresh() {
+  try {
+    cameras.value = await listCameras()
+  } catch {
+    // keep current list if the server is unreachable
   }
-  cameras.value = [...MOCK.cameras]
-  persist()
 }
 
-function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cameras.value))
-}
-
-load()
-
-function addCamera(cam) {
+async function addCamera(cam) {
   const id = `cam-${String(Date.now()).slice(-6)}`
-  cameras.value.push({ ...cam, id })
-  persist()
+  await createCamera({ ...cam, id })
+  await refresh()
   return id
 }
 
-function updateCamera(id, patch) {
-  const idx = cameras.value.findIndex((c) => c.id === id)
-  if (idx !== -1) {
-    cameras.value[idx] = { ...cameras.value[idx], ...patch }
-    persist()
-  }
+async function updateCamera(id, patch) {
+  await apiUpdateCamera(id, patch)
+  await refresh()
 }
 
-function deleteCamera(id) {
-  cameras.value = cameras.value.filter((c) => c.id !== id)
-  persist()
+async function deleteCamera(id) {
+  await apiDeleteCamera(id)
+  await refresh()
 }
 
 function getById(id) {
   return cameras.value.find((c) => c.id === id)
 }
 
+refresh()
+
 export function useCameras() {
-  return { cameras, addCamera, updateCamera, deleteCamera, getById }
+  return { cameras, refresh, addCamera, updateCamera, deleteCamera, getById }
 }
