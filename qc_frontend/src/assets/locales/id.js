@@ -110,6 +110,8 @@ export default {
     filterReviewed: 'Reviewed',
     filterPending: 'Pending',
     filterProcessing: 'Processing',
+    filterDone: 'Selesai',
+    filterFailed: 'Gagal',
     columnName: 'Nama Batch',
     columnCamera: 'Kamera',
     columnDate: 'Tanggal',

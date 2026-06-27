@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import { useBatchHistory } from '../composables/useBatchHistory.js'
 
 const { t } = useI18n()
 const router = useRouter()
-const { batches } = useBatchHistory()
+const { batches, refresh } = useBatchHistory()
+
+onMounted(refresh)
 
 const search = ref('')
 const statusFilter = ref('')
@@ -24,7 +26,7 @@ const filtered = computed(() => {
 })
 
 function openBatch(batch) {
-  router.push({ name: 'qc' })
+  router.push({ name: 'qc', query: { batch: batch.id } })
 }
 
 function formatDate(iso) {
@@ -52,8 +54,9 @@ const statusClass = (s) => `status-${s}`
       <select v-model="statusFilter" class="text-input">
         <option value="">{{ t('batches.filterAll') }}</option>
         <option value="reviewed">{{ t('batches.filterReviewed') }}</option>
-        <option value="pending">{{ t('batches.filterPending') }}</option>
+        <option value="done">{{ t('batches.filterDone') }}</option>
         <option value="processing">{{ t('batches.filterProcessing') }}</option>
+        <option value="failed">{{ t('batches.filterFailed') }}</option>
       </select>
     </div>
 
@@ -176,6 +179,14 @@ const statusClass = (s) => `status-${s}`
 }
 .status-pill.status-processing {
   background: var(--color-info);
+  color: var(--color-on-primary);
+}
+.status-pill.status-done {
+  background: var(--color-success);
+  color: var(--color-on-primary);
+}
+.status-pill.status-failed {
+  background: var(--color-error);
   color: var(--color-on-primary);
 }
 .btn-sm {

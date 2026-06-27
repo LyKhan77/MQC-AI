@@ -103,6 +103,8 @@ export default {
     filterReviewed: 'Reviewed',
     filterPending: 'Pending',
     filterProcessing: 'Processing',
+    filterDone: 'Done',
+    filterFailed: 'Failed',
     columnName: 'Batch Name',
     columnCamera: 'Camera',
     columnDate: 'Date',
