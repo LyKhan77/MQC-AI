@@ -1,7 +1,9 @@
 import { ref, computed } from 'vue'
-import { pollBatchUntilDone, getBatchResult, patchImageReviewed } from '../api/batches.js'
+import { pollBatchUntilDone, getBatchResult, patchImageReviewed, patchBatch } from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
+
+const REVIEWER = 'inspector@gspemail.com'
 
 const batch = ref(null)
 const selectedId = ref(null)
@@ -81,6 +83,11 @@ function toggleReviewed(id) {
   }
 }
 
+async function markReviewed() {
+  if (!currentBatchId.value) return
+  await patchBatch(currentBatchId.value, { status: 'reviewed', reviewer: REVIEWER })
+}
+
 function isReviewed(id) {
   return reviewed.value.has(id)
 }
@@ -102,5 +109,6 @@ export function useInspection() {
     selectImage,
     toggleReviewed,
     isReviewed,
+    markReviewed,
   }
 }

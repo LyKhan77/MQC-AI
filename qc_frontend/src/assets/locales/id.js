@@ -86,6 +86,8 @@ export default {
     markReviewed: 'Tandai Reviewed',
     markUnreviewed: 'Batal Review',
     reviewProgress: 'Review Progress',
+    markReviewed: 'Selesaikan Review',
+    reviewed: 'Sudah Direview ✓',
     filterAll: 'Semua',
     filterDefect: 'Cacat',
     filterClean: 'Bersih',
