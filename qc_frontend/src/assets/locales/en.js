@@ -112,6 +112,7 @@ export default {
     columnDate: 'Date',
     columnImages: 'Images',
     columnDefects: 'Defects',
+    columnReviewed: 'Reviewed',
     columnStatus: 'Status',
     columnActions: 'Actions',
     open: 'Open',

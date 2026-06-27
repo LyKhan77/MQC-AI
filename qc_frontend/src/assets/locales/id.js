@@ -119,6 +119,7 @@ export default {
     columnDate: 'Tanggal',
     columnImages: 'Gambar',
     columnDefects: 'Cacat',
+    columnReviewed: 'Direview',
     columnStatus: 'Status',
     columnActions: 'Aksi',
     open: 'Buka',

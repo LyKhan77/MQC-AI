@@ -69,6 +69,7 @@ const statusClass = (s) => `status-${s}`
             <th>{{ t('batches.columnDate') }}</th>
             <th>{{ t('batches.columnImages') }}</th>
             <th>{{ t('batches.columnDefects') }}</th>
+            <th>{{ t('batches.columnReviewed') }}</th>
             <th>{{ t('batches.columnStatus') }}</th>
             <th>{{ t('batches.columnActions') }}</th>
           </tr>
@@ -83,6 +84,7 @@ const statusClass = (s) => `status-${s}`
               <span v-if="batch.defectCount" class="defect-num">{{ batch.defectCount }}</span>
               <span v-else class="clean-num">0</span>
             </td>
+            <td class="mono">{{ batch.reviewedCount }}/{{ batch.imageCount }}</td>
             <td><span class="status-pill" :class="statusClass(batch.status)">{{ t(`batches.filter${batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}`) }}</span></td>
             <td>
               <button class="btn-sm" @click="openBatch(batch)">{{ t('batches.open') }}</button>
@@ -182,8 +184,9 @@ const statusClass = (s) => `status-${s}`
   color: var(--color-on-primary);
 }
 .status-pill.status-done {
-  background: var(--color-success);
-  color: var(--color-on-primary);
+  background: var(--color-surface-1);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
 }
 .status-pill.status-failed {
   background: var(--color-error);

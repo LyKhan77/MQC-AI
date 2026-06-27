@@ -11,6 +11,46 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-27 — Phase C-2.1: Batch Review Sign-off + Review-Progress Column
+
+### Summary
+
+Closed the QC workflow gap where a batch was stuck at `done`. QC Studio now has an explicit **"Mark Reviewed" sign-off** button (enabled only once every image is reviewed) that PATCHes the batch `done → reviewed` (with reviewer `inspector@gspemail.com`) and logs `BATCH_REVIEWED`. The backend `BatchSummary` now carries a computed `reviewed_count` (number of that batch's images with `reviewed == true`, computed in the list query — no schema/migration change). Batch History gained a **"Reviewed" column** showing `X/Y` progress and visually distinct pills: `done` is now neutral (surface-1 + hairline) so the green `reviewed` pill stands out as "QC complete". The frontend `src/api/batches.js` layer gained `patchBatch()` and the `reviewedCount` mapping.
+
+### Added
+
+- `qc_server/app/schemas.py` — `BatchSummary.reviewed_count: int = 0`.
+- `qc_server/app/routers/batches.py` — `list_batches` now computes reviewed counts via a `func.count(Image.id)` grouped by `batch_id` filter (`reviewed.is_(True)`).
+- `qc_frontend/src/api/batches.js` — `patchBatch(batchId, { status, reviewer })`; `mapBatchSummary` now returns `reviewedCount`.
+- `qc_frontend/src/composables/useInspection.js` — `markReviewed()` action (PATCHes current batch to `reviewed` with `REVIEWER = 'inspector@gspemail.com'`).
+- `qc_frontend/src/components/BatchSidebar.vue` — "Mark Reviewed" sign-off button with `signedOff` ref (reset on new batch load); `handleSignOff` logs `BATCH_REVIEWED`.
+- `qc_frontend/src/views/BatchHistory.vue` — "Reviewed" column (`X/Y`) and `columnReviewed` header.
+- i18n keys: `qc.markReviewed`, `qc.reviewed` (id + en); `batches.columnReviewed` (id + en).
+- Backend test `test_list_batches_includes_reviewed_count`; frontend test `patchBatch sends status + reviewer` and updated `listBatches` mapping assertion. Suites: backend 24 green, frontend 17 green.
+
+### Changed
+
+- `BatchHistory.vue` `.status-pill.status-done` is now neutral (`surface-1` bg, `hairline` border) instead of green, so the green `reviewed` pill reads as "QC complete".
+- `README.md`: notes that QC Studio has a "Mark Reviewed" sign-off and that Batch History shows review progress (X/Y) and distinct status pills.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Batch status workflow | 2026-06-27 | Explicit sign-off transitions `done → reviewed` via `PATCH /api/batches/{id}` | Batch reaches terminal `reviewed` state; no longer stuck at `done`. |
+| Backend `BatchSummary` | 2026-06-27 | Computed `reviewed_count` on the list endpoint | `GET /api/batches` items include `reviewed_count: int`. |
+| `src/api/batches.js` | 2026-06-27 | `patchBatch` + `reviewedCount` mapping | Frontend can sign off batches; mapper carries reviewed count. |
+| QC Studio | 2026-06-27 | "Mark Reviewed" button in `BatchSidebar` (guarded by all-reviewed) | Explicit completion gate; logs audit entry. |
+| Batch History | 2026-06-27 | "Reviewed" column + neutral `done` pill | Progress visible at a glance; `reviewed` distinct from `done`. |
+
+### Notes
+
+- Branch: `feat/fe-be-integration` (unmerged; left for plan-author review).
+- Deviations: none. Reviewer identity is the single-user MVP constant `inspector@gspemail.com`. Backend `reviewed_count` is computed, not stored.
+- Open: server end-to-end smoke (Task 4 Step 5) to be run on the Linux server.
+
+---
+
 ## [Unreleased] - 2026-06-27 — Phase C-2: Batch History + Reports on Live API
 
 ### Summary
