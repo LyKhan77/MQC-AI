@@ -57,6 +57,10 @@ async function loadBatch(batchId) {
     batch.value = await getBatchResult(batchId)
     selectedId.value = images.value[0]?.id ?? null
     lastAllReviewed.value = images.value.length > 0 && reviewedCount.value === images.value.length
+    // Reconcile on open: a batch already fully reviewed should read as "reviewed".
+    if (lastAllReviewed.value) {
+      patchBatch(batchId, { status: 'reviewed', reviewer: REVIEWER }).catch(() => {})
+    }
   } catch (e) {
     error.value = e.message || 'Failed to load batch'
     batch.value = null
