@@ -6,6 +6,7 @@ const settings = ref({
   detectionModel: 'YOLOv8n',
   segmentationModel: 'SAM3',
   defectStrategy: 'mock',
+  activeModel: '',
 })
 
 async function refresh() {

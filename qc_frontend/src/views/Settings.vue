@@ -4,6 +4,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
+import { listModels } from '../api/models.js'
 
 const { t, locale, setLocale } = useI18n()
 const { cameras, refresh: refreshCameras, addCamera, updateCamera, deleteCamera } = useCameras()
@@ -13,6 +14,7 @@ const { log } = useAuditLog()
 const editingId = ref(null)
 const showForm = ref(false)
 const form = ref({ name: '', type: 'rpi', source: '', location: '', status: 'offline' })
+const availableModels = ref([])
 
 const cameraTypes = [
   { value: 'rpi', label: 'Raspberry Pi Cam (CSI)' },
@@ -20,9 +22,14 @@ const cameraTypes = [
   { value: 'usb', label: 'USB Camera' },
 ]
 
-onMounted(() => {
+onMounted(async () => {
   refreshCameras()
   refreshSettings()
+  try {
+    availableModels.value = (await listModels()).models
+  } catch {
+    availableModels.value = []
+  }
 })
 
 function startAdd() {
@@ -61,6 +68,7 @@ async function saveSettings() {
     detectionModel: settings.value.detectionModel,
     segmentationModel: settings.value.segmentationModel,
     defectStrategy: settings.value.defectStrategy,
+    activeModel: settings.value.activeModel,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
 }
@@ -171,6 +179,14 @@ function changeLanguage(lang) {
               <option value="sam3_prompt">{{ t('settings.strategySam3') }}</option>
             </select>
           </div>
+          <div class="form-row">
+            <label>{{ t('settings.activeModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
+              <option value="">{{ t('settings.noModelSelected') }}</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
+          </div>
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>
           </div>
@@ -269,6 +285,12 @@ function changeLanguage(lang) {
   font-size: 12px;
   font-weight: 600;
   color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.form-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-ink-subtle);
   letter-spacing: 0.16px;
 }
 .text-input {

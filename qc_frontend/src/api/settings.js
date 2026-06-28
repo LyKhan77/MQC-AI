@@ -6,6 +6,7 @@ export function mapSettings(s) {
     detectionModel: s.detection_model,
     segmentationModel: s.segmentation_model,
     defectStrategy: s.defect_strategy,
+    activeModel: s.active_model,
   }
 }
 
@@ -19,5 +20,6 @@ export async function updateSettings(patch) {
   if (patch.detectionModel !== undefined) body.detection_model = patch.detectionModel
   if (patch.segmentationModel !== undefined) body.segmentation_model = patch.segmentationModel
   if (patch.defectStrategy !== undefined) body.defect_strategy = patch.defectStrategy
+  if (patch.activeModel !== undefined) body.active_model = patch.activeModel
   return mapSettings(await apiPut('/settings', body))
 }

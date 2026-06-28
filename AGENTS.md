@@ -75,7 +75,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
-- **Settings**: API-backed camera CRUD, model config (confidence threshold, detection/segmentation model, defect strategy), preferences (language, theme).
+- **Settings**: API-backed camera CRUD, active detection model switcher, model config (confidence threshold, detection/segmentation model, defect strategy), preferences (language, theme).
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
 
@@ -85,7 +85,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - SQLite metadata for cameras, defect classes, settings, audit logs, batches, images, and defects.
 - CRUD APIs for cameras, defect classes, settings, and audit logs.
 - OpenCV-backed camera probe + MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), detection/counting WebSocket endpoint (`WEBSOCKET /api/cameras/{camera_id}/detect`), and background camera status monitor.
-- Server-only object detection dependencies in `requirements-ml.txt`; `MQC_MODEL_PATH` config selects the `.pt` model, with ML imports kept lazy for laptop tests.
+- Server-only object detection dependencies in `requirements-ml.txt`; `qc_server/models/*.pt` files are listed by `/api/models`, Settings persists `active_model`, and ML imports stay lazy for laptop tests.
 - Async batch **defect** segmentation over crop folders via **polling** (`job_id` → poll status).
 - Pluggable defect strategy interface with deterministic `mock` strategy implemented; real `sam3_prompt` deferred to M4.
 - Filesystem result output under `qc_server/data/batches/<batch_id>/result.json` and crop serving via `/api/images/{image_id}/file`.
@@ -122,6 +122,7 @@ MQC-AI/
 │       │   ├── audit.js             # Audit log API
 │       │   ├── batches.js           # Batch submit/status/result/list/review API
 │       │   ├── cameras.js           # Camera CRUD API
+│       │   ├── models.js            # Detection model list API
 │       │   └── settings.js          # Settings API with snake/camel mapping
 │       ├── router/
 │       │   └── index.js             # 6 named routes
@@ -157,6 +158,8 @@ MQC-AI/
 ├── qc_server/                # FastAPI backend (M0-M3 done, mock strategy)
 │   ├── requirements.txt
 │   ├── requirements-ml.txt
+│   ├── models/
+│   │   └── README.md                # Drop .pt weights here; weights are gitignored
 │   ├── pyproject.toml
 │   ├── .env.example
 │   ├── README.md
@@ -173,6 +176,7 @@ MQC-AI/
 │   │   │   ├── cameras.py
 │   │   │   ├── defect_classes.py
 │   │   │   ├── images.py
+│   │   │   ├── models.py            # GET /api/models
 │   │   │   └── settings.py
 │   │   └── services/
 │   │       ├── camera_monitor.py    # Background camera reachability polling
@@ -298,16 +302,16 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Live Streaming Slice 2 Implemented · Backend M0-M3 Implemented
+### Status: Live Streaming Slice 2.1 Implemented · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor uses a backend WebSocket detection stream for frames, boxes, and live object count, with the Slice-1 MJPEG endpoint retained as raw fallback. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-2 are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV MJPEG streaming, detection/counting WebSocket, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4. Crop/count-gate-to-QC is Slice 3.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor uses a backend WebSocket detection stream for frames, boxes, and live object count, with the Slice-1 MJPEG endpoint retained as raw fallback. Settings lists `.pt` files from `qc_server/models/` and persists the selected `active_model` used by live detection. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-2.1 are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV MJPEG streaming, detection/counting WebSocket, model-folder switcher, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4. Crop/count-gate-to-QC is Slice 3.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, live API-backed data, detection canvas feed and object count. |
-| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-2 done; SAM3 deferred. |
+| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, live API-backed data, detection canvas feed/count, active model switcher. |
+| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-2.1 done; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
 ### Frontend Page Status
@@ -319,13 +323,13 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 | Batch History | **Functional** | None | Live batch list API wired |
 | Reports | **Functional** | None | Live batch/result API wired |
 | Audit Log | **Functional** | Local cache fallback | Live audit API wired |
-| Settings | **Functional** | None | Camera CRUD + settings API wired |
+| Settings | **Functional** | None | Camera CRUD, settings API, and active detection model switcher wired |
 
 ### Detailed Log
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-29 (Live Streaming Slice 2: detection/counting WebSocket, server-only YOLO dependencies, Live Monitor canvas overlay/count).
+**Latest version**: [Unreleased] - 2026-06-29 (Live Streaming Slice 2.1: model folder, `/api/models`, active model switcher, guarded `active_model` migration).
 
 ---
 

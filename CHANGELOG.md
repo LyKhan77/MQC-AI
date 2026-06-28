@@ -11,6 +11,44 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.1
+
+### Summary
+
+Replaced the one-path detection model config with a models folder plus Settings switcher. The backend now lists `.pt` files from `qc_server/models/`, persists `settings.active_model`, and resolves the selected file for live detection.
+
+### Added
+
+- `qc_server/app/database.py` - guarded `ensure_active_model_column()` SQLite migration for existing server databases.
+- `qc_server/app/models.py` / `qc_server/app/schemas.py` - `Setting.active_model` persistence and API schema support.
+- `GET /api/models` - lists sorted `.pt` files from `settings.models_dir` and returns the active model.
+- `qc_frontend/src/api/models.js` - model list API wrapper.
+- Settings UI active-model dropdown populated from `/api/models`.
+- Backend tests for the guarded migration, `/api/models`, `active_model` persistence, and no-active-model WebSocket close path.
+
+### Changed
+
+- `qc_server/app/services/object_detection.py` now resolves the selected model from `active_model + models_dir` and reloads YOLO when the path changes.
+- `qc_server/app/routers/cameras.py` no longer gates detection on `MQC_MODEL_PATH`; it closes `1011 "model not configured"` when no selected `.pt` exists.
+- `qc_frontend/src/api/settings.js` and `useSettings.js` now map `active_model` / `activeModel`.
+- `README.md` and `AGENTS.md` now document the model folder workflow and active model switcher.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Model storage | 2026-06-29 | `models_dir` config and `.pt` folder listing | Drop weights into `qc_server/models/`; weights stay gitignored. |
+| Settings persistence | 2026-06-29 | Guarded `active_model` column migration | Existing SQLite data is preserved; selection persists through `PUT /api/settings`. |
+| Live detection | 2026-06-29 | `resolve_model_path(setting)` + model cache keyed by path | Detection uses the active model and reloads when selection changes. |
+| Settings UI | 2026-06-29 | Active Model dropdown | Operators select the live detection model without editing env vars. |
+| Verification | 2026-06-29 | Backend and frontend suites run locally | Backend: 40 passed. Frontend: build passed, 23 tests passed. GPU model smoke pending on server. |
+
+### Notes
+
+- Branch: `feat/live-streaming-slice2` (unmerged; pushed for plan-author review).
+- Deviations: plan referenced `object_detection.py`; that file already exists in the branch and was updated directly.
+- Open: Task 4 Step 7 GPU smoke must run on the server with real camera/model before merge.
+
 ## [Unreleased] - 2026-06-29 - Live Streaming Slice 2
 
 ### Summary
