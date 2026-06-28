@@ -33,3 +33,8 @@ qc_server/data/
 __pycache__/
 *.pyc
 .pytest_cache/
+# Model weights (drop into qc_server/models/, never committed)
+qc_server/models/*.pt
+qc_server/models/*.pth
+qc_server/models/*.onnx
+qc_server/models/*.engine
