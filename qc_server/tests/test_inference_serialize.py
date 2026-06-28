@@ -1,4 +1,4 @@
-from app.services.inference import Detection, serialize_detections
+from app.services.object_detection import Detection, serialize_detections
 
 
 def test_serialize_detections_shape():

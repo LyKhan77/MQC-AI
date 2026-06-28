@@ -3,7 +3,7 @@ import base64
 import cv2
 
 from .counting import count_single, update_tracking
-from .inference import detect, serialize_detections
+from .object_detection import detect, serialize_detections
 from .streaming import open_capture
 
 

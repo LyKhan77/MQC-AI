@@ -1,5 +1,5 @@
 from app.services.counting import count_single, update_tracking
-from app.services.inference import Detection
+from app.services.object_detection import Detection
 
 
 def _det(track_id=None):
