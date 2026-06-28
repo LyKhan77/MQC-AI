@@ -11,6 +11,42 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-28 - Live Streaming Slice 1
+
+### Summary
+
+Added server-side RTSP/USB camera streaming through OpenCV-backed MJPEG and real camera reachability status. Live Monitor now renders the real stream through `/api/cameras/{id}/stream`, refreshes camera status every 10 seconds, and removes fake bounding boxes/counting until Slice 2.
+
+### Added
+
+- `qc_server/app/services/streaming.py` - OpenCV capture seam, source probe, and MJPEG multipart frame generator.
+- `qc_server/app/services/camera_monitor.py` - background poll loop that updates each camera status to `online` or `offline`.
+- `GET /api/cameras/{camera_id}/stream` - uniform MJPEG stream endpoint for registered cameras.
+- `opencv-python-headless==4.*` backend dependency.
+- Backend tests for streaming service, stream endpoint, and camera status monitor. Backend suite: 30 tests green.
+- i18n keys `live.offlineNoSignal` and `live.detectionSlice2` in `id.js` and `en.js`.
+
+### Changed
+
+- `LiveMonitor.vue` now uses the MJPEG endpoint as an `<img>` feed when the selected camera is online.
+- `LiveMonitor.vue` now refreshes camera status periodically and shows an offline placeholder for offline cameras.
+- `LiveMonitor.vue` removed the fake object counter timer and bounding-box overlay; Send to QC remains available while streaming because the Source Folder is entered manually.
+- `README.md` and `AGENTS.md` now document Live Streaming Slice 1 and the OpenCV backend dependency.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Camera streaming | 2026-06-28 | OpenCV `VideoCapture` + MJPEG multipart generator | Browser consumes `/api/cameras/{id}/stream` uniformly for RTSP/USB/server-reachable sources. |
+| Camera status | 2026-06-28 | Background monitor probes each camera source every 20 seconds | Camera `status` reflects reachability; tests disable the monitor via `MQC_CAMERA_MONITOR_ENABLED=false`. |
+| Live Monitor | 2026-06-28 | Real stream image, periodic camera refresh, offline placeholder | Fake bounding boxes/counting removed; detection/counting deferred to Slice 2. |
+| Verification | 2026-06-28 | Backend + frontend suites run locally | Backend: 30 passed. Frontend: build passed, 23 tests passed. Linux real-camera smoke still requires server access. |
+
+### Notes
+
+- Branch: `feat/live-streaming-slice1` (unmerged; pushed for plan-author review).
+- Deviations: `superpowers:executing-plans` was requested but not available in this Codex environment; executed directly from the saved plan. Real RTSP Linux smoke was not run on this Windows workspace.
+
 ## [Unreleased] - 2026-06-27 - Phase C-3: Cameras + Settings on Live API
 
 ### Summary

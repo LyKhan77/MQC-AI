@@ -40,6 +40,8 @@ export default {
       usb: 'USB Camera',
     },
     waitingStream: 'Waiting for stream from edge device...',
+    offlineNoSignal: 'Camera offline - no signal',
+    detectionSlice2: 'Detection & counting coming (Slice 2)',
     detectionActive: 'Detection active',
     detectionIdle: 'Detection stopped',
     objectCount: 'Objects Detected',

@@ -44,6 +44,8 @@ export default {
       usb: 'USB Camera',
     },
     waitingStream: 'Menunggu stream dari edge device...',
+    offlineNoSignal: 'Kamera offline - tidak ada sinyal',
+    detectionSlice2: 'Deteksi & penghitungan menyusul (Slice 2)',
     detectionActive: 'Deteksi aktif',
     detectionIdle: 'Deteksi berhenti',
     objectCount: 'Objek Terdeteksi',

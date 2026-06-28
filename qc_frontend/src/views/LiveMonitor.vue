@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
@@ -24,15 +24,24 @@ const batchNameInput = ref('')
 const sourcePathInput = ref('')
 const sendError = ref('')
 
-let mockInterval = null
-
 const selectedCamera = computed(() =>
   cameras.value.find((c) => c.id === selectedCameraId.value),
 )
 
 const onlineCameras = computed(() => cameras.value.filter((c) => c.status === 'online'))
 
-onMounted(refreshCameras)
+const streamUrl = computed(() =>
+  selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : '',
+)
+
+let statusTimer = null
+onMounted(() => {
+  refreshCameras()
+  statusTimer = setInterval(refreshCameras, 10000)
+})
+onUnmounted(() => {
+  if (statusTimer) clearInterval(statusTimer)
+})
 
 async function startDetection() {
   if (!selectedCamera.value) return
@@ -42,23 +51,12 @@ async function startDetection() {
   detecting.value = true
 
   fps.value = selectedCamera.value.fps
-  tempC.value = 42 + Math.floor(Math.random() * 8)
-
-  mockInterval = setInterval(() => {
-    objectCount.value += Math.floor(Math.random() * 3) + 1
-    tempC.value = 42 + Math.floor(Math.random() * 8)
-    fps.value = selectedCamera.value.fps + Math.floor(Math.random() * 5 - 2)
-  }, 1000)
 
   log('CAMERA_STARTED', `Started ${selectedCamera.value.name} (${selectedCameraId.value})`)
 }
 
 function stopDetection() {
   detecting.value = false
-  if (mockInterval) {
-    clearInterval(mockInterval)
-    mockInterval = null
-  }
   log('CAMERA_STOPPED', `Stopped ${selectedCamera.value.name} (${selectedCameraId.value})`)
 }
 
@@ -111,7 +109,7 @@ function onCameraChange() {
         <button
           v-if="!detecting"
           class="btn-primary"
-          :disabled="!selectedCameraId || connecting || selectedCamera?.status === 'offline'"
+          :disabled="!selectedCameraId || connecting"
           @click="startDetection"
         >
           {{ connecting ? t('live.connecting') : t('live.startDetection') }}
@@ -121,7 +119,7 @@ function onCameraChange() {
         </button>
 
         <button
-          v-if="detecting && objectCount > 0"
+          v-if="detecting"
           class="btn-secondary"
           @click="openSendDialog"
         >
@@ -132,8 +130,10 @@ function onCameraChange() {
 
     <div class="status-strip">
       <div class="status-item">
-        <span class="status-led" :class="detecting ? 'on' : 'off'"></span>
-        <span class="status-text">{{ detecting ? t('live.detectionActive') : t('live.detectionIdle') }}</span>
+        <span class="status-led" :class="selectedCamera?.status === 'online' ? 'on' : 'off'"></span>
+        <span class="status-text">
+          {{ selectedCamera ? t(`live.${selectedCamera.status}`) : t('live.noCameraSelected') }}
+        </span>
       </div>
       <div class="status-item">
         <span class="metric-label">{{ t('live.objectCount') }}</span>
@@ -151,15 +151,17 @@ function onCameraChange() {
 
     <div class="video-stage">
       <div v-if="detecting" class="video-feed">
-        <div class="mock-feed">
-          <div class="bbox-overlay">
-            <div class="bbox" v-for="n in Math.min(objectCount, 5)" :key="n"
-              :style="{ top: `${15 + n * 12}%`, left: `${10 + n * 15}%`, width: '80px', height: '60px' }">
-              <span class="bbox-label">obj_{{ String(n).padStart(3, '0') }} ({{ (0.8 + Math.random() * 0.19).toFixed(2) }})</span>
-            </div>
-          </div>
-          <p class="feed-placeholder">Live Feed: {{ selectedCamera?.name }}<br />{{ selectedCamera?.resolution }} @ {{ fps }}fps</p>
+        <img
+          v-if="selectedCamera?.status === 'online'"
+          :src="streamUrl"
+          class="stream-img"
+          :alt="selectedCamera?.name"
+        />
+        <div v-else class="placeholder-content">
+          <p>{{ t('live.offlineNoSignal') }}</p>
+          <p class="mono endpoint">{{ selectedCamera?.source }}</p>
         </div>
+        <p class="slice2-hint">{{ t('live.detectionSlice2') }}</p>
       </div>
       <div v-else class="video-placeholder">
         <div v-if="selectedCamera" class="placeholder-content">
@@ -384,6 +386,7 @@ function onCameraChange() {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 .placeholder-content {
   text-align: center;
@@ -402,43 +405,22 @@ function onCameraChange() {
   font-size: 12px;
   color: var(--color-ink-subtle);
 }
-.mock-feed {
+.stream-img {
   width: 100%;
   height: 100%;
-  position: relative;
-  background: #0a0a0a;
+  object-fit: contain;
+  background: black;
 }
-.feed-placeholder {
+.slice2-hint {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #333;
-  font-size: 14px;
-  text-align: center;
+  bottom: 8px;
+  left: 8px;
   margin: 0;
+  font-size: 11px;
+  color: var(--color-ink-subtle);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
   letter-spacing: 0.16px;
-}
-.bbox-overlay {
-  position: absolute;
-  inset: 0;
-}
-.bbox {
-  position: absolute;
-  border: 2px solid var(--color-success);
-  background: rgba(36, 161, 72, 0.08);
-}
-.bbox-label {
-  position: absolute;
-  top: -18px;
-  left: 0;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-success);
-  background: #0a0a0a;
-  padding: 1px 4px;
-  white-space: nowrap;
-  font-family: var(--font-mono);
 }
 
 /* Dialog */
