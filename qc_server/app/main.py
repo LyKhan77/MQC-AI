@@ -11,6 +11,7 @@ from .routers import (
     cameras,
     defect_classes,
     images,
+    models as models_router,
     settings as settings_router,
 )
 
@@ -52,6 +53,7 @@ def health():
 
 app.include_router(cameras.router)
 app.include_router(defect_classes.router)
+app.include_router(models_router.router)
 app.include_router(settings_router.router)
 app.include_router(audit.router)
 app.include_router(batches.router)

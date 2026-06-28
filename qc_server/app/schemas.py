@@ -35,6 +35,7 @@ class SettingOut(BaseModel):
     detection_model: str
     segmentation_model: str
     defect_strategy: str
+    active_model: str
 
 
 class SettingUpdate(BaseModel):
@@ -42,6 +43,7 @@ class SettingUpdate(BaseModel):
     detection_model: str | None = None
     segmentation_model: str | None = None
     defect_strategy: str | None = None
+    active_model: str | None = None
 
 
 class AuditLogIn(BaseModel):
