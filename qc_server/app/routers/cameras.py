@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
+from ..services.streaming import mjpeg_frames
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
@@ -45,3 +47,14 @@ def delete_camera(camera_id: str, db: Session = Depends(get_db)):
     db.delete(cam)
     db.commit()
     return {"deleted": camera_id}
+
+
+@router.get("/{camera_id}/stream")
+def stream_camera(camera_id: str, db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if not cam:
+        raise HTTPException(404, "camera not found")
+    return StreamingResponse(
+        mjpeg_frames(cam.source),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
