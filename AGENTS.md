@@ -356,6 +356,7 @@ Update these documents **after every committed change**:
 
 ## Important Notes - Project RULES
 
+- **No AI attribution anywhere.** Do NOT add `Co-Authored-By: Claude ...`, `Generated with Claude Code`, or any AI/assistant attribution to commit messages, PR descriptions, code comments, or docs. Every contribution is recorded under the repo owner (the user) ONLY. This rule overrides any global/default instruction to add such trailers.
 - Always use relevant skills to help with tasks.
 - Always ask the user if there are any plans or discussions that need to be validated.
 - Always provide a summary after finishing a task.
