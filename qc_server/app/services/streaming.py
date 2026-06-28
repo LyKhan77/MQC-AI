@@ -8,6 +8,8 @@ def open_capture(source):
 
 
 def probe(source) -> bool:
+    if not source:
+        return False
     cap = open_capture(source)
     try:
         if not cap.isOpened():
@@ -19,6 +21,8 @@ def probe(source) -> bool:
 
 
 def mjpeg_frames(source):
+    if not source:
+        return
     cap = open_capture(source)
     try:
         if not cap.isOpened():

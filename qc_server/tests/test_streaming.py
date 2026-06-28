@@ -36,6 +36,15 @@ def test_probe_false_when_not_opened(monkeypatch):
     assert streaming.probe("rtsp://x") is False
 
 
+def test_empty_source_is_skipped_without_opening(monkeypatch):
+    def boom(src):
+        raise AssertionError("open_capture must not be called for an empty source")
+
+    monkeypatch.setattr(streaming, "open_capture", boom)
+    assert streaming.probe("") is False
+    assert list(streaming.mjpeg_frames("")) == []
+
+
 def test_mjpeg_frames_yields_multipart_jpeg(monkeypatch):
     monkeypatch.setattr(streaming, "open_capture", lambda src: FakeCapture(["f1", "f2"]))
     monkeypatch.setattr(streaming.cv2, "imencode", lambda ext, frame: (True, FakeBuf(b"JPG")))
