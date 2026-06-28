@@ -33,6 +33,7 @@ class Setting(Base):
     detection_model: Mapped[str] = mapped_column(String, default="YOLOv8n")
     segmentation_model: Mapped[str] = mapped_column(String, default="SAM3")
     defect_strategy: Mapped[str] = mapped_column(String, default="mock")
+    active_model: Mapped[str] = mapped_column(String, default="")
 
 
 class AuditLog(Base):
