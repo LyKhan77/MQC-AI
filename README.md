@@ -10,8 +10,8 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, real MJPEG camera feed |
-| `qc_server/` | **Active (M0-M3 + streaming slice 1)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera MJPEG streaming, real camera status monitor |
+| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, detection WebSocket overlay |
+| `qc_server/` | **Active (M0-M3 + streaming slices 1-2)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera streaming, detection WebSocket, real camera status monitor |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
 ### End-to-End Workflow
@@ -29,7 +29,7 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 
 > **Phase C-3 integration note:** The dashboard now uses the live `qc_server` API for QC Studio, Live Monitor's "Send to QC", Batch History, Reports, Audit Log, Cameras, and Settings via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Settings now persists model configuration, confidence threshold, and `defect_strategy` to `/api/settings`.
 >
-> **Live Streaming Slice 1:** Live Monitor now consumes `GET /api/cameras/{id}/stream` as an MJPEG `<img>` feed and displays real camera `online`/`offline` status from the backend monitor. Object detection, overlays, and counting are deferred to Slice 2 (`roboflow/inference`).
+> **Live Streaming Slice 2:** Live Monitor now consumes `WEBSOCKET /api/cameras/{id}/detect` for camera frames, detection boxes, and live object count. `GET /api/cameras/{id}/stream` remains available as the raw MJPEG fallback. Object detection uses server-only ML deps in `qc_server/requirements-ml.txt`; the server must set `MQC_MODEL_PATH=/path/to/model.pt`.
 >
 > **Phase C-2.1 review sign-off:** QC Studio has an explicit **"Mark Reviewed"** sign-off button (enabled only once every image is reviewed) that transitions a batch from `done` → `reviewed` (reviewer `inspector@gspemail.com`) and logs `BATCH_REVIEWED`. Batch History shows a **Reviewed (X/Y)** column and visually distinct pills: `done` is neutral, `reviewed` is green, `failed` is red. The backend `GET /api/batches` includes a computed `reviewed_count` per batch.
 
@@ -59,7 +59,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 | Route | Page | Description |
 |---|---|---|
-| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), real MJPEG feed, real online/offline status, Send to QC dialog |
+| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), live detection canvas overlay, live object count, real online/offline status, Send to QC dialog |
 | `/qc` | **QC Studio** | 3-column inspection: batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status |
 | `/reports` | **Reports** | PDF audit report generator with summary, defect table, approval fields |
@@ -73,8 +73,8 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Collapsible sidebar navigation** dengan 6 menu items
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
-- **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams real MJPEG video and shows real camera status
-- **Detection/counting deferred**: object detection overlays and live counts arrive in Slice 2 (`roboflow/inference`)
+- **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams frames through the detection WebSocket and shows real camera status
+- **Live detection/counting**: object boxes and live count render on a `<canvas>` from `WEBSOCKET /api/cameras/{id}/detect`; `single` count mode is per-frame, `tracking` is cumulative unique track IDs
 - **Dynamic defect colors**: CSS variable resolution, siap untuk dynamic colors dari SAM3 backend
 
 ### Commands
@@ -98,6 +98,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Pydantic v2** + `pydantic-settings`
 - **Pillow** for image metadata
 - **OpenCV headless** for RTSP/USB camera probe + MJPEG frame encoding
+- **Ultralytics + supervision** for server-side object detection/counting, installed separately from `requirements-ml.txt`
 - **pytest** + FastAPI TestClient
 
 ### Commands
@@ -111,7 +112,9 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 ### Current Scope
 
-Implemented M0-M3 plus Live Streaming Slice 1: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` MJPEG streaming, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4; object detection/counting is Slice 2.
+Implemented M0-M3 plus Live Streaming Slices 1-2: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` MJPEG streaming, `WEBSOCKET /api/cameras/{id}/detect` detection/counting stream, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4; crop/count-gate-to-QC is Slice 3.
+
+Server-only detection dependencies are kept out of the laptop/base install. On the GPU server, install a CUDA-matched `torch` first, then `cd qc_server && .venv/bin/python -m pip install -r requirements-ml.txt`, set `MQC_MODEL_PATH`, and run the backend.
 
 ## Design System
 

@@ -11,6 +11,44 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 2
+
+### Summary
+
+Added detection/counting overlay for Live Monitor through a backend WebSocket. The backend streams JPEG frames plus serialized detections/counts from a server-only YOLO path, while the frontend renders frames and boxes on a canvas.
+
+### Added
+
+- `qc_server/requirements-ml.txt` - server-only `ultralytics` and `supervision` dependency pins; CUDA-matched `torch` remains a server install prerequisite.
+- `qc_server/app/services/inference/__init__.py` - object `Detection` dataclass, pure `serialize_detections`, lazy `load_model()`, and lazy `detect()` using `MQC_MODEL_PATH`.
+- `qc_server/app/services/counting.py` - pure `count_single` and `update_tracking` helpers.
+- `qc_server/app/services/detect_stream.py` - detection message generator that reads camera frames, runs detection, applies optional ByteTrack tracking, and yields base64 frame/detection/count JSON.
+- `WEBSOCKET /api/cameras/{camera_id}/detect` - forwards detection messages and closes with `1011` when the camera or model config is unavailable.
+- Backend tests for detection serialization, counting helpers, and the WebSocket route. Backend suite: 36 tests green.
+
+### Changed
+
+- `qc_frontend/src/views/LiveMonitor.vue` now opens the detection WebSocket on Start, draws incoming frames on a canvas, overlays detection boxes/labels, updates live object count, and closes the socket on Stop/unmount.
+- `qc_frontend/vite.config.js` enables `ws: true` for the `/api` dev proxy.
+- `id.js` and `en.js` add `live.modelNotConfigured` for the unset `MQC_MODEL_PATH` close path.
+- `README.md` and `AGENTS.md` now document Live Streaming Slice 2, server-only ML dependencies, and the retained MJPEG fallback.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Detection transport | 2026-06-29 | WebSocket `/api/cameras/{id}/detect` yielding `frame`, `detections`, and `count` | Browser receives live inference payloads without removing raw MJPEG fallback. |
+| Object inference | 2026-06-29 | Lazy YOLO load from `MQC_MODEL_PATH`; ML imports stay inside functions | Laptop tests pass without ML deps, GPU server owns real model smoke. |
+| Counting | 2026-06-29 | Pure single-frame and cumulative tracking count helpers | `single` returns per-frame detection count; `tracking` counts unique track IDs. |
+| Live Monitor | 2026-06-29 | Canvas frame render + vector boxes + live count | Start/Stop controls own the WebSocket lifecycle; unset model path shows a config error. |
+| Verification | 2026-06-29 | Backend and frontend suites run locally | Backend: 36 passed. Frontend: build passed, 23 tests passed. GPU model smoke pending on server. |
+
+### Notes
+
+- Branch: `feat/live-streaming-slice2` (unmerged; pushed for plan-author review).
+- Deviations: existing `app/services/inference/` package already existed for defect strategies, so object detection exports were added to its `__init__.py` instead of creating a conflicting `inference.py` file.
+- Open: Task 4 Step 6 GPU smoke must run on the server with real camera/model before merge.
+
 ## [Unreleased] - 2026-06-28 - Live Streaming Slice 1
 
 ### Summary
