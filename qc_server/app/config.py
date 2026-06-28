@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     reviewer_email: str = "inspector@gspemail.com"
     cors_origins: str = "http://localhost:5757"
+    camera_monitor_enabled: bool = True
+    camera_poll_interval: int = 20
 
 
 settings = Settings()

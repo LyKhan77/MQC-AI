@@ -36,6 +36,12 @@ def on_startup():
         seed_if_empty(db)
     finally:
         db.close()
+    if settings.camera_monitor_enabled:
+        import threading
+        from .database import SessionLocal as _SessionLocal
+        from .services.camera_monitor import start_monitor
+        app.state.camera_monitor_stop = threading.Event()
+        start_monitor(_SessionLocal, settings.camera_poll_interval, app.state.camera_monitor_stop)
 
 
 @app.get("/health")
