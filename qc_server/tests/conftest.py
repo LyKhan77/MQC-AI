@@ -4,6 +4,7 @@ import tempfile
 _TMP = tempfile.mkdtemp()
 os.environ.setdefault("MQC_DATABASE_URL", f"sqlite:///{_TMP}/test.db")
 os.environ.setdefault("MQC_DATA_DIR", _TMP)
+os.environ.setdefault("MQC_CAMERA_MONITOR_ENABLED", "false")
 
 import pytest
 from fastapi.testclient import TestClient
