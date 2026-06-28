@@ -16,11 +16,11 @@ def test_detect_ws_forwards_messages(client, monkeypatch):
                                          "confidence": 0.9, "track_id": 1}], "count": 1},
         {"frame": "BBB", "detections": [], "count": 1},
     ]
-    monkeypatch.setattr(cameras_router.settings, "model_path", "model.pt")
+    monkeypatch.setattr(cameras_router, "resolve_model_path", lambda setting: "model.pt")
     monkeypatch.setattr(
         cameras_router,
         "detection_messages",
-        lambda camera, conf_threshold: iter(fake),
+        lambda camera, conf_threshold, model_path: iter(fake),
     )
 
     with client.websocket_connect("/api/cameras/cam-d/detect") as ws:
@@ -31,4 +31,18 @@ def test_detect_ws_forwards_messages(client, monkeypatch):
 def test_detect_ws_unknown_camera_closes(client):
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/api/cameras/nope/detect") as ws:
+            ws.receive_json()
+
+
+def test_detect_ws_no_active_model_closes(client, monkeypatch):
+    client.post("/api/cameras", json={
+        "id": "cam-nm",
+        "name": "NM",
+        "type": "rtsp",
+        "source": "rtsp://x",
+    })
+    monkeypatch.setattr(cameras_router, "resolve_model_path", lambda setting: None)
+
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/api/cameras/cam-nm/detect") as ws:
             ws.receive_json()

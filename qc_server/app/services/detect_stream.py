@@ -7,7 +7,7 @@ from .object_detection import detect, serialize_detections
 from .streaming import open_capture
 
 
-def detection_messages(camera, conf_threshold):
+def detection_messages(camera, conf_threshold, model_path):
     if not camera.source:
         return
     cap = open_capture(camera.source)
@@ -24,7 +24,7 @@ def detection_messages(camera, conf_threshold):
             ok, frame = cap.read()
             if not ok:
                 break
-            detections = detect(frame, conf_threshold)
+            detections = detect(frame, conf_threshold, model_path)
             if tracker is not None:
                 detections = _apply_tracker(tracker, detections)
                 count = update_tracking(seen_ids, detections)

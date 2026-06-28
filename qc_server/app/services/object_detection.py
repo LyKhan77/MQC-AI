@@ -1,8 +1,10 @@
+import os
 from dataclasses import dataclass
 
 from ..config import settings
 
 _model = None
+_model_path = None
 
 
 @dataclass
@@ -28,22 +30,29 @@ def serialize_detections(detections):
     ]
 
 
-def load_model():
-    global _model
-    if _model is None:
-        if not settings.model_path:
-            raise RuntimeError("MQC_MODEL_PATH is not configured")
+def resolve_model_path(setting):
+    name = getattr(setting, "active_model", "") or ""
+    if not name:
+        return None
+    path = os.path.join(settings.models_dir, name)
+    return path if os.path.isfile(path) else None
+
+
+def get_model(model_path):
+    global _model, _model_path
+    if _model is None or _model_path != model_path:
         from ultralytics import YOLO  # lazy, server-only
 
-        _model = YOLO(settings.model_path)
+        _model = YOLO(model_path)
+        _model_path = model_path
     return _model
 
 
-def detect(frame, conf_threshold):
+def detect(frame, conf_threshold, model_path):
     # Smoke-verified on the GPU server. Unit tests avoid ML deps.
     import supervision as sv  # lazy, server-only
 
-    model = load_model()
+    model = get_model(model_path)
     results = model(frame, verbose=False)[0]
     sv_det = sv.Detections.from_ultralytics(results)
     if sv_det.confidence is not None:
