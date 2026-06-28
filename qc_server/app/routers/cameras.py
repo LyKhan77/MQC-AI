@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.websockets import WebSocketDisconnect
 
+from ..config import settings
+from ..database import SessionLocal
 from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
+from ..services.detect_stream import detection_messages
 from ..services.streaming import mjpeg_frames
+from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
@@ -58,3 +63,24 @@ def stream_camera(camera_id: str, db: Session = Depends(get_db)):
         mjpeg_frames(cam.source),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
+
+
+@router.websocket("/{camera_id}/detect")
+async def detect_ws(websocket: WebSocket, camera_id: str):
+    await websocket.accept()
+    db = SessionLocal()
+    try:
+        cam = db.get(Camera, camera_id)
+        if not cam:
+            await websocket.close(code=1011, reason="camera not found")
+            return
+        if not settings.model_path:
+            await websocket.close(code=1011, reason="model not configured")
+            return
+        conf = get_or_create_setting(db).confidence_threshold
+        for message in detection_messages(cam, conf):
+            await websocket.send_json(message)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        db.close()
