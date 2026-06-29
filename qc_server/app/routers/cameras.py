@@ -8,11 +8,11 @@ from ..config import settings as app_settings
 from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
-from ..services.annotated_stream import annotated_mjpeg
+from ..services.annotated_stream import annotated_mjpeg, downscale
 from ..services.crop_session import get_session, reset_session
 from ..services.frame_grabber import FrameGrabber
-from ..services.object_detection import resolve_model_path
-from ..services.streaming import mjpeg_frames
+from ..services.object_detection import detect, resolve_model_path
+from ..services.streaming import grab_one, mjpeg_frames
 from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
@@ -80,13 +80,10 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
         raise HTTPException(409, "model not configured")
 
     grabber = FrameGrabber(cam.source).start()
-    session = reset_session(camera_id)
-    if cam.count_mode == "tracking":
-        def crop_sink(frame, detections, scale):
-            session.add_tracked(frame, detections, scale)
-    else:
-        def crop_sink(frame, detections, scale):
-            session.add_clean_frame(frame, detections, scale)
+    session = get_session(camera_id)
+
+    def crop_sink(frame, detections, scale):
+        session.add_tracked(frame, detections, scale)
 
     def on_stats(count, fps):
         _latest_stats[camera_id] = {"count": count, "fps": fps}
@@ -128,6 +125,52 @@ def finalize_crop_session(camera_id: str, db: Session = Depends(get_db)):
         for f in result["files"]
     ]
     return {"count": result["count"], "folder": result["folder"], "crop_urls": urls}
+
+
+@router.post("/{camera_id}/crop-session/start")
+def start_crop_session(camera_id: str, db: Session = Depends(get_db)):
+    if not db.get(Camera, camera_id):
+        raise HTTPException(404, "camera not found")
+    session = reset_session(camera_id)
+    return {"session_ts": session.session_ts}
+
+
+@router.post("/{camera_id}/capture")
+def capture(camera_id: str, db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if not cam:
+        raise HTTPException(404, "camera not found")
+    setting = get_or_create_setting(db)
+    model_path = resolve_model_path(setting)
+    if not model_path:
+        raise HTTPException(409, "model not configured")
+
+    frame = grab_one(cam.source)
+    if frame is None:
+        raise HTTPException(503, "camera frame unavailable")
+
+    small = downscale(frame, app_settings.stream_max_width)
+    scale = frame.shape[1] / small.shape[1] if small.shape[1] else 1.0
+    detections = detect(small, setting.confidence_threshold, model_path)
+
+    session = get_session(camera_id)
+    written = session.add_captured(frame, detections, scale)
+    result = session.finalize()
+    ts = result["session_ts"]
+    urls = [f"/api/cameras/{camera_id}/crops/{ts}/{f}" for f in result["files"]]
+    return {"captured": len(written), "total_count": result["count"], "crop_urls": urls}
+
+
+@router.post("/{camera_id}/crop-session/approve")
+def approve_crops(camera_id: str, payload: dict, db: Session = Depends(get_db)):
+    if not db.get(Camera, camera_id):
+        raise HTTPException(404, "camera not found")
+    files = payload.get("files", [])
+    folder = get_session(camera_id).approve(files)
+    if not folder:
+        raise HTTPException(400, "no crops approved")
+    from ..storage import list_images
+    return {"folder": folder, "count": len(list_images(folder))}
 
 
 @router.get("/{camera_id}/crops/{session_ts}/{filename}")
