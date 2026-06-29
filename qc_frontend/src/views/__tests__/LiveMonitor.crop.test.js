@@ -4,10 +4,18 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 
 import LiveMonitor from '../LiveMonitor.vue'
-import { finalizeCropSession } from '../../api/cameras.js'
+import { submitBatch } from '../../api/batches.js'
+import {
+  startCropSession,
+  captureDetection,
+  approveCrops,
+  finalizeCropSession,
+} from '../../api/cameras.js'
+
+const push = vi.fn()
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }))
 
 vi.mock('../../composables/useI18n.js', () => ({
@@ -51,43 +59,88 @@ vi.mock('../../api/batches.js', () => ({
 }))
 
 vi.mock('../../api/cameras.js', () => ({
+  startCropSession: vi.fn(),
+  captureDetection: vi.fn(),
+  approveCrops: vi.fn(),
   finalizeCropSession: vi.fn(),
 }))
 
-describe('LiveMonitor crop gate', () => {
+describe('LiveMonitor Auto/Manual crop flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('renders finalized crop thumbnails and enables confirm', async () => {
+    startCropSession.mockResolvedValue({ session_ts: '2026-06-29-00-00-00' })
+    captureDetection.mockResolvedValue({
+      captured: 1,
+      total_count: 1,
+      crop_urls: ['/api/cameras/cam-1/crops/x/obj_000.jpg'],
+    })
     finalizeCropSession.mockResolvedValue({
       count: 2,
       folder: '/data/crops/cam/x',
-      crop_urls: ['/a.jpg', '/b.jpg'],
+      crop_urls: [
+        '/api/cameras/cam-1/crops/x/obj_000.jpg',
+        '/api/cameras/cam-1/crops/x/obj_001.jpg',
+      ],
     })
+    approveCrops.mockResolvedValue({ folder: '/data/crops/cam/x/approved', count: 1 })
+    submitBatch.mockResolvedValue({ batch_id: 'batch-1' })
+  })
+
+  it('manual capture appends count after starting camera', async () => {
     const wrapper = mount(LiveMonitor)
 
     wrapper.vm.selectedCameraId = 'cam-1'
-    await wrapper.vm.openSendDialog()
+    wrapper.vm.mode = 'manual'
+    await wrapper.vm.startCamera()
+    await wrapper.vm.captureOnce()
     await flushPromises()
 
-    expect(wrapper.findAll('.crop-thumb')).toHaveLength(2)
+    expect(startCropSession).toHaveBeenCalledWith('cam-1')
+    expect(captureDetection).toHaveBeenCalledWith('cam-1')
+    expect(wrapper.vm.objectCount).toBe(1)
+  })
+
+  it('review renders finalized crops selected by default with confirm enabled', async () => {
+    const wrapper = mount(LiveMonitor)
+
+    wrapper.vm.selectedCameraId = 'cam-1'
+    await wrapper.vm.openReview()
+    await flushPromises()
+
+    expect(wrapper.findAll('.crop-cell')).toHaveLength(2)
+    expect(wrapper.vm.selectedCropCount).toBe(2)
     expect(wrapper.find('.dialog-actions .btn-primary').attributes('disabled')).toBeUndefined()
   })
 
-  it('disables confirm when finalize returns no crops', async () => {
-    finalizeCropSession.mockResolvedValue({
-      count: 0,
-      folder: null,
-      crop_urls: [],
-    })
+  it('disables confirm when all crops are deselected', async () => {
     const wrapper = mount(LiveMonitor)
 
     wrapper.vm.selectedCameraId = 'cam-1'
-    await wrapper.vm.openSendDialog()
+    await wrapper.vm.openReview()
+    await flushPromises()
+    wrapper.vm.crops.forEach((c) => (c.selected = false))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.selectedCropCount).toBe(0)
+    expect(wrapper.find('.dialog-actions .btn-primary').attributes('disabled')).toBeDefined()
+  })
+
+  it('approves selected crops before submitting batch', async () => {
+    const wrapper = mount(LiveMonitor)
+
+    wrapper.vm.selectedCameraId = 'cam-1'
+    await wrapper.vm.openReview()
+    await flushPromises()
+    wrapper.vm.crops[1].selected = false
+    await wrapper.vm.sendToQC()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('sendToQC.noCrops')
-    expect(wrapper.find('.dialog-actions .btn-primary').attributes('disabled')).toBeDefined()
+    expect(approveCrops).toHaveBeenCalledWith('cam-1', ['obj_000.jpg'])
+    expect(submitBatch).toHaveBeenCalledWith({
+      batchName: wrapper.vm.batchNameInput,
+      sourcePath: '/data/crops/cam/x/approved',
+      cameraId: 'cam-1',
+    })
+    expect(push).toHaveBeenCalledWith({ name: 'qc', query: { batch: 'batch-1' } })
   })
 })
