@@ -15,3 +15,7 @@ export function updateCamera(id, patch) {
 export function deleteCamera(id) {
   return apiDelete(`/cameras/${id}`)
 }
+
+export function finalizeCropSession(id) {
+  return apiPost(`/cameras/${id}/crop-session/finalize`, {})
+}

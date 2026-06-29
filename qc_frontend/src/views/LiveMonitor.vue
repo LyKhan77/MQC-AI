@@ -5,6 +5,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { submitBatch } from '../api/batches.js'
+import { finalizeCropSession } from '../api/cameras.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t } = useI18n()
@@ -23,6 +24,9 @@ const showSendDialog = ref(false)
 const batchNameInput = ref('')
 const sourcePathInput = ref('')
 const sendError = ref('')
+const cropUrls = ref([])
+const cropCount = ref(0)
+const finalizing = ref(false)
 
 const selectedCamera = computed(() =>
   cameras.value.find((c) => c.id === selectedCameraId.value),
@@ -84,11 +88,25 @@ function stopDetection() {
   }
 }
 
-function openSendDialog() {
+async function openSendDialog() {
   const now = new Date()
   const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19)
   batchNameInput.value = `batch_${ts}`
+  sendError.value = ''
+  cropUrls.value = []
+  cropCount.value = 0
+  finalizing.value = true
   showSendDialog.value = true
+  try {
+    const res = await finalizeCropSession(selectedCameraId.value)
+    cropCount.value = res.count
+    cropUrls.value = res.crop_urls
+    sourcePathInput.value = res.folder || ''
+  } catch (e) {
+    sendError.value = e.message || t('sendToQC.sendFailed')
+  } finally {
+    finalizing.value = false
+  }
 }
 
 async function sendToQC() {
@@ -210,8 +228,12 @@ function onCameraChange() {
           </div>
 
           <div class="form-row">
-            <label>{{ t('sendToQC.sourcePath') }}</label>
-            <input v-model="sourcePathInput" class="text-input" :placeholder="t('sendToQC.sourcePathPlaceholder')" />
+            <label>{{ t('sendToQC.cropReview') }} ({{ cropCount }})</label>
+            <p v-if="finalizing" class="form-hint">{{ t('sendToQC.finalizing') }}</p>
+            <p v-else-if="cropCount === 0" class="form-hint">{{ t('sendToQC.noCrops') }}</p>
+            <div v-else class="crop-grid">
+              <img v-for="(u, i) in cropUrls" :key="i" :src="u" class="crop-thumb" alt="crop" />
+            </div>
           </div>
 
           <p v-if="sendError" class="send-error">{{ sendError }}</p>
@@ -238,7 +260,7 @@ function onCameraChange() {
 
         <div class="dialog-actions">
           <button class="btn-ghost" @click="showSendDialog = false">{{ t('sendToQC.cancel') }}</button>
-          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim() || !sourcePathInput.trim()">{{ t('sendToQC.send') }}</button>
+          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim() || cropCount === 0 || finalizing">{{ t('sendToQC.send') }}</button>
         </div>
       </div>
     </div>
@@ -480,6 +502,20 @@ function onCameraChange() {
   font-size: 11px;
   color: var(--color-ink-subtle);
   letter-spacing: 0.16px;
+}
+.crop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.crop-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--color-hairline);
+  border-radius: 0px;
 }
 .info-grid {
   display: grid;
