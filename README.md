@@ -10,8 +10,8 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, annotated MJPEG detection feed |
-| `qc_server/` | **Active (M0-M3 + streaming slices 1-2.2)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera streaming, annotated MJPEG detection/counting, real camera status monitor |
+| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 6 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, annotated MJPEG detection feed/count/FPS |
+| `qc_server/` | **Active (M0-M3 + streaming slices 1-2.3)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera streaming, annotated MJPEG detection/counting/FPS, real camera status monitor |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
 ### End-to-End Workflow
@@ -29,7 +29,7 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 
 > **Phase C-3 integration note:** The dashboard now uses the live `qc_server` API for QC Studio, Live Monitor's "Send to QC", Batch History, Reports, Audit Log, Cameras, and Settings via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Settings now persists model configuration, confidence threshold, and `defect_strategy` to `/api/settings`.
 >
-> **Live Streaming Slice 2.2:** Live Monitor consumes annotated MJPEG from `GET /api/cameras/{id}/detect-stream`; the browser renders it as an `<img>`, while the metric strip polls `GET /api/cameras/{id}/count`. `GET /api/cameras/{id}/stream` remains available as the raw MJPEG fallback. Drop YOLO `.pt` weights into `qc_server/models/`, then choose the active file in **Settings → Model Configuration → Active Model**. Object detection uses server-only ML deps in `qc_server/requirements-ml.txt`.
+> **Live Streaming Slice 2.3:** Live Monitor consumes annotated MJPEG from `GET /api/cameras/{id}/detect-stream`; the browser renders it as an `<img>`, while the metric strip polls `GET /api/cameras/{id}/count` for `{ count, fps }`. The detection stream downscales before inference and caps loop FPS via `MQC_STREAM_MAX_WIDTH` / `MQC_STREAM_MAX_FPS` (defaults: `960` / `15`). `GET /api/cameras/{id}/stream` remains available as the raw MJPEG fallback. Drop YOLO `.pt` weights into `qc_server/models/`, then choose the active file in **Settings -> Model Configuration -> Active Model**. Object detection uses server-only ML deps in `qc_server/requirements-ml.txt`.
 >
 > **Phase C-2.1 review sign-off:** QC Studio has an explicit **"Mark Reviewed"** sign-off button (enabled only once every image is reviewed) that transitions a batch from `done` → `reviewed` (reviewer `inspector@gspemail.com`) and logs `BATCH_REVIEWED`. Batch History shows a **Reviewed (X/Y)** column and visually distinct pills: `done` is neutral, `reviewed` is green, `failed` is red. The backend `GET /api/batches` includes a computed `reviewed_count` per batch.
 
@@ -59,12 +59,12 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 | Route | Page | Description |
 |---|---|---|
-| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), annotated MJPEG detection feed, live object count, real online/offline status, Send to QC dialog |
+| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), annotated MJPEG detection feed, live object count/FPS, real online/offline status, Send to QC dialog |
 | `/qc` | **QC Studio** | 3-column inspection: batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status |
 | `/reports` | **Reports** | PDF audit report generator with summary, defect table, approval fields |
 | `/audit` | **Audit Log** | Auto-logged activity trail, filterable by action type |
-| `/settings` | **Settings** | Camera CRUD, active detection model switcher, model config, defect strategy, language/theme preferences |
+| `/settings` | **Settings** | Camera CRUD, active detection model switcher, decimal confidence, defect strategy, language/theme preferences |
 
 ### Key Features
 
@@ -74,8 +74,8 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
 - **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams annotated MJPEG frames and shows real camera status
-- **Live detection/counting**: object boxes and count overlay are drawn server-side in `GET /api/cameras/{id}/detect-stream`; the UI polls `GET /api/cameras/{id}/count`; `single` count mode is per-frame, `tracking` is cumulative unique track IDs
-- **Active model switcher**: `.pt` files in `qc_server/models/` are listed by `GET /api/models`; Settings persists the chosen file as `active_model`
+- **Live detection/counting/FPS**: object boxes and count overlay are drawn server-side in `GET /api/cameras/{id}/detect-stream`; the UI polls `GET /api/cameras/{id}/count` for count and real stream FPS; `single` count mode is per-frame, `tracking` is cumulative unique track IDs
+- **Active model switcher**: `.pt` files in `qc_server/models/` are listed by `GET /api/models`; Settings persists the chosen file as `active_model` and shows confidence as decimal `0.00-1.00`
 - **Dynamic defect colors**: CSS variable resolution, siap untuk dynamic colors dari SAM3 backend
 
 ### Commands
@@ -113,7 +113,9 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 ### Current Scope
 
-Implemented M0-M3 plus Live Streaming Slices 1-2.2: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream, `GET /api/cameras/{id}/count`, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4; crop/count-gate-to-QC is Slice 3.
+Implemented M0-M3 plus Live Streaming Slices 1-2.3: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream with downscale/FPS cap, `GET /api/cameras/{id}/count` returning count and FPS, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4; crop/count-gate-to-QC is Slice 3.
+
+Detection stream performance is configured with `MQC_STREAM_MAX_WIDTH` (default `960`) and `MQC_STREAM_MAX_FPS` (default `15`). Downscaling happens before detection so drawn boxes match the streamed frame.
 
 Server-only detection dependencies are kept out of the laptop/base install. On the GPU server, install a CUDA-matched `torch` first, then `cd qc_server && .venv/bin/python -m pip install -r requirements-ml.txt`, copy `.pt` weights into `qc_server/models/`, choose the active model in Settings, and run the backend.
 
@@ -147,6 +149,7 @@ Rencana implementasi disimpan di `docs/superpowers/plans/` (gitignored):
 - `2026-06-27-phase-c3-cameras-settings.md` - Cameras + Settings live API integration plan
 - `2026-06-28-live-streaming-slice1.md` - RTSP/USB camera MJPEG streaming + real online/offline status
 - `2026-06-29-detection-mjpeg-rework.md` - Detection transport rework to annotated MJPEG + latest-frame grabber
+- `2026-06-29-detection-ux-perf.md` - Detection UX polish, stream downscale/FPS cap, live FPS metric
 
 ---
 *Dokumen ini harus selalu diperbarui setiap kali ada penambahan fitur utama atau perubahan arsitektur. Lihat protocol di `AGENTS.md` > Documentation Maintenance.*

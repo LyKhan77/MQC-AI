@@ -70,12 +70,12 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 ### Frontend (current)
 
 - **Sidebar navigation shell** (collapsible) with 6 pages.
-- **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), server-annotated MJPEG detection feed with bounding-box/count overlay, polled live object count, real online/offline camera status, Start/Stop trigger, Send to QC dialog with batch name + auto-timestamp.
+- **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), server-annotated MJPEG detection feed with bounding-box/count overlay, polled live object count/FPS, real online/offline camera status, Start/Stop trigger, Send to QC dialog with batch name + auto-timestamp.
 - **QC Studio**: 3-column layout with batch sidebar (filter/search/sort/skeleton loading), inspection canvas (zoom/pan/annotation toggle), defect panel (keyboard navigation, review workflow).
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
-- **Settings**: API-backed camera CRUD, active detection model switcher, model config (confidence threshold, detection/segmentation model, defect strategy), preferences (language, theme).
+- **Settings**: API-backed camera CRUD, active detection model switcher, decimal confidence threshold, defect strategy, save toast, preferences (language, theme).
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
 
@@ -84,7 +84,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - FastAPI backend under `qc_server/` with `/health`, startup table creation, CORS, and `.env` config.
 - SQLite metadata for cameras, defect classes, settings, audit logs, batches, images, and defects.
 - CRUD APIs for cameras, defect classes, settings, and audit logs.
-- OpenCV-backed camera probe + raw MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), annotated detection MJPEG endpoint (`GET /api/cameras/{camera_id}/detect-stream`), live count endpoint (`GET /api/cameras/{camera_id}/count`), and background camera status monitor.
+- OpenCV-backed camera probe + raw MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), annotated/downscaled detection MJPEG endpoint (`GET /api/cameras/{camera_id}/detect-stream`), live count/FPS endpoint (`GET /api/cameras/{camera_id}/count`), and background camera status monitor.
 - Server-only object detection dependencies in `requirements-ml.txt`; `qc_server/models/*.pt` files are listed by `/api/models`, Settings persists `active_model`, and ML imports stay lazy for laptop tests.
 - Async batch **defect** segmentation over crop folders via **polling** (`job_id` → poll status).
 - Pluggable defect strategy interface with deterministic `mock` strategy implemented; real `sam3_prompt` deferred to M4.
@@ -143,7 +143,8 @@ MQC-AI/
 │       │   ├── useCameras.js        # Camera CRUD (live API)
 │       │   ├── useBatchHistory.js   # Batch history list (live API)
 │       │   ├── useAuditLog.js       # Audit trail logging (live API + local cache)
-│       │   └── useSettings.js       # Model config + defect strategy (live API)
+│       │   ├── useSettings.js       # Model config + defect strategy (live API)
+│       │   └── useToast.js          # App-wide transient toast message
 │       ├── views/
 │       │   ├── LiveMonitor.vue      # Camera selector + detection + send-to-QC
 │       │   ├── QCStudio.vue         # 3-column inspection studio
@@ -281,7 +282,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ```
 [Camera List] → [Select Camera] → [Start Stream]
-    → [Monitor Annotated MJPEG + Object Count + Camera Status]
+    → [Monitor Annotated MJPEG + Object Count/FPS + Camera Status]
     → [Send to QC: batch name + timestamp]
     → [SAM3 Batch Processing (backend)]
     → [QC Studio: Review defects + zoom/pan + mark reviewed]
@@ -305,34 +306,34 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Live Streaming Slice 2.2 Implemented · Backend M0-M3 Implemented
+### Status: Live Streaming Slice 2.3 Implemented · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor uses server-annotated MJPEG for detection frames/boxes/count overlay and polls `/count` for the metric strip, with the Slice-1 raw MJPEG endpoint retained as fallback. Settings lists `.pt` files from `qc_server/models/` and persists the selected `active_model` used by live detection. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-2.2 are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, model-folder switcher, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4. Crop/count-gate-to-QC is Slice 3.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor uses server-annotated MJPEG for detection frames/boxes/count overlay and polls `/count` for count + FPS in the metric strip, with the Slice-1 raw MJPEG endpoint retained as fallback. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, and confirms saves with a toast. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-2.3 are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, stream downscale/FPS cap, model-folder switcher, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4. Crop/count-gate-to-QC is Slice 3.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, live API-backed data, annotated MJPEG detection feed/count, active model switcher. |
-| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-2.2 done; SAM3 deferred. |
+| `qc_frontend/` | **Active** | 6 pages, Carbon Design System, i18n, live API-backed data, annotated MJPEG detection feed/count/FPS, active model switcher. |
+| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-2.3 done; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
 ### Frontend Page Status
 
 | Page | Status | Mock Data | Backend Ready |
 |---|---|---|---|
-| Live Monitor | **Functional** | None for camera feed/counting | Camera list, annotated MJPEG detection feed, `/count` polling, real status, and Send to QC API wired; crop/count-gate is Slice 3 |
+| Live Monitor | **Functional** | None for camera feed/counting | Camera list, annotated MJPEG detection feed, `/count` count/FPS polling, real status, and Send to QC API wired; crop/count-gate is Slice 3 |
 | QC Studio | **Functional** | None for live batches | Batch polling/result/review/sign-off API wired; real SAM3 deferred |
 | Batch History | **Functional** | None | Live batch list API wired |
 | Reports | **Functional** | None | Live batch/result API wired |
 | Audit Log | **Functional** | Local cache fallback | Live audit API wired |
-| Settings | **Functional** | None | Camera CRUD, settings API, and active detection model switcher wired |
+| Settings | **Functional** | None | Camera CRUD, settings API, active detection model switcher, decimal confidence, and save toast wired |
 
 ### Detailed Log
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-29 (Live Streaming Slice 2.2: annotated MJPEG detection stream, latest-frame grabber, `/count`, WebSocket removal).
+**Latest version**: [Unreleased] - 2026-06-29 (Live Streaming Slice 2.3: decimal confidence, single Active Model selector, save toast, stream downscale/FPS cap, `/count` FPS).
 
 ---
 

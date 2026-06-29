@@ -48,7 +48,11 @@ async function pollCount() {
   if (!selectedCameraId.value) return
   try {
     const res = await fetch(`/api/cameras/${selectedCameraId.value}/count`)
-    if (res.ok) objectCount.value = (await res.json()).count
+    if (res.ok) {
+      const data = await res.json()
+      objectCount.value = data.count
+      fps.value = data.fps ?? 0
+    }
   } catch {
     // best-effort metric
   }
@@ -61,7 +65,6 @@ async function startDetection() {
   connecting.value = false
   detecting.value = true
 
-  fps.value = selectedCamera.value.fps
   objectCount.value = 0
   countTimer = setInterval(pollCount, 1000)
 
@@ -75,6 +78,7 @@ function stopDetection() {
   }
   detecting.value = false
   objectCount.value = 0
+  fps.value = 0
   if (selectedCamera.value) {
     log('CAMERA_STOPPED', `Stopped ${selectedCamera.value.name} (${selectedCameraId.value})`)
   }

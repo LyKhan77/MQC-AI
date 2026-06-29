@@ -11,6 +11,46 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.3
+
+### Summary
+
+Polished detection operator UX and reduced live stream lag. Settings now uses decimal confidence, a single Active Model selector, and a save toast; the annotated MJPEG stream is downscaled/FPS-capped and `/count` reports live FPS for the metric strip.
+
+### Added
+
+- `qc_server/app/config.py` - `stream_max_width` and `stream_max_fps` settings.
+- `qc_server/app/services/annotated_stream.py` - `downscale(frame, max_width)` helper plus FPS tracking/capping in `annotated_mjpeg()`.
+- `qc_frontend/src/composables/useToast.js` - singleton app toast composable.
+- App-level toast rendering in `qc_frontend/src/App.vue`.
+- `/api/cameras/{camera_id}/count` now returns `{"count": int, "fps": float}`.
+
+### Changed
+
+- Annotated MJPEG detection now downscales frames before `detect()` so boxes stay aligned with the encoded frame.
+- Live Monitor now reads real FPS from `/count` instead of the camera mock value.
+- Settings model config now shows confidence as a decimal number input and saves only confidence, defect strategy, and active model.
+- README and AGENTS now document Slice 2.3 stream performance and Settings UX.
+
+### Removed
+
+- Settings free-text Detection Model and Segmentation Model fields.
+- Settings confidence percentage slider.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Detection stream performance | 2026-06-29 | `stream_max_width`, `stream_max_fps`, downscale-before-detect, FPS cap | Annotated MJPEG sends smaller frames and avoids unbounded loop rate. |
+| Live metrics | 2026-06-29 | `/count` returns count and FPS; Live Monitor consumes both | Metric strip shows live stream FPS from the backend. |
+| Settings UX | 2026-06-29 | Decimal confidence input, single Active Model selector, save toast | Model config is less ambiguous and confirms saves. |
+| Verification | 2026-06-29 | Backend and frontend suites run locally | Backend: 46 passed. Frontend: build passed, 23 tests passed. GPU/RTSP smoothness + FPS smoke pending on server. |
+
+### Notes
+
+- Branch: `feat/live-streaming-slice2` (unmerged; pushed for plan-author review).
+- Open: Task 3 Step 3 GPU/RTSP smoothness + FPS smoke must run on the server.
+
 ## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.2
 
 ### Summary
