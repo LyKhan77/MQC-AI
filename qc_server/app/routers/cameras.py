@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 from starlette.websockets import WebSocketDisconnect
 
 from ..database import SessionLocal
@@ -79,8 +80,20 @@ async def detect_ws(websocket: WebSocket, camera_id: str):
         if not model_path:
             await websocket.close(code=1011, reason="model not configured")
             return
-        for message in detection_messages(cam, setting.confidence_threshold, model_path):
-            await websocket.send_json(message)
+        # Run the blocking capture+inference generator in a threadpool so the
+        # event loop stays responsive (otherwise the websockets keepalive/close
+        # races with our send and raises AssertionError in _drain_helper).
+        gen = detection_messages(cam, setting.confidence_threshold, model_path)
+        try:
+            while True:
+                message = await run_in_threadpool(lambda: next(gen, None))
+                if message is None:
+                    break
+                await websocket.send_json(message)
+        finally:
+            closer = getattr(gen, "close", None)
+            if closer is not None:
+                closer()  # release the camera promptly on disconnect/end
     except WebSocketDisconnect:
         pass
     finally:
