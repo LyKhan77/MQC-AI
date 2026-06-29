@@ -26,7 +26,7 @@ def test_detect_stream_returns_multipart(client, monkeypatch):
     monkeypatch.setattr(
         cameras_router,
         "annotated_mjpeg",
-        lambda grabber, count_mode, conf, model_path, on_stats, max_width, max_fps, crop_sink: iter(
+        lambda grabber, count_mode, conf, model_path, on_stats, max_width, max_fps, crop_sink=None, counter=None: iter(
             [b"--frame\r\nX"]
         ),
     )

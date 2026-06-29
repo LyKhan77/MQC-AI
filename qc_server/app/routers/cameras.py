@@ -12,6 +12,7 @@ from ..services.annotated_stream import annotated_mjpeg, downscale
 from ..services.crop_session import get_session, reset_session
 from ..services.frame_grabber import FrameGrabber
 from ..services.object_detection import detect, resolve_model_path
+from ..services.presence_counter import PresenceCounter
 from ..services.streaming import grab_one, mjpeg_frames
 from .settings import get_or_create_setting
 
@@ -81,9 +82,7 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
 
     grabber = FrameGrabber(cam.source).start()
     session = get_session(camera_id)
-
-    def crop_sink(frame, detections, scale):
-        session.add_tracked(frame, detections, scale)
+    counter = PresenceCounter(session)
 
     def on_stats(count, fps):
         _latest_stats[camera_id] = {"count": count, "fps": fps}
@@ -98,7 +97,7 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
                 on_stats,
                 app_settings.stream_max_width,
                 app_settings.stream_max_fps,
-                crop_sink,
+                counter=counter.update,
             )
         finally:
             grabber.stop()
