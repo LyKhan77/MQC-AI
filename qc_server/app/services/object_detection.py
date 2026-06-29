@@ -50,19 +50,21 @@ def get_model(model_path):
 
 def detect(frame, conf_threshold, model_path):
     # Smoke-verified on the GPU server. Unit tests avoid ML deps.
-    import supervision as sv  # lazy, server-only
-
     model = get_model(model_path)
-    results = model(frame, verbose=False)[0]
-    sv_det = sv.Detections.from_ultralytics(results)
-    if sv_det.confidence is not None:
-        sv_det = sv_det[sv_det.confidence >= conf_threshold]
-
+    results = model(frame, conf=conf_threshold, verbose=False)[0]
+    boxes = results.boxes
+    if boxes is None:
+        return []
     names = results.names
+
+    xyxy = boxes.xyxy.cpu().numpy()
+    class_ids = boxes.cls.cpu().numpy().astype(int)
+    confidences = boxes.conf.cpu().numpy()
+
     out = []
-    for i in range(len(sv_det)):
-        x1, y1, x2, y2 = sv_det.xyxy[i]
-        class_id = int(sv_det.class_id[i]) if sv_det.class_id is not None else -1
+    for i in range(len(boxes)):
+        x1, y1, x2, y2 = xyxy[i]
+        class_id = int(class_ids[i])
         out.append(
             Detection(
                 x1=int(x1),
@@ -70,7 +72,7 @@ def detect(frame, conf_threshold, model_path):
                 x2=int(x2),
                 y2=int(y2),
                 label=str(names.get(class_id, class_id)),
-                confidence=float(sv_det.confidence[i]) if sv_det.confidence is not None else 1.0,
+                confidence=float(confidences[i]),
             )
         )
     return out
