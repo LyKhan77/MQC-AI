@@ -1,5 +1,7 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..config import settings as app_settings
@@ -7,6 +9,7 @@ from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
 from ..services.annotated_stream import annotated_mjpeg
+from ..services.crop_session import get_session, reset_session
 from ..services.frame_grabber import FrameGrabber
 from ..services.object_detection import resolve_model_path
 from ..services.streaming import mjpeg_frames
@@ -77,6 +80,13 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
         raise HTTPException(409, "model not configured")
 
     grabber = FrameGrabber(cam.source).start()
+    session = reset_session(camera_id)
+    if cam.count_mode == "tracking":
+        def crop_sink(frame, detections, scale):
+            session.add_tracked(frame, detections, scale)
+    else:
+        def crop_sink(frame, detections, scale):
+            session.add_clean_frame(frame, detections, scale)
 
     def on_stats(count, fps):
         _latest_stats[camera_id] = {"count": count, "fps": fps}
@@ -91,6 +101,7 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
                 on_stats,
                 app_settings.stream_max_width,
                 app_settings.stream_max_fps,
+                crop_sink,
             )
         finally:
             grabber.stop()
@@ -104,3 +115,26 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
 @router.get("/{camera_id}/count")
 def camera_count(camera_id: str):
     return _latest_stats.get(camera_id, {"count": 0, "fps": 0})
+
+
+@router.post("/{camera_id}/crop-session/finalize")
+def finalize_crop_session(camera_id: str, db: Session = Depends(get_db)):
+    if not db.get(Camera, camera_id):
+        raise HTTPException(404, "camera not found")
+    result = get_session(camera_id).finalize()
+    ts = result["session_ts"]
+    urls = [
+        f"/api/cameras/{camera_id}/crops/{ts}/{f}"
+        for f in result["files"]
+    ]
+    return {"count": result["count"], "folder": result["folder"], "crop_urls": urls}
+
+
+@router.get("/{camera_id}/crops/{session_ts}/{filename}")
+def serve_crop(camera_id: str, session_ts: str, filename: str):
+    path = os.path.join(
+        app_settings.data_dir, "crops", camera_id, session_ts, filename
+    )
+    if not os.path.isfile(path):
+        raise HTTPException(404, "crop not found")
+    return FileResponse(path, media_type="image/jpeg")
