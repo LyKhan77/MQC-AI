@@ -215,7 +215,7 @@ export default {
     languageId: 'Bahasa Indonesia',
     languageEn: 'English',
     save: 'Simpan',
-    saved: 'Tersimpan',
+    saved: 'Konfigurasi tersimpan',
     confirmDelete: 'Yakin ingin menghapus kamera ini?',
   },
 

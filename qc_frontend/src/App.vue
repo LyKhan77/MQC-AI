@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import AppSidebar from './components/AppSidebar.vue'
 import TopBar from './components/TopBar.vue'
+import { useToast } from './composables/useToast.js'
 
 const collapsed = ref(false)
+const { message: toastMessage } = useToast()
 </script>
 
 <template>
@@ -16,6 +18,7 @@ const collapsed = ref(false)
       </div>
     </div>
   </div>
+  <div v-if="toastMessage" class="app-toast">{{ toastMessage }}</div>
 </template>
 
 <style scoped>
@@ -35,5 +38,18 @@ const collapsed = ref(false)
 .content-area {
   flex: 1;
   overflow: hidden;
+}
+
+.app-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-ink);
+  color: var(--color-canvas);
+  padding: 10px 18px;
+  font-size: 13px;
+  letter-spacing: 0.16px;
+  z-index: 2000;
 }
 </style>

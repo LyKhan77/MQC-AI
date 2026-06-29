@@ -4,12 +4,14 @@ import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
+import { useToast } from '../composables/useToast.js'
 import { listModels } from '../api/models.js'
 
 const { t, locale, setLocale } = useI18n()
 const { cameras, refresh: refreshCameras, addCamera, updateCamera, deleteCamera } = useCameras()
 const { settings, refresh: refreshSettings, update } = useSettings()
 const { log } = useAuditLog()
+const { showToast } = useToast()
 
 const editingId = ref(null)
 const showForm = ref(false)
@@ -65,12 +67,11 @@ async function removeCamera(cam) {
 async function saveSettings() {
   await update({
     confidenceThreshold: Number(settings.value.confidenceThreshold),
-    detectionModel: settings.value.detectionModel,
-    segmentationModel: settings.value.segmentationModel,
     defectStrategy: settings.value.defectStrategy,
     activeModel: settings.value.activeModel,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
+  showToast(t('settings.saved'))
 }
 
 function changeLanguage(lang) {
@@ -161,16 +162,8 @@ function changeLanguage(lang) {
         </div>
         <div class="config-grid">
           <div class="form-row">
-            <label>{{ t('settings.detectionModel') }}</label>
-            <input v-model="settings.detectionModel" class="text-input" />
-          </div>
-          <div class="form-row">
-            <label>{{ t('settings.segmentationModel') }}</label>
-            <input v-model="settings.segmentationModel" class="text-input" />
-          </div>
-          <div class="form-row">
-            <label>{{ t('settings.confidenceThreshold') }}: {{ Math.round(settings.confidenceThreshold * 100) }}%</label>
-            <input type="range" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="slider" />
+            <label>{{ t('settings.confidenceThreshold') }}</label>
+            <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
           </div>
           <div class="form-row">
             <label>{{ t('settings.defectStrategy') }}</label>
@@ -318,10 +311,6 @@ function changeLanguage(lang) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-}
-.slider {
-  width: 100%;
-  accent-color: var(--color-primary);
 }
 .btn-sm {
   padding: 6px 16px;

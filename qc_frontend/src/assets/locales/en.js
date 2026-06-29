@@ -205,7 +205,7 @@ export default {
     languageId: 'Bahasa Indonesia',
     languageEn: 'English',
     save: 'Save',
-    saved: 'Saved',
+    saved: 'Configuration saved',
     confirmDelete: 'Are you sure you want to delete this camera?',
   },
 
