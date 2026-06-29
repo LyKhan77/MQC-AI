@@ -11,6 +11,38 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Auto Presence-Cycle Crop
+
+### Summary
+
+Auto mode now crops one best-frame image per physical object using a debounced presence cycle. This fixes zero crops on single-mode cameras and avoids re-entry double-counting for workers presenting parts one at a time.
+
+### Added
+
+- `qc_server/app/services/presence_counter.py` - `PresenceCounter` state machine for present/absent debounce, cumulative count, best-confidence frame selection, and one crop per confirmed object.
+- `qc_server/app/services/annotated_stream.py` - optional `counter` callback for annotated MJPEG streams.
+- `qc_server/tests/test_presence_counter.py` - coverage for debounce, re-entry, flicker, tiny-detection filtering, and best-frame selection.
+
+### Changed
+
+- `qc_server/app/routers/cameras.py` Auto `detect-stream` now uses `PresenceCounter` bound to the active crop session.
+- Auto count is now a cumulative presence count returned through `/api/cameras/{camera_id}/count`.
+- `annotated_mjpeg()` bypasses ByteTrack and `crop_sink` when a `counter` callback is provided.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Auto crop mode | 2026-06-29 | Presence-cycle counter with best-frame crop on confirmation | Workers can present parts one at a time; each confirmed presence creates exactly one crop. |
+| Detection stream counting | 2026-06-29 | `annotated_mjpeg(counter=...)` callback path | Auto stream count/crop no longer depends on `track_id` or ByteTrack. |
+| Legacy tracking crop | 2026-06-29 | `CropSession.add_tracked()` retained but unwired from Auto | Reserved for a future conveyor Auto variant. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 80 passed. Frontend: 27 passed. Build succeeded. |
+
+### Notes
+
+- `count_mode` is now vestigial for Auto `detect-stream`; it remains in the data model for future conveyor behavior.
+- GPU + camera manual smoke is deferred to the server: one part, re-entry, brief flash, hand-only/tiny movement, and several sequential parts remain pending.
+
 ## [Unreleased] - 2026-06-29 - Live Monitor Auto/Manual Flow
 
 ### Summary
