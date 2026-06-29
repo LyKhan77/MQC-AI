@@ -11,6 +11,54 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.2
+
+### Summary
+
+Reworked live detection transport from the fragile WebSocket/base64 path to server-annotated MJPEG with a threaded latest-frame grabber. The UI now renders the annotated stream as an `<img>` and polls a tiny `/count` endpoint for the metric strip.
+
+### Added
+
+- `qc_server/app/services/frame_grabber.py` - threaded latest-frame camera reader that drops stale frames.
+- `qc_server/app/services/annotated_stream.py` - server-side detection annotation, JPEG encoding, and multipart MJPEG generator.
+- `qc_server/app/services/detect_tracker.py` - lazy `supervision` tracker helper extracted for the smoke-only tracking path.
+- `GET /api/cameras/{camera_id}/detect-stream` - annotated MJPEG detection/counting endpoint.
+- `GET /api/cameras/{camera_id}/count` - latest live count JSON endpoint for the dashboard.
+- Backend tests for the frame grabber, annotated MJPEG service, and detect-stream/count routes.
+
+### Changed
+
+- `qc_frontend/src/views/LiveMonitor.vue` now renders the annotated detection feed with `<img>` and polls `/count` every second while detection is running.
+- `qc_frontend/vite.config.js` removed the `/api` WebSocket proxy flag because detection transport is HTTP-only.
+- `README.md` and `AGENTS.md` now document annotated MJPEG detection transport and `/count`.
+
+### Fixed
+
+- Removed the WebSocket keepalive race path that could trigger `websockets` `AssertionError`.
+- Latest-frame grabbing drops stale RTSP frames instead of building lag toward 0 FPS.
+
+### Removed
+
+- `WEBSOCKET /api/cameras/{camera_id}/detect`.
+- `qc_server/app/services/detect_stream.py`.
+- `qc_server/tests/test_detect_ws.py`.
+- Frontend canvas/base64/WebSocket detection rendering.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Detection transport | 2026-06-29 | Annotated MJPEG `/detect-stream` + `<img>` frontend | No WebSocket/base64 transport remains in the live detection path. |
+| Camera frame capture | 2026-06-29 | `FrameGrabber` thread keeps only latest frame | RTSP lag is reduced by dropping stale frames. |
+| Live count | 2026-06-29 | `/count` endpoint + 1s frontend poll | Metric strip updates independently from MJPEG image transport. |
+| Tracking path | 2026-06-29 | Lazy `detect_tracker.apply_tracker()` helper | `supervision` stays server-only and smoke-verified. |
+| Verification | 2026-06-29 | Backend and frontend suites run locally | Backend: 44 passed. Frontend: build passed, 23 tests passed. GPU/RTSP smoke pending on server. |
+
+### Notes
+
+- Branch: `feat/live-streaming-slice2` (unmerged; pushed for plan-author review).
+- Open: Task 4 Step 5 GPU/RTSP smoke must run on the server before merge.
+
 ## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.1
 
 ### Summary

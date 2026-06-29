@@ -19,8 +19,6 @@ const connecting = ref(false)
 const objectCount = ref(0)
 const fps = ref(0)
 const tempC = ref(0)
-const detectionError = ref('')
-const canvasRef = ref(null)
 const showSendDialog = ref(false)
 const batchNameInput = ref('')
 const sourcePathInput = ref('')
@@ -31,17 +29,30 @@ const selectedCamera = computed(() =>
 )
 
 const onlineCameras = computed(() => cameras.value.filter((c) => c.status === 'online'))
+const detectStreamUrl = computed(() =>
+  selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/detect-stream` : '',
+)
 
 let statusTimer = null
-let ws = null
+let countTimer = null
 onMounted(() => {
   refreshCameras()
   statusTimer = setInterval(refreshCameras, 10000)
 })
 onUnmounted(() => {
   if (statusTimer) clearInterval(statusTimer)
-  closeDetectionSocket()
+  if (countTimer) clearInterval(countTimer)
 })
+
+async function pollCount() {
+  if (!selectedCameraId.value) return
+  try {
+    const res = await fetch(`/api/cameras/${selectedCameraId.value}/count`)
+    if (res.ok) objectCount.value = (await res.json()).count
+  } catch {
+    // best-effort metric
+  }
+}
 
 async function startDetection() {
   if (!selectedCamera.value) return
@@ -52,70 +63,21 @@ async function startDetection() {
 
   fps.value = selectedCamera.value.fps
   objectCount.value = 0
-  detectionError.value = ''
-  openDetectionSocket()
+  countTimer = setInterval(pollCount, 1000)
 
   log('CAMERA_STARTED', `Started ${selectedCamera.value.name} (${selectedCameraId.value})`)
 }
 
 function stopDetection() {
-  closeDetectionSocket()
+  if (countTimer) {
+    clearInterval(countTimer)
+    countTimer = null
+  }
   detecting.value = false
   objectCount.value = 0
   if (selectedCamera.value) {
     log('CAMERA_STOPPED', `Stopped ${selectedCamera.value.name} (${selectedCameraId.value})`)
   }
-}
-
-function openDetectionSocket() {
-  closeDetectionSocket()
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  ws = new WebSocket(`${proto}://${location.host}/api/cameras/${selectedCameraId.value}/detect`)
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data)
-    objectCount.value = msg.count
-    drawFrame(msg)
-  }
-  ws.onclose = (ev) => {
-    ws = null
-    if (ev.code === 1011 && ev.reason === 'model not configured') {
-      detectionError.value = t('live.modelNotConfigured')
-      detecting.value = false
-    }
-  }
-}
-
-function closeDetectionSocket() {
-  if (ws) {
-    ws.close()
-    ws = null
-  }
-}
-
-function drawFrame(msg) {
-  const canvas = canvasRef.value
-  if (!canvas) return
-  const img = new Image()
-  img.onload = () => {
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-    const ctx = canvas.getContext('2d')
-    const color = getComputedStyle(document.documentElement)
-      .getPropertyValue('--color-success')
-      .trim()
-
-    ctx.drawImage(img, 0, 0)
-    ctx.lineWidth = 2
-    ctx.strokeStyle = color
-    ctx.fillStyle = color
-    ctx.font = '14px IBM Plex Mono, monospace'
-    for (const d of msg.detections) {
-      const [x1, y1, x2, y2] = d.box
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
-      ctx.fillText(`${d.label} ${(d.confidence * 100).toFixed(0)}%`, x1, Math.max(12, y1 - 4))
-    }
-  }
-  img.src = `data:image/jpeg;base64,${msg.frame}`
 }
 
 function openSendDialog() {
@@ -147,7 +109,6 @@ async function sendToQC() {
 function onCameraChange() {
   if (detecting.value) stopDetection()
   objectCount.value = 0
-  detectionError.value = ''
 }
 </script>
 
@@ -210,20 +171,20 @@ function onCameraChange() {
 
     <div class="video-stage">
       <div v-if="detecting" class="video-feed">
-        <canvas
-          v-if="selectedCamera?.status === 'online'"
-          ref="canvasRef"
+        <img
+          v-if="selectedCamera?.status === 'online' && settings.activeModel"
+          :src="detectStreamUrl"
           class="stream-img"
-        ></canvas>
+          :alt="selectedCamera?.name"
+        />
         <div v-else class="placeholder-content">
-          <p>{{ t('live.offlineNoSignal') }}</p>
+          <p>{{ selectedCamera?.status !== 'online' ? t('live.offlineNoSignal') : t('live.modelNotConfigured') }}</p>
           <p class="mono endpoint">{{ selectedCamera?.source }}</p>
         </div>
-        <p v-if="selectedCamera?.status === 'online'" class="stream-status">{{ t('live.detecting') }}</p>
       </div>
       <div v-else class="video-placeholder">
         <div v-if="selectedCamera" class="placeholder-content">
-          <p>{{ detectionError || t('live.waitingStream') }}</p>
+          <p>{{ t('live.waitingStream') }}</p>
           <p class="mono endpoint">{{ selectedCamera.source }}</p>
           <p class="hint">{{ selectedCamera.resolution }} | {{ selectedCamera.fps }}fps max</p>
         </div>
@@ -469,17 +430,6 @@ function onCameraChange() {
   width: auto;
   height: auto;
   background: black;
-}
-.stream-status {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  margin: 0;
-  font-size: 11px;
-  color: var(--color-ink-subtle);
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
-  letter-spacing: 0.16px;
 }
 
 /* Dialog */
