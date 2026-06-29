@@ -42,3 +42,16 @@ def mjpeg_frames(source):
             )
     finally:
         cap.release()
+
+
+def grab_one(source):
+    if not source:
+        return None
+    cap = open_capture(source)
+    try:
+        if not cap.isOpened():
+            return None
+        ok, frame = cap.read()
+        return frame if ok else None
+    finally:
+        cap.release()

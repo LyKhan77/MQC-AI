@@ -11,6 +11,115 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Auto Presence-Cycle Crop
+
+### Summary
+
+Auto mode now crops one best-frame image per physical object using a debounced presence cycle. This fixes zero crops on single-mode cameras and avoids re-entry double-counting for workers presenting parts one at a time.
+
+### Added
+
+- `qc_server/app/services/presence_counter.py` - `PresenceCounter` state machine for present/absent debounce, cumulative count, best-confidence frame selection, and one crop per confirmed object.
+- `qc_server/app/services/annotated_stream.py` - optional `counter` callback for annotated MJPEG streams.
+- `qc_server/tests/test_presence_counter.py` - coverage for debounce, re-entry, flicker, tiny-detection filtering, and best-frame selection.
+
+### Changed
+
+- `qc_server/app/routers/cameras.py` Auto `detect-stream` now uses `PresenceCounter` bound to the active crop session.
+- Auto count is now a cumulative presence count returned through `/api/cameras/{camera_id}/count`.
+- `annotated_mjpeg()` bypasses ByteTrack and `crop_sink` when a `counter` callback is provided.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Auto crop mode | 2026-06-29 | Presence-cycle counter with best-frame crop on confirmation | Workers can present parts one at a time; each confirmed presence creates exactly one crop. |
+| Detection stream counting | 2026-06-29 | `annotated_mjpeg(counter=...)` callback path | Auto stream count/crop no longer depends on `track_id` or ByteTrack. |
+| Legacy tracking crop | 2026-06-29 | `CropSession.add_tracked()` retained but unwired from Auto | Reserved for a future conveyor Auto variant. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 80 passed. Frontend: 27 passed. Build succeeded. |
+
+### Notes
+
+- `count_mode` is now vestigial for Auto `detect-stream`; it remains in the data model for future conveyor behavior.
+- GPU + camera manual smoke is deferred to the server: one part, re-entry, brief flash, hand-only/tiny movement, and several sequential parts remain pending.
+
+## [Unreleased] - 2026-06-29 - Live Monitor Auto/Manual Flow
+
+### Summary
+
+Redesigned Live Monitor around an explicit Start Camera -> Auto or Manual -> Review & Send flow. This separates raw preview from AI detection, accumulates crops across a run, lets operators approve only selected crops, and fixes the bug where Stop Detection hid the Send to QC path.
+
+### Added
+
+- `qc_server/app/services/streaming.py` - `grab_one()` helper for one-shot frame capture.
+- `qc_server/app/services/crop_session.py` - `CropSession.add_captured()` and `CropSession.approve()` for manual capture and approved crop folders.
+- `POST /api/cameras/{camera_id}/crop-session/start` - resets the crop session when the operator starts the camera.
+- `POST /api/cameras/{camera_id}/capture` - runs one-shot inference and appends manual crops.
+- `POST /api/cameras/{camera_id}/crop-session/approve` - copies selected crops into the approved batch folder.
+- `qc_frontend/src/api/cameras.js` - `startCropSession()`, `captureDetection()`, and `approveCrops()` helpers.
+- `qc_frontend/src/views/LiveMonitor.vue` - Auto/Manual mode selector, Start Camera, Manual Capture, raw preview, and checkbox crop approval grid.
+
+### Changed
+
+- `qc_server/app/routers/cameras.py` detect stream now attaches to the existing crop session instead of resetting it.
+- `qc_frontend/src/views/LiveMonitor.vue` now keeps Review & Send available after Stop Detection.
+- Send to QC now submits the approved crop folder returned by `/crop-session/approve`, not the raw session folder.
+- `qc_frontend/src/views/__tests__/LiveMonitor.crop.test.js` now covers manual capture, default crop selection, deselect-all disable, and approved-submit behavior.
+
+### Removed
+
+- `CropSession.add_clean_frame()` and the single-snapshot finalize side effect.
+- The hidden single-camera snapshot path as an operator-facing flow; Manual Capture is now explicit per run.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Live Monitor flow | 2026-06-29 | Start Camera split from Start Detection, with Auto and Manual run modes | Operators can preview raw camera, run Auto tracking, or capture manually before review. |
+| Crop session lifecycle | 2026-06-29 | Explicit start, manual capture append, finalize preview, approve selected files | Start Camera resets; Auto/Manual append; Send uses only approved crops. |
+| Backend crop APIs | 2026-06-29 | `/crop-session/start`, `/capture`, `/crop-session/approve`, and `grab_one()` | Manual capture and selected-crop approval are API-backed. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 73 passed. Frontend: 27 passed. Build succeeded. |
+
+### Notes
+
+- GPU + camera manual smoke is deferred to the server: Auto, Manual, mode-lock, and no-detection capture checks remain pending.
+
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 3 (Count-Gate -> Crop -> QC)
+
+### Summary
+
+Implemented the count approval gate from Live Monitor to QC Studio. The server now captures clean object crops during annotated detection, finalizes them through a crop-session endpoint, and the frontend shows a crop review grid before submitting the existing batch pipeline.
+
+### Added
+
+- `qc_server/app/services/crop.py` - reusable `crop_objects()` helper for clamped bbox crops.
+- `qc_server/app/services/crop_session.py` - per-camera `CropSession` registry for single-frame and tracking crop modes.
+- `POST /api/cameras/{camera_id}/crop-session/finalize` - finalizes captured crops and returns the server folder plus crop URLs.
+- `GET /api/cameras/{camera_id}/crops/{session_ts}/{filename}` - serves saved crop JPEG thumbnails.
+- `qc_frontend/src/api/cameras.js` - `finalizeCropSession()` API helper.
+- `qc_frontend/src/views/__tests__/LiveMonitor.crop.test.js` - crop gate component coverage using Vue Test Utils and jsdom.
+
+### Changed
+
+- `qc_server/app/services/annotated_stream.py` now accepts a `crop_sink` hook and passes clean original-resolution frames before annotation.
+- `qc_server/app/routers/cameras.py` resets a crop session on detection start and writes crops according to camera `count_mode`.
+- `qc_frontend/src/views/LiveMonitor.vue` replaces manual source-folder entry with a finalized crop thumbnail grid and disables Confirm when no crops were captured.
+- `qc_frontend/package.json` adds Vue component test dependencies for the new Live Monitor test.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Count-gate crop flow | 2026-06-29 | Per-camera crop sessions, finalize endpoint, crop serving, and Live Monitor crop review grid | Operators approve captured object crops before sending a batch to QC. |
+| Single camera mode | 2026-06-29 | Latest clean frame + detections are stored and cropped on finalize | Station cameras create snapshot crops when the operator opens Send to QC. |
+| Tracking camera mode | 2026-06-29 | Unique `track_id` detections are cropped once during streaming | Conveyor cameras accumulate one crop per tracked object until Stop/Send. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 64 passed. Frontend: 25 passed. Build succeeded. |
+
+### Notes
+
+- GPU + camera manual smoke is deferred to the server: tracking camera, single camera, and zero-detection gate checks remain pending.
+- Deviation: Vue component test dependencies (`@vue/test-utils`, `jsdom`) were added because the repo had only API/utils tests and no existing component test harness.
+
 ## [Unreleased] - 2026-06-29 - Detection Confidence Fix
 
 ### Summary

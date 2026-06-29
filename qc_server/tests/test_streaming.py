@@ -52,3 +52,41 @@ def test_mjpeg_frames_yields_multipart_jpeg(monkeypatch):
     assert len(chunks) == 2
     assert b"Content-Type: image/jpeg" in chunks[0]
     assert b"JPG" in chunks[0]
+
+
+def test_grab_one_returns_frame(monkeypatch):
+    import numpy as np
+
+    import app.services.streaming as st
+
+    class FakeCap:
+        def isOpened(self):
+            return True
+
+        def read(self):
+            return True, np.zeros((10, 10, 3), dtype=np.uint8)
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(st, "open_capture", lambda source: FakeCap())
+    frame = st.grab_one("rtsp://x")
+    assert frame is not None
+    assert frame.shape == (10, 10, 3)
+
+
+def test_grab_one_none_when_closed(monkeypatch):
+    import app.services.streaming as st
+
+    class ClosedCap:
+        def isOpened(self):
+            return False
+
+        def read(self):
+            return False, None
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(st, "open_capture", lambda source: ClosedCap())
+    assert st.grab_one("rtsp://x") is None

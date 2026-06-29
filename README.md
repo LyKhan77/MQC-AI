@@ -10,15 +10,17 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 7 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, annotated MJPEG detection feed/count/FPS, Detection Test upload page |
-| `qc_server/` | **Active (M0-M3 + streaming slices 1-2.4)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera streaming, annotated MJPEG detection/counting/FPS, sample image/video detection test endpoints, real camera status monitor |
+| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 7 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Auto presence-cycle crop results, Send-to-QC crop approval gate, Detection Test upload page |
+| `qc_server/` | **Active (M0-M3 + streaming slices 1-3 + Auto/Manual redesign + Auto presence-cycle crop)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, CRUD metadata APIs, RTSP/USB camera streaming, annotated MJPEG detection/counting/FPS, one-shot capture, Auto presence-cycle best-frame crops, per-camera crop sessions, crop approval endpoints, sample image/video detection test endpoints, real camera status monitor |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
 ### End-to-End Workflow
 
 ```
-[Edge] Detect+Count product objects (.pt) → Crop → [Count Inspection Gate: approve]
-    → [Trigger: POST /api/batches dengan folder crop]
+[Live Monitor] Start Camera raw preview
+    → [Auto: Start/Stop Detection presence-cycle best-frame crop | Manual: Capture x N]
+    → [Review & approve crop grid]
+    → [Trigger: POST /api/batches dengan approved crop folder]
     → [qc_server: async defect segmentation (pluggable: mock→SAM3 prompt), polling]
     → [QC Studio: Review defects (zoom/pan) + mark reviewed]
     → [Export: Crop/Full PNG + PDF Audit Report]
@@ -27,9 +29,11 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md)
 
-> **Phase C-3 integration note:** The dashboard now uses the live `qc_server` API for QC Studio, Live Monitor's "Send to QC", Batch History, Reports, Audit Log, Cameras, and Settings via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). In the Send-to-QC dialog, **Source Folder (Crops)** is a path on the **server running `qc_server`**, not the browser machine. Settings now persists model configuration, confidence threshold, and `defect_strategy` to `/api/settings`.
+> **Phase C-3 integration note:** The dashboard now uses the live `qc_server` API for QC Studio, Live Monitor's "Send to QC", Batch History, Reports, Audit Log, Cameras, and Settings via the Vite dev proxy (`/api` → `http://localhost:8787`, same-origin, no CORS). Settings now persists model configuration, confidence threshold, and `defect_strategy` to `/api/settings`.
 >
 > **Live Streaming Slice 2.3:** Live Monitor consumes annotated MJPEG from `GET /api/cameras/{id}/detect-stream`; the browser renders it as an `<img>`, while the metric strip polls `GET /api/cameras/{id}/count` for `{ count, fps }`. The detection stream downscales before inference and caps loop FPS via `MQC_STREAM_MAX_WIDTH` / `MQC_STREAM_MAX_FPS` (defaults: `960` / `15`). `GET /api/cameras/{id}/stream` remains available as the raw MJPEG fallback. Drop YOLO `.pt` weights into `qc_server/models/`, then choose the active file in **Settings -> Model Configuration -> Active Model**. Object detection uses server-only ML deps in `qc_server/requirements-ml.txt`.
+>
+> **Live Monitor Auto/Manual Flow:** Start Camera resets a per-camera crop session and shows raw MJPEG preview. Auto runs `GET /api/cameras/{id}/detect-stream` until Stop Detection and uses presence debounce to count/crop one best frame per object, suited to workers presenting parts one at a time without relying on ByteTrack. Manual calls `POST /api/cameras/{id}/capture` per click. Review & Send calls `POST /api/cameras/{id}/crop-session/finalize`, lets the operator check selected crop thumbnails, then calls `POST /api/cameras/{id}/crop-session/approve` and submits `POST /api/batches` with the approved crop folder.
 >
 > **Detection Test Slice 2.4:** Settings includes **Enable Detection Test page** (`input_mode_enabled`) to show/hide `/detect-test` in the sidebar. The page uploads an image to `POST /api/detect/image` for an annotated base64 result + detection list, or uploads a video to `POST /api/detect/video` and plays `GET /api/detect/video/{id}/stream` as annotated MJPEG. Uploaded videos are stored under `qc_server/data/uploads/`, which stays gitignored. GPU/model smoke is run on the server.
 >
@@ -55,13 +59,13 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Vanilla CSS** dengan CSS Variables (no Tailwind, no UI library)
 - **IBM Plex Sans** + **IBM Plex Mono** fonts
 - **jsPDF** untuk PDF audit report generation
-- **Vitest** untuk unit testing
+- **Vitest** + **Vue Test Utils** + **jsdom** untuk unit/component testing
 
 ### Pages (7 routes)
 
 | Route | Page | Description |
 |---|---|---|
-| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), annotated MJPEG detection feed, live object count/FPS, real online/offline status, Send to QC dialog |
+| `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), Start Camera raw preview, Auto annotated MJPEG detection with presence-cycle best-frame crop, Manual capture, live object count/FPS, real online/offline status, Send to QC crop approval dialog |
 | `/qc` | **QC Studio** | 3-column inspection: batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status |
 | `/detect-test` | **Detection Test** | Server-gated upload page for testing the active model on sample images/videos |
@@ -76,8 +80,9 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Collapsible sidebar navigation** dengan 7 menu items when Detection Test is enabled
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
-- **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams annotated MJPEG frames and shows real camera status
-- **Live detection/counting/FPS**: object boxes and count overlay are drawn server-side in `GET /api/cameras/{id}/detect-stream`; the UI polls `GET /api/cameras/{id}/count` for count and real stream FPS; `single` count mode is per-frame, `tracking` is cumulative unique track IDs
+- **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams raw/annotated MJPEG frames, shows real camera status, and sends approved crop folders to QC
+- **Live detection/counting/FPS**: object boxes and count overlay are drawn server-side in Auto via `GET /api/cameras/{id}/detect-stream`; Auto uses presence debounce to count/crop one best frame per physical object; the UI polls `GET /api/cameras/{id}/count` for count and real stream FPS; Manual uses one-shot `POST /api/cameras/{id}/capture`
+- **Count-gate crop approval**: `POST /api/cameras/{id}/crop-session/finalize` prepares server-side object crops, `POST /api/cameras/{id}/crop-session/approve` copies selected crops, and Send to QC submits only the approved folder
 - **Active model switcher**: `.pt` files in `qc_server/models/` are listed by `GET /api/models`; Settings persists the chosen file as `active_model` and shows confidence as decimal `0.00-1.00`
 - **Detection Test page**: gated by `input_mode_enabled`; uploads sample images/videos to `/api/detect/*` and renders annotated results from the active model
 - **Dynamic defect colors**: CSS variable resolution, siap untuk dynamic colors dari SAM3 backend
@@ -117,9 +122,11 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 ### Current Scope
 
-Implemented M0-M3 plus Live Streaming Slices 1-2.4: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream with downscale/FPS cap, `GET /api/cameras/{id}/count` returning count and FPS, `/api/detect/*` sample image/video detection endpoints, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4; crop/count-gate-to-QC is Slice 3.
+Implemented M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, and Auto presence-cycle crop: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream with downscale/FPS cap and presence-cycle best-frame crop, `GET /api/cameras/{id}/count` returning count and FPS, one-shot `grab_one()` capture, per-camera crop sessions, `POST /api/cameras/{id}/crop-session/start`, `POST /api/cameras/{id}/capture`, `POST /api/cameras/{id}/crop-session/finalize`, `POST /api/cameras/{id}/crop-session/approve`, crop thumbnail serving, `/api/detect/*` sample image/video detection endpoints, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4.
 
 Detection stream performance is configured with `MQC_STREAM_MAX_WIDTH` (default `960`) and `MQC_STREAM_MAX_FPS` (default `15`). Downscaling happens before detection so drawn boxes match the streamed frame.
+
+Crop sessions store source images under `qc_server/data/crops/<camera_id>/<session_ts>/`. Start Camera resets the session; Auto detection appends one best-frame crop per debounced presence cycle and Manual Capture appends one-shot crops; Stop Detection leaves the buffer available for Review & Send; approved copies go under `approved/`.
 
 Detection Test uploads require `python-multipart`. Images return annotated JPEG data and serialized detections. Videos are saved to `qc_server/data/uploads/` and streamed back as annotated MJPEG using the active model.
 
@@ -157,6 +164,8 @@ Rencana implementasi disimpan di `docs/superpowers/plans/` (gitignored):
 - `2026-06-29-detection-mjpeg-rework.md` - Detection transport rework to annotated MJPEG + latest-frame grabber
 - `2026-06-29-detection-ux-perf.md` - Detection UX polish, stream downscale/FPS cap, live FPS metric
 - `2026-06-29-detection-test-page.md` - Detection Test page with image/video upload and server setting gate
+- `2026-06-29-live-streaming-slice3-count-gate-crop-qc.md` - Count-gate crop capture and Send-to-QC review flow
+- `2026-06-29-live-monitor-auto-manual-flow.md` - Live Monitor Start Camera, Auto/Manual, capture, and crop approval redesign
 
 ---
 *Dokumen ini harus selalu diperbarui setiap kali ada penambahan fitur utama atau perubahan arsitektur. Lihat protocol di `AGENTS.md` > Documentation Maintenance.*
