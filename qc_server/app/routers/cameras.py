@@ -1,19 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
-from starlette.websockets import WebSocketDisconnect
 
-from ..database import SessionLocal
 from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
-from ..services.detect_stream import detection_messages
+from ..services.annotated_stream import annotated_mjpeg
+from ..services.frame_grabber import FrameGrabber
 from ..services.object_detection import resolve_model_path
 from ..services.streaming import mjpeg_frames
 from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
+_latest_count: dict[str, int] = {}
 
 
 @router.get("", response_model=list[CameraOut])
@@ -66,35 +65,39 @@ def stream_camera(camera_id: str, db: Session = Depends(get_db)):
     )
 
 
-@router.websocket("/{camera_id}/detect")
-async def detect_ws(websocket: WebSocket, camera_id: str):
-    await websocket.accept()
-    db = SessionLocal()
-    try:
-        cam = db.get(Camera, camera_id)
-        if not cam:
-            await websocket.close(code=1011, reason="camera not found")
-            return
-        setting = get_or_create_setting(db)
-        model_path = resolve_model_path(setting)
-        if not model_path:
-            await websocket.close(code=1011, reason="model not configured")
-            return
-        # Run the blocking capture+inference generator in a threadpool so the
-        # event loop stays responsive (otherwise the websockets keepalive/close
-        # races with our send and raises AssertionError in _drain_helper).
-        gen = detection_messages(cam, setting.confidence_threshold, model_path)
+@router.get("/{camera_id}/detect-stream")
+def detect_stream(camera_id: str, db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if not cam:
+        raise HTTPException(404, "camera not found")
+    setting = get_or_create_setting(db)
+    model_path = resolve_model_path(setting)
+    if not model_path:
+        raise HTTPException(409, "model not configured")
+
+    grabber = FrameGrabber(cam.source).start()
+
+    def on_count(count):
+        _latest_count[camera_id] = count
+
+    def stream():
         try:
-            while True:
-                message = await run_in_threadpool(lambda: next(gen, None))
-                if message is None:
-                    break
-                await websocket.send_json(message)
+            yield from annotated_mjpeg(
+                grabber,
+                cam.count_mode,
+                setting.confidence_threshold,
+                model_path,
+                on_count,
+            )
         finally:
-            closer = getattr(gen, "close", None)
-            if closer is not None:
-                closer()  # release the camera promptly on disconnect/end
-    except WebSocketDisconnect:
-        pass
-    finally:
-        db.close()
+            grabber.stop()
+
+    return StreamingResponse(
+        stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@router.get("/{camera_id}/count")
+def camera_count(camera_id: str):
+    return {"count": _latest_count.get(camera_id, 0)}
