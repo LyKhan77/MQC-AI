@@ -11,6 +11,47 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Monitor Auto/Manual Flow
+
+### Summary
+
+Redesigned Live Monitor around an explicit Start Camera -> Auto or Manual -> Review & Send flow. This separates raw preview from AI detection, accumulates crops across a run, lets operators approve only selected crops, and fixes the bug where Stop Detection hid the Send to QC path.
+
+### Added
+
+- `qc_server/app/services/streaming.py` - `grab_one()` helper for one-shot frame capture.
+- `qc_server/app/services/crop_session.py` - `CropSession.add_captured()` and `CropSession.approve()` for manual capture and approved crop folders.
+- `POST /api/cameras/{camera_id}/crop-session/start` - resets the crop session when the operator starts the camera.
+- `POST /api/cameras/{camera_id}/capture` - runs one-shot inference and appends manual crops.
+- `POST /api/cameras/{camera_id}/crop-session/approve` - copies selected crops into the approved batch folder.
+- `qc_frontend/src/api/cameras.js` - `startCropSession()`, `captureDetection()`, and `approveCrops()` helpers.
+- `qc_frontend/src/views/LiveMonitor.vue` - Auto/Manual mode selector, Start Camera, Manual Capture, raw preview, and checkbox crop approval grid.
+
+### Changed
+
+- `qc_server/app/routers/cameras.py` detect stream now attaches to the existing crop session instead of resetting it.
+- `qc_frontend/src/views/LiveMonitor.vue` now keeps Review & Send available after Stop Detection.
+- Send to QC now submits the approved crop folder returned by `/crop-session/approve`, not the raw session folder.
+- `qc_frontend/src/views/__tests__/LiveMonitor.crop.test.js` now covers manual capture, default crop selection, deselect-all disable, and approved-submit behavior.
+
+### Removed
+
+- `CropSession.add_clean_frame()` and the single-snapshot finalize side effect.
+- The hidden single-camera snapshot path as an operator-facing flow; Manual Capture is now explicit per run.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Live Monitor flow | 2026-06-29 | Start Camera split from Start Detection, with Auto and Manual run modes | Operators can preview raw camera, run Auto tracking, or capture manually before review. |
+| Crop session lifecycle | 2026-06-29 | Explicit start, manual capture append, finalize preview, approve selected files | Start Camera resets; Auto/Manual append; Send uses only approved crops. |
+| Backend crop APIs | 2026-06-29 | `/crop-session/start`, `/capture`, `/crop-session/approve`, and `grab_one()` | Manual capture and selected-crop approval are API-backed. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 73 passed. Frontend: 27 passed. Build succeeded. |
+
+### Notes
+
+- GPU + camera manual smoke is deferred to the server: Auto, Manual, mode-lock, and no-detection capture checks remain pending.
+
 ## [Unreleased] - 2026-06-29 - Live Streaming Slice 3 (Count-Gate -> Crop -> QC)
 
 ### Summary

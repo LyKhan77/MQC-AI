@@ -17,7 +17,7 @@ README.md is the canonical, detailed project doc. AGENTS.md orients an agent fas
 The system has three decoupled components managed in one monorepo:
 
 1. **`qc_frontend/`** — Interactive dashboard for live camera monitoring and batch QC inspection review. **(Active; live API-backed dashboard data)**
-2. **`qc_server/`** — Backend server for live detection crop capture and async batch defect segmentation. **(Active: M0-M3 + Live Streaming Slices 1-3 done with mock strategy)**
+2. **`qc_server/`** — Backend server for live detection crop capture and async batch defect segmentation. **(Active: M0-M3 + Live Streaming Slices 1-3 + Auto/Manual redesign done with mock strategy)**
 3. **`edge_app/`** — Jetson Nano edge app for real-time object detection (YOLO) and live streaming. **(Not yet started)**
 
 **End-to-end workflow**: Edge app detects objects on the production line and live-streams to the dashboard. Inspector monitors the live feed, triggers batch processing, reviews SAM3 segmentation results in QC Studio, and exports PDF audit reports.
@@ -71,7 +71,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 ### Frontend (current)
 
 - **Sidebar navigation shell** (collapsible) with 7 pages when Detection Test is enabled.
-- **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), server-annotated MJPEG detection feed with bounding-box/count overlay, polled live object count/FPS, real online/offline camera status, Start/Stop trigger, and Send to QC crop review gate with batch name + auto-timestamp.
+- **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), explicit Start Camera raw preview, per-run Auto/Manual mode, Auto server-annotated MJPEG detection feed with bounding-box/count overlay, Manual one-shot Capture, polled live object count/FPS, real online/offline camera status, and Send to QC crop approval gate with batch name + auto-timestamp.
 - **QC Studio**: 3-column layout with batch sidebar (filter/search/sort/skeleton loading), inspection canvas (zoom/pan/annotation toggle), defect panel (keyboard navigation, review workflow).
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
@@ -86,8 +86,8 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - FastAPI backend under `qc_server/` with `/health`, startup table creation, CORS, and `.env` config.
 - SQLite metadata for cameras, defect classes, settings, audit logs, batches, images, and defects.
 - CRUD APIs for cameras, defect classes, settings, and audit logs.
-- OpenCV-backed camera probe + raw MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), annotated/downscaled detection MJPEG endpoint (`GET /api/cameras/{camera_id}/detect-stream`), live count/FPS endpoint (`GET /api/cameras/{camera_id}/count`), per-camera crop session capture, and background camera status monitor.
-- Count-gate crop endpoints: `POST /api/cameras/{camera_id}/crop-session/finalize` returns finalized crop folder/URLs, and `GET /api/cameras/{camera_id}/crops/{session_ts}/{filename}` serves crop thumbnails.
+- OpenCV-backed camera probe + raw MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), one-shot `grab_one()` frame capture helper, annotated/downscaled detection MJPEG endpoint (`GET /api/cameras/{camera_id}/detect-stream`), live count/FPS endpoint (`GET /api/cameras/{camera_id}/count`), per-camera crop session capture, and background camera status monitor.
+- Count-gate crop endpoints: `POST /api/cameras/{camera_id}/crop-session/start` resets a run, `POST /api/cameras/{camera_id}/capture` appends Manual captures, `POST /api/cameras/{camera_id}/crop-session/finalize` returns crop URLs for review, `POST /api/cameras/{camera_id}/crop-session/approve` copies selected crops to the approved batch folder, and `GET /api/cameras/{camera_id}/crops/{session_ts}/{filename}` serves crop thumbnails.
 - Detection test upload endpoints: `POST /api/detect/image`, `POST /api/detect/video`, and annotated video playback `GET /api/detect/video/{video_id}/stream`.
 - Server-only object detection dependencies in `requirements-ml.txt`; `qc_server/models/*.pt` files are listed by `/api/models`, Settings persists `active_model`, and ML imports stay lazy for laptop tests.
 - `Setting.input_mode_enabled` guarded migration controls Detection Test navigation visibility.
@@ -182,7 +182,7 @@ MQC-AI/
 │   │   ├── routers/
 │   │   │   ├── audit.py
 │   │   │   ├── batches.py
-│   │   │   ├── cameras.py
+│   │   │   ├── cameras.py           # Camera CRUD, stream/count, crop start/capture/finalize/approve
 │   │   │   ├── defect_classes.py
 │   │   │   ├── detect.py            # Detection Test image/video upload endpoints
 │   │   │   ├── images.py
@@ -200,7 +200,7 @@ MQC-AI/
 │   │       ├── detect_tracker.py    # Lazy supervision tracking helper
 │   │       ├── frame_grabber.py     # Threaded latest-frame camera reader
 │   │       ├── object_detection.py  # Lazy YOLO object detection + serialization
-│   │       ├── streaming.py         # OpenCV RTSP/USB probe + MJPEG frame generator
+│   │       ├── streaming.py         # OpenCV RTSP/USB probe + MJPEG frame generator + grab_one
 │   │       └── inference/
 │   │           ├── __init__.py      # Lazy YOLO object detection + serialization
 │   │           ├── base.py
@@ -293,9 +293,10 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ```
 [Camera List] → [Select Camera] → [Start Stream]
-    → [Monitor Annotated MJPEG + Object Count/FPS + Camera Status]
+    → [Start Camera raw preview]
+    → [Auto: Start/Stop Detection + Object Count/FPS | Manual: Capture x N]
     → [Optional Detection Test: upload sample image/video against active model]
-    → [Send to QC: finalize crop session + approve crop grid + batch name]
+    → [Review & Send: finalize crop session + approve crop grid + batch name]
     → [SAM3 Batch Processing (backend)]
     → [QC Studio: Review defects + zoom/pan + mark reviewed]
     → [Export: Crop/Full PNG + PDF Audit Report]
@@ -318,23 +319,23 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Live Streaming Slice 3 Implemented · Backend M0-M3 Implemented
+### Status: Live Monitor Auto/Manual Flow Implemented · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor uses server-annotated MJPEG for detection frames/boxes/count overlay, polls `/count` for count + FPS in the metric strip, finalizes captured object crops through `/crop-session/finalize`, and shows a crop review grid before submitting a QC batch. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, controls the `input_mode_enabled` Detection Test nav gate, and confirms saves with a toast. Detection Test uploads sample images/videos to `/api/detect/*` and renders annotated active-model output. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3 are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, stream downscale/FPS cap, model-folder switcher, detection test upload endpoints, per-camera crop sessions, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor has an explicit Start Camera raw preview, per-run Auto/Manual choice, Auto server-annotated MJPEG detection frames/boxes/count overlay, Manual one-shot Capture, `/count` polling for count + FPS, and a Review & Send crop approval grid before submitting a QC batch. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, controls the `input_mode_enabled` Detection Test nav gate, and confirms saves with a toast. Detection Test uploads sample images/videos to `/api/detect/*` and renders annotated active-model output. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3 and the Auto/Manual redesign are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, one-shot capture, crop approval endpoints, stream downscale/FPS cap, model-folder switcher, detection test upload endpoints, per-camera crop sessions, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | 7 pages, Carbon Design System, i18n, live API-backed data, annotated MJPEG detection feed/count/FPS, Send-to-QC crop review gate, active model switcher, Detection Test. |
-| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-3 done; SAM3 deferred. |
+| `qc_frontend/` | **Active** | 7 pages, Carbon Design System, i18n, live API-backed data, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Send-to-QC crop approval gate, active model switcher, Detection Test. |
+| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-3 + Auto/Manual redesign done; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
 ### Frontend Page Status
 
 | Page | Status | Mock Data | Backend Ready |
 |---|---|---|---|
-| Live Monitor | **Functional** | None for camera feed/counting | Camera list, annotated MJPEG detection feed, `/count` count/FPS polling, real status, crop-session finalize/review gate, and Send to QC API wired |
+| Live Monitor | **Functional** | None for camera feed/counting | Camera list, Start Camera raw preview, Auto detection stream, Manual capture, `/count` count/FPS polling, real status, crop-session finalize/approve review gate, and Send to QC API wired |
 | QC Studio | **Functional** | None for live batches | Batch polling/result/review/sign-off API wired; real SAM3 deferred |
 | Batch History | **Functional** | None | Live batch list API wired |
 | Detection Test | **Functional** | None | Server-gated active-model image/video upload test via `/api/detect/*`; GPU `pcb-1.pt` smoke verified at confidence 0.1 |
@@ -346,7 +347,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-29 (Live Streaming Slice 3: Count-Gate -> Crop -> QC).
+**Latest version**: [Unreleased] - 2026-06-29 (Live Monitor Auto/Manual Flow).
 
 ---
 
