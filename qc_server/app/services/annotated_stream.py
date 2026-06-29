@@ -50,6 +50,7 @@ def annotated_mjpeg(
     on_stats,
     max_width=960,
     max_fps=15,
+    crop_sink=None,
 ):
     tracker = None
     seen_ids = set()
@@ -70,7 +71,9 @@ def annotated_mjpeg(
             time.sleep(0.03)
             continue
 
-        frame = downscale(frame, max_width)
+        original = frame
+        frame = downscale(original, max_width)
+        scale = original.shape[1] / frame.shape[1] if frame.shape[1] else 1.0
         detections = detect(frame, conf_threshold, model_path)
         if tracker is not None:
             from .detect_tracker import apply_tracker
@@ -79,6 +82,9 @@ def annotated_mjpeg(
             count = update_tracking(seen_ids, detections)
         else:
             count = count_single(detections)
+
+        if crop_sink is not None:
+            crop_sink(original, detections, scale)
 
         annotate(frame, detections, count)
 

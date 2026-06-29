@@ -60,3 +60,29 @@ def test_annotated_mjpeg_yields_and_reports_stats(monkeypatch):
     assert len(chunks) >= 1
     assert b"image/jpeg" in chunks[0]
     assert stats and stats[0][0] == 1
+
+
+def test_annotated_mjpeg_calls_crop_sink_before_annotate(monkeypatch):
+    monkeypatch.setattr(
+        ann,
+        "detect",
+        lambda frame, conf, model_path: [Detection(0, 0, 5, 5, "x", 0.9)],
+    )
+    frame = np.zeros((480, 1920, 3), dtype=np.uint8)  # wide -> downscaled to 960
+    calls = []
+    list(
+        ann.annotated_mjpeg(
+            FakeGrabber([frame]),
+            "single",
+            0.5,
+            "m.pt",
+            lambda count, fps: None,
+            max_width=960,
+            max_fps=0,
+            crop_sink=lambda f, dets, scale: calls.append((f.shape, scale)),
+        )
+    )
+    assert calls, "crop_sink should be called"
+    shape, scale = calls[0]
+    assert shape == (480, 1920, 3)   # original frame, not downscaled
+    assert abs(scale - 2.0) < 0.01   # 1920 / 960
