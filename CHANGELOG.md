@@ -11,6 +11,44 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Media Detection Crop-to-QC
+
+### Summary
+
+Detection Test is now Media Detection with separate Test and Process to QC modes. Process mode crops detected objects from uploaded images synchronously, extracts video crops asynchronously with the existing presence-cycle counter, and sends selected crops through the shared review-and-approve QC batch flow.
+
+### Added
+
+- `qc_server/app/services/detect_extract.py` - async uploaded-video crop extraction using `PresenceCounter`, `job_queue`, and injectable `capture_factory` for tests.
+- `POST /api/detect/image/process` - sync uploaded-image object crop export.
+- `POST /api/detect/video/{video_id}/extract` and `GET /api/detect/video/{video_id}/extract/status` - async uploaded-video crop extraction and polling.
+- `GET /api/detect/crop-session/{key}`, `POST /api/detect/crop-session/{key}/approve`, and `GET /api/detect/crops/{key}/{session_ts}/{filename}` - media crop review, approval, and thumbnail serving.
+- `qc_frontend/src/components/CropReviewDialog.vue` - shared crop review dialog used by Live Monitor and Media Detection.
+- `qc_frontend/src/views/MediaDetection.vue` - Test/Process upload workflow with image/video support and crop-to-QC submission.
+- Frontend and backend tests for media crop endpoints, video extraction, shared crop review, and Media Detection process/test modes.
+
+### Changed
+
+- Detection Test route/view/nav labels renamed to Media Detection (`/media-detection`, route name `media`) while keeping the `input_mode_enabled` setting key and `/api/detect/*` backend prefix.
+- Live Monitor now uses `CropReviewDialog` instead of its inline crop approval dialog.
+- `qc_server/app/services/crop_session.py` exposes shared `approve_session()` and `crop_file_path()` helpers reused by camera and media routers.
+- Settings copy now describes the gated page as Media Detection.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Media Detection page | 2026-06-29 | `/media-detection` with Test and Process to QC modes | Operators can test annotated uploads or process uploaded media into QC batches. |
+| Image crop export | 2026-06-29 | `POST /api/detect/image/process` crop-all flow | Uploaded images produce object crop URLs immediately for review. |
+| Video crop extraction | 2026-06-29 | Background extraction job using `PresenceCounter` and polling progress | Uploaded videos produce one crop per debounced object presence cycle. |
+| Crop review dialog | 2026-06-29 | Shared `CropReviewDialog.vue` | Live Monitor and Media Detection approve selected crop thumbnails through one UI component. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 84 passed. Frontend: 31 passed. Build succeeded. |
+
+### Notes
+
+- GPU + model + browser smoke is deferred to the server: Media Detection Test image preview, Process image review to QC, Process video progress/review to QC, and Settings page gate remain pending.
+- Deviation: `CropReviewDialog` watches both `show` and `crops` so it handles Live Monitor's async finalize flow where the dialog opens before crop URLs return.
+
 ## [Unreleased] - 2026-06-29 - Auto Presence-Cycle Crop
 
 ### Summary
