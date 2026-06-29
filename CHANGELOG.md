@@ -11,6 +11,42 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Detection Test Slice 2.4
+
+### Summary
+
+Added a server-gated Detection Test workflow for validating the active YOLO model on uploaded sample images or videos before using it in live production streams.
+
+### Added
+
+- `qc_server/requirements.txt` - `python-multipart` for upload endpoints.
+- `qc_server/app/database.py` - generic guarded `ensure_column()` migration helper.
+- `qc_server/app/models.py` / `qc_server/app/schemas.py` - `Setting.input_mode_enabled`.
+- `qc_server/app/routers/detect.py` - `POST /api/detect/image`, `POST /api/detect/video`, and `GET /api/detect/video/{video_id}/stream`.
+- `qc_frontend/src/api/detect.js` - upload API helpers for image/video detection tests.
+- `qc_frontend/src/views/DetectionTest.vue` - image/video upload page with annotated image results, detection list, and annotated MJPEG video playback.
+- Backend tests for the guarded `input_mode_enabled` migration/settings API and detect router.
+
+### Changed
+
+- Settings now includes an `input_mode_enabled` toggle for showing/hiding the Detection Test navigation item.
+- Sidebar conditionally shows the Detection Test route from the server-backed setting.
+- README and AGENTS now document Slice 2.4, `/api/detect/*`, and the new page.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Detection test backend | 2026-06-29 | Upload endpoints for images/videos, annotated result encoding, and MJPEG video playback | Operators can test the active model with sample files through `qc_server`. |
+| Settings gate | 2026-06-29 | Guarded `input_mode_enabled` column plus API schema/update support | Existing SQLite DBs are preserved; production can hide the test page from nav. |
+| Detection Test UI | 2026-06-29 | `/detect-test` route, upload mode toggle, result preview/list | Dashboard can validate active model behavior outside live RTSP feeds. |
+| Verification | 2026-06-29 | Backend and frontend suites run locally | Backend: 51 passed. Frontend: build passed, 23 tests passed. GPU model smoke pending on server. |
+
+### Notes
+
+- Branch: `feat/detection-test-page` (unmerged; pushed for plan-author review).
+- Open: Task 4 Step 5 GPU model smoke must run on the server with a real model/image/video.
+
 ## [Unreleased] - 2026-06-29 - Live Streaming Slice 2.3
 
 ### Summary

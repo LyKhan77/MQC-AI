@@ -128,6 +128,15 @@ export default {
     generateReport: 'Generate Report',
   },
 
+  detectTest: {
+    title: 'Detection Test',
+    subtitle: 'Uji model aktif pada gambar atau video',
+    image: 'Gambar',
+    video: 'Video',
+    running: 'Memproses...',
+    count: 'Jumlah',
+  },
+
   // Reports
   reports: {
     title: 'Laporan Audit',

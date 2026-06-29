@@ -121,6 +121,15 @@ export default {
     generateReport: 'Generate Report',
   },
 
+  detectTest: {
+    title: 'Detection Test',
+    subtitle: 'Test the active model on an image or video',
+    image: 'Image',
+    video: 'Video',
+    running: 'Processing...',
+    count: 'Count',
+  },
+
   reports: {
     title: 'Audit Reports',
     subtitle: 'Generate PDF reports for audit trail',
