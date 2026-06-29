@@ -11,6 +11,34 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Detection Confidence Fix
+
+### Summary
+
+Fixed the server object detection path returning zero boxes for low-confidence PCB detections even when the YOLO CLI found valid boxes.
+
+### Fixed
+
+- `qc_server/app/services/object_detection.py` now passes `conf_threshold` into `YOLO(...)` so Ultralytics does not apply its default confidence filter before app filtering.
+- `detect()` now reads `results.boxes` directly (`xyxy`, `cls`, `conf`, `names`) instead of depending on the `supervision` adapter for Ultralytics result parsing.
+
+### Added
+
+- `qc_server/tests/test_object_detection.py` verifies `detect()` passes the configured confidence threshold and preserves the existing `Detection` dataclass output shape.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Object detection parsing | 2026-06-29 | Direct Ultralytics box parsing with configured confidence passed into inference | `detect()` returns the same low-confidence PCB boxes as the YOLO CLI path. |
+| Detection Test verification | 2026-06-29 | GPU inference and browser upload smoke on `temp/test-pcb.png` with `pcb-1.pt` at `conf=0.1` | Service/API/page path returns and renders 3 PCB detections. |
+| Verification | 2026-06-29 | Backend pytest, frontend build/test, real model inference, and Playwright upload smoke | Backend: 52 passed. Frontend: build passed, 23 tests passed. Detection Test page rendered 3 boxes. |
+
+### Notes
+
+- Root cause: `detect()` called `model(frame, verbose=False)`, so Ultralytics filtered with its default confidence before the app's lower threshold was applied.
+- Checked first hypothesis: `supervision.Detections.from_ultralytics(...)` parsed 3 detections on this server, so the adapter was not the immediate zero-box cause.
+
 ## [Unreleased] - 2026-06-29 - Detection Test Slice 2.4
 
 ### Summary

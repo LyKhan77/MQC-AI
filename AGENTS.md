@@ -333,7 +333,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 | Live Monitor | **Functional** | None for camera feed/counting | Camera list, annotated MJPEG detection feed, `/count` count/FPS polling, real status, and Send to QC API wired; crop/count-gate is Slice 3 |
 | QC Studio | **Functional** | None for live batches | Batch polling/result/review/sign-off API wired; real SAM3 deferred |
 | Batch History | **Functional** | None | Live batch list API wired |
-| Detection Test | **Functional** | None | Server-gated active-model image/video upload test via `/api/detect/*`; GPU model smoke pending on server |
+| Detection Test | **Functional** | None | Server-gated active-model image/video upload test via `/api/detect/*`; GPU `pcb-1.pt` smoke verified at confidence 0.1 |
 | Reports | **Functional** | None | Live batch/result API wired |
 | Audit Log | **Functional** | Local cache fallback | Live audit API wired |
 | Settings | **Functional** | None | Camera CRUD, settings API, active detection model switcher, decimal confidence, Detection Test page toggle, and save toast wired |
@@ -342,7 +342,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-29 (Detection Test Slice 2.4: image/video upload test page, `/api/detect/*`, `input_mode_enabled` gate).
+**Latest version**: [Unreleased] - 2026-06-29 (Detection Confidence Fix: direct YOLO box parsing and GPU/page smoke verified).
 
 ---
 
