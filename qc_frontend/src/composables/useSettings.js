@@ -7,6 +7,7 @@ const settings = ref({
   segmentationModel: 'SAM3',
   defectStrategy: 'mock',
   activeModel: '',
+  inputModeEnabled: true,
 })
 
 async function refresh() {

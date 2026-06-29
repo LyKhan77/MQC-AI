@@ -74,6 +74,11 @@ async function saveSettings() {
   showToast(t('settings.saved'))
 }
 
+async function saveInputMode() {
+  await update({ inputModeEnabled: settings.value.inputModeEnabled })
+  showToast(t('settings.saved'))
+}
+
 function changeLanguage(lang) {
   setLocale(lang)
   log('SETTINGS_CHANGED', `Changed language to ${lang === 'id' ? 'Indonesia' : 'English'}`)
@@ -200,6 +205,12 @@ function changeLanguage(lang) {
             <button :class="{ active: locale === 'en' }" @click="changeLanguage('en')">{{ t('settings.languageEn') }}</button>
           </div>
         </div>
+        <div class="form-row">
+          <label class="check-label">
+            <input type="checkbox" v-model="settings.inputModeEnabled" @change="saveInputMode" />
+            {{ t('settings.inputMode') }}
+          </label>
+        </div>
       </section>
     </div>
   </div>
@@ -279,6 +290,12 @@ function changeLanguage(lang) {
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
+}
+.check-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 .form-hint {
   margin: 0;
