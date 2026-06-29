@@ -11,6 +11,42 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-29 - Live Streaming Slice 3 (Count-Gate -> Crop -> QC)
+
+### Summary
+
+Implemented the count approval gate from Live Monitor to QC Studio. The server now captures clean object crops during annotated detection, finalizes them through a crop-session endpoint, and the frontend shows a crop review grid before submitting the existing batch pipeline.
+
+### Added
+
+- `qc_server/app/services/crop.py` - reusable `crop_objects()` helper for clamped bbox crops.
+- `qc_server/app/services/crop_session.py` - per-camera `CropSession` registry for single-frame and tracking crop modes.
+- `POST /api/cameras/{camera_id}/crop-session/finalize` - finalizes captured crops and returns the server folder plus crop URLs.
+- `GET /api/cameras/{camera_id}/crops/{session_ts}/{filename}` - serves saved crop JPEG thumbnails.
+- `qc_frontend/src/api/cameras.js` - `finalizeCropSession()` API helper.
+- `qc_frontend/src/views/__tests__/LiveMonitor.crop.test.js` - crop gate component coverage using Vue Test Utils and jsdom.
+
+### Changed
+
+- `qc_server/app/services/annotated_stream.py` now accepts a `crop_sink` hook and passes clean original-resolution frames before annotation.
+- `qc_server/app/routers/cameras.py` resets a crop session on detection start and writes crops according to camera `count_mode`.
+- `qc_frontend/src/views/LiveMonitor.vue` replaces manual source-folder entry with a finalized crop thumbnail grid and disables Confirm when no crops were captured.
+- `qc_frontend/package.json` adds Vue component test dependencies for the new Live Monitor test.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Count-gate crop flow | 2026-06-29 | Per-camera crop sessions, finalize endpoint, crop serving, and Live Monitor crop review grid | Operators approve captured object crops before sending a batch to QC. |
+| Single camera mode | 2026-06-29 | Latest clean frame + detections are stored and cropped on finalize | Station cameras create snapshot crops when the operator opens Send to QC. |
+| Tracking camera mode | 2026-06-29 | Unique `track_id` detections are cropped once during streaming | Conveyor cameras accumulate one crop per tracked object until Stop/Send. |
+| Verification | 2026-06-29 | Backend full suite, frontend full suite, and production build | Backend: 64 passed. Frontend: 25 passed. Build succeeded. |
+
+### Notes
+
+- GPU + camera manual smoke is deferred to the server: tracking camera, single camera, and zero-detection gate checks remain pending.
+- Deviation: Vue component test dependencies (`@vue/test-utils`, `jsdom`) were added because the repo had only API/utils tests and no existing component test harness.
+
 ## [Unreleased] - 2026-06-29 - Detection Confidence Fix
 
 ### Summary
