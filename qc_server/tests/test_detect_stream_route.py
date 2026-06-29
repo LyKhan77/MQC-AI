@@ -26,7 +26,9 @@ def test_detect_stream_returns_multipart(client, monkeypatch):
     monkeypatch.setattr(
         cameras_router,
         "annotated_mjpeg",
-        lambda grabber, count_mode, conf, model_path, on_count: iter([b"--frame\r\nX"]),
+        lambda grabber, count_mode, conf, model_path, on_stats, max_width, max_fps: iter(
+            [b"--frame\r\nX"]
+        ),
     )
     resp = client.get("/api/cameras/cam-ds/detect-stream")
     assert resp.status_code == 200
@@ -41,4 +43,4 @@ def test_detect_stream_no_model_409(client, monkeypatch):
 
 def test_count_defaults_zero(client):
     _camera(client)
-    assert client.get("/api/cameras/cam-ds/count").json() == {"count": 0}
+    assert client.get("/api/cameras/cam-ds/count").json() == {"count": 0, "fps": 0}

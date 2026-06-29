@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from ..config import settings as app_settings
 from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
@@ -12,7 +13,7 @@ from ..services.streaming import mjpeg_frames
 from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
-_latest_count: dict[str, int] = {}
+_latest_stats: dict[str, dict] = {}
 
 
 @router.get("", response_model=list[CameraOut])
@@ -77,8 +78,8 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
 
     grabber = FrameGrabber(cam.source).start()
 
-    def on_count(count):
-        _latest_count[camera_id] = count
+    def on_stats(count, fps):
+        _latest_stats[camera_id] = {"count": count, "fps": fps}
 
     def stream():
         try:
@@ -87,7 +88,9 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
                 cam.count_mode,
                 setting.confidence_threshold,
                 model_path,
-                on_count,
+                on_stats,
+                app_settings.stream_max_width,
+                app_settings.stream_max_fps,
             )
         finally:
             grabber.stop()
@@ -100,4 +103,4 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{camera_id}/count")
 def camera_count(camera_id: str):
-    return {"count": _latest_count.get(camera_id, 0)}
+    return _latest_stats.get(camera_id, {"count": 0, "fps": 0})

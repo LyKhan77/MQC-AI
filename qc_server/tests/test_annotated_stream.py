@@ -26,17 +26,37 @@ def test_annotate_draws_on_frame():
     assert out.sum() > 0
 
 
-def test_annotated_mjpeg_yields_and_reports_count(monkeypatch):
+def test_downscale_caps_width():
+    frame = np.zeros((600, 1200, 3), dtype=np.uint8)
+    out = ann.downscale(frame, 960)
+    assert out.shape[1] == 960
+    assert out.shape[0] == 480
+
+
+def test_downscale_noop_when_small():
+    frame = np.zeros((100, 200, 3), dtype=np.uint8)
+    assert ann.downscale(frame, 960).shape == (100, 200, 3)
+
+
+def test_annotated_mjpeg_yields_and_reports_stats(monkeypatch):
     monkeypatch.setattr(
         ann,
         "detect",
         lambda frame, conf, model_path: [Detection(0, 0, 5, 5, "x", 0.9)],
     )
     frame = np.zeros((20, 20, 3), dtype=np.uint8)
-    counts = []
+    stats = []
     chunks = list(
-        ann.annotated_mjpeg(FakeGrabber([frame]), "single", 0.5, "m.pt", counts.append)
+        ann.annotated_mjpeg(
+            FakeGrabber([frame]),
+            "single",
+            0.5,
+            "m.pt",
+            lambda count, fps: stats.append((count, fps)),
+            max_width=960,
+            max_fps=0,
+        )
     )
     assert len(chunks) >= 1
     assert b"image/jpeg" in chunks[0]
-    assert counts == [1]
+    assert stats and stats[0][0] == 1

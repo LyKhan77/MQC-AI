@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     camera_monitor_enabled: bool = True
     camera_poll_interval: int = 20
     models_dir: str = "./models"
+    stream_max_width: int = 960
+    stream_max_fps: int = 15
 
 
 settings = Settings()
