@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime, timezone
 
 from ..config import settings
@@ -10,7 +11,6 @@ class CropSession:
         self.camera_id = camera_id
         self.session_ts = None
         self.folder = None
-        self._single = None
         self._seen_ids = set()
         self._count = 0
         self._files = []
@@ -18,15 +18,9 @@ class CropSession:
     def start(self):
         self.session_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
         self.folder = os.path.join(settings.data_dir, "crops", self.camera_id, self.session_ts)
-        self._single = None
         self._seen_ids = set()
         self._count = 0
         self._files = []
-
-    def add_clean_frame(self, frame, detections, scale=1.0):
-        if self.folder is None:
-            return
-        self._single = (frame.copy(), list(detections), scale)
 
     def add_tracked(self, frame, detections, scale=1.0):
         if self.folder is None:
@@ -40,14 +34,17 @@ class CropSession:
         self._files.extend(written)
         self._count += len(written)
 
+    def add_captured(self, frame, detections, scale=1.0):
+        if self.folder is None:
+            return []
+        written = crop_objects(frame, detections, self.folder, scale=scale, start_index=self._count)
+        self._files.extend(written)
+        self._count += len(written)
+        return written
+
     def finalize(self):
         if self.folder is None:
             return {"folder": None, "session_ts": None, "count": 0, "files": []}
-        if self._single is not None:
-            frame, dets, scale = self._single
-            self._files = crop_objects(frame, dets, self.folder, scale=scale)
-            self._count = len(self._files)
-            self._single = None
         return {
             "folder": self.folder,
             "session_ts": self.session_ts,
@@ -55,8 +52,20 @@ class CropSession:
             "files": list(self._files),
         }
 
+    def approve(self, selected_files):
+        if self.folder is None:
+            return None
+        approved = os.path.join(self.folder, "approved")
+        os.makedirs(approved, exist_ok=True)
+        copied = 0
+        for name in selected_files:
+            src = os.path.join(self.folder, name)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(approved, name))
+                copied += 1
+        return approved if copied else None
+
     def clear(self):
-        self._single = None
         self._seen_ids = set()
         self._count = 0
         self._files = []
