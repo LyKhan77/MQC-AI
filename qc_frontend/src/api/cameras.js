@@ -19,3 +19,15 @@ export function deleteCamera(id) {
 export function finalizeCropSession(id) {
   return apiPost(`/cameras/${id}/crop-session/finalize`, {})
 }
+
+export function startCropSession(id) {
+  return apiPost(`/cameras/${id}/crop-session/start`, {})
+}
+
+export function captureDetection(id) {
+  return apiPost(`/cameras/${id}/capture`, {})
+}
+
+export function approveCrops(id, files) {
+  return apiPost(`/cameras/${id}/crop-session/approve`, { files })
+}
