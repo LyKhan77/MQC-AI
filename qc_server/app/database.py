@@ -24,11 +24,15 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
-def ensure_active_model_column(eng=engine) -> None:
+def ensure_column(eng, table, name, ddl) -> None:
     insp = sa_inspect(eng)
-    if "settings" not in insp.get_table_names():
+    if table not in insp.get_table_names():
         return
-    cols = [c["name"] for c in insp.get_columns("settings")]
-    if "active_model" not in cols:
+    cols = [c["name"] for c in insp.get_columns(table)]
+    if name not in cols:
         with eng.begin() as conn:
-            conn.execute(text("ALTER TABLE settings ADD COLUMN active_model VARCHAR DEFAULT ''"))
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+
+def ensure_active_model_column(eng=engine) -> None:
+    ensure_column(eng, "settings", "active_model", "VARCHAR DEFAULT ''")

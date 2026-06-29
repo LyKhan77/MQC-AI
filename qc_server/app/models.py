@@ -34,6 +34,7 @@ class Setting(Base):
     segmentation_model: Mapped[str] = mapped_column(String, default="SAM3")
     defect_strategy: Mapped[str] = mapped_column(String, default="mock")
     active_model: Mapped[str] = mapped_column(String, default="")
+    input_mode_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class AuditLog(Base):

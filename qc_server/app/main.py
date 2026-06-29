@@ -29,10 +29,11 @@ app.add_middleware(
 def on_startup():
     os.makedirs(os.path.join(settings.data_dir, "batches"), exist_ok=True)
     from . import models  # noqa: F401
-    from .database import SessionLocal, ensure_active_model_column
+    from .database import SessionLocal, ensure_active_model_column, ensure_column
     from .services.seed import seed_if_empty
     Base.metadata.create_all(engine)
     ensure_active_model_column(engine)
+    ensure_column(engine, "settings", "input_mode_enabled", "BOOLEAN DEFAULT 1")
     db = SessionLocal()
     try:
         seed_if_empty(db)
