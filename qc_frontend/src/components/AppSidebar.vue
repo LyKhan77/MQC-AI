@@ -17,7 +17,7 @@ const navItems = computed(() => [
   { name: 'qc', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', labelKey: 'nav.qcStudio' },
   { name: 'batches', icon: 'M3 5h18M3 12h18M3 19h18', labelKey: 'nav.batchHistory' },
   ...(settings.value.inputModeEnabled
-    ? [{ name: 'detectTest', icon: 'M4 4h16v12H4z M8 20h8 M10 16v4 M8 8h8 M8 12h4', labelKey: 'nav.detectTest' }]
+    ? [{ name: 'media', icon: 'M4 4h16v12H4z M8 20h8 M10 16v4 M8 8h8 M8 12h4', labelKey: 'nav.mediaDetection' }]
     : []),
   { name: 'reports', icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M8 13h8M8 17h5', labelKey: 'nav.reports' },
   { name: 'audit', icon: 'M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11', labelKey: 'nav.auditLog' },

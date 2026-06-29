@@ -10,7 +10,7 @@ export default {
     liveMonitor: 'Live Monitor',
     qcStudio: 'QC Studio',
     batchHistory: 'Batch History',
-    detectTest: 'Detection Test',
+    mediaDetection: 'Deteksi Media',
     reports: 'Reports',
     auditLog: 'Audit Log',
     settings: 'Settings',
@@ -139,9 +139,11 @@ export default {
     generateReport: 'Generate Report',
   },
 
-  detectTest: {
-    title: 'Detection Test',
+  media: {
+    title: 'Deteksi Media',
     subtitle: 'Uji model aktif pada gambar atau video',
+    purposeTest: 'Uji',
+    purposeProcess: 'Proses ke QC',
     image: 'Gambar',
     video: 'Video',
     running: 'Memproses...',
@@ -230,7 +232,7 @@ export default {
     preferences: 'Preferensi',
     preferencesDesc: 'Tampilan dan bahasa',
     language: 'Bahasa',
-    inputMode: 'Aktifkan halaman Detection Test',
+    inputMode: 'Aktifkan halaman Deteksi Media',
     theme: 'Tema',
     themeLight: 'Terang',
     themeDark: 'Gelap',

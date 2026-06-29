@@ -8,7 +8,7 @@ export default {
     liveMonitor: 'Live Monitor',
     qcStudio: 'QC Studio',
     batchHistory: 'Batch History',
-    detectTest: 'Detection Test',
+    mediaDetection: 'Media Detection',
     reports: 'Reports',
     auditLog: 'Audit Log',
     settings: 'Settings',
@@ -132,9 +132,11 @@ export default {
     generateReport: 'Generate Report',
   },
 
-  detectTest: {
-    title: 'Detection Test',
-    subtitle: 'Test the active model on an image or video',
+  media: {
+    title: 'Media Detection',
+    subtitle: 'Run the active model on an uploaded image or video',
+    purposeTest: 'Test',
+    purposeProcess: 'Process to QC',
     image: 'Image',
     video: 'Video',
     running: 'Processing...',
@@ -220,7 +222,7 @@ export default {
     preferences: 'Preferences',
     preferencesDesc: 'Display and language',
     language: 'Language',
-    inputMode: 'Enable Detection Test page',
+    inputMode: 'Enable Media Detection page',
     theme: 'Theme',
     themeLight: 'Light',
     themeDark: 'Dark',
