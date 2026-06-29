@@ -9,7 +9,7 @@ from ..database import get_db
 from ..models import Camera
 from ..schemas import CameraIn, CameraOut
 from ..services.annotated_stream import annotated_mjpeg, downscale
-from ..services.crop_session import get_session, reset_session
+from ..services.crop_session import approve_session, crop_file_path, get_session, reset_session
 from ..services.frame_grabber import FrameGrabber
 from ..services.object_detection import detect, resolve_model_path
 from ..services.presence_counter import PresenceCounter
@@ -165,7 +165,7 @@ def approve_crops(camera_id: str, payload: dict, db: Session = Depends(get_db)):
     if not db.get(Camera, camera_id):
         raise HTTPException(404, "camera not found")
     files = payload.get("files", [])
-    folder = get_session(camera_id).approve(files)
+    folder = approve_session(camera_id, files)
     if not folder:
         raise HTTPException(400, "no crops approved")
     from ..storage import list_images
@@ -174,9 +174,7 @@ def approve_crops(camera_id: str, payload: dict, db: Session = Depends(get_db)):
 
 @router.get("/{camera_id}/crops/{session_ts}/{filename}")
 def serve_crop(camera_id: str, session_ts: str, filename: str):
-    path = os.path.join(
-        app_settings.data_dir, "crops", camera_id, session_ts, filename
-    )
+    path = crop_file_path(camera_id, session_ts, filename)
     if not os.path.isfile(path):
         raise HTTPException(404, "crop not found")
     return FileResponse(path, media_type="image/jpeg")
