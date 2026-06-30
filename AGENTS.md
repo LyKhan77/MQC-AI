@@ -76,7 +76,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio, delete with confirmation.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
-- **Settings**: API-backed camera CRUD, active detection model switcher, decimal confidence threshold, defect strategy, save toast, preferences (language, theme).
+- **Settings**: API-backed camera CRUD, active detection model switcher, decimal confidence threshold, defect strategy, defect-class management (grouped enable/add/edit/delete), save toast, preferences (language, theme).
 - **Media Detection**: production upload UI with drag-and-drop staging, explicit Run trigger, active-model strip, image/video Test preview, Process to QC crop extraction, progress feedback, crop review, approval, and QC batch submission.
 - **Bilingual i18n** (Bahasa Indonesia / English) with toggle, persisted in localStorage.
 - **Light/Dark mode** toggle (Carbon Gray-100 dark theme), persisted in localStorage.
@@ -85,7 +85,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 
 - FastAPI backend under `qc_server/` with `/health`, startup table creation, CORS, and `.env` config.
 - SQLite metadata for cameras, defect classes, settings, audit logs, batches, images, and defects.
-- CRUD APIs for cameras, defect classes, settings, and audit logs.
+- CRUD APIs for cameras, defect classes, settings, and audit logs; defect classes have comprehensive coating/welding idempotent seed data and optional auto-generated create IDs.
 - OpenCV-backed camera probe + raw MJPEG stream endpoint (`GET /api/cameras/{camera_id}/stream`), one-shot `grab_one()` frame capture helper, annotated/downscaled detection MJPEG endpoint (`GET /api/cameras/{camera_id}/detect-stream`) with Auto presence-cycle counting/cropping for one-at-a-time parts, live count/FPS endpoint (`GET /api/cameras/{camera_id}/count`), per-camera lossless padded PNG crop session capture, and background camera status monitor.
 - Count-gate crop endpoints: `POST /api/cameras/{camera_id}/crop-session/start` resets a run, `POST /api/cameras/{camera_id}/capture` appends Manual captures, `POST /api/cameras/{camera_id}/crop-session/finalize` returns lossless padded PNG crop URLs for review, `POST /api/cameras/{camera_id}/crop-session/approve` copies selected crops to the approved batch folder, and `GET /api/cameras/{camera_id}/crops/{session_ts}/{filename}` serves crop thumbnails with inferred content type.
 - Media detection upload endpoints: `POST /api/detect/image`, `POST /api/detect/video`, annotated video playback `GET /api/detect/video/{video_id}/stream`, sync image crop export `POST /api/detect/image/process`, async video crop extraction `POST /api/detect/video/{video_id}/extract`, extraction status `GET /api/detect/video/{video_id}/extract/status`, media crop finalize/approve, and crop serving.
@@ -127,6 +127,7 @@ MQC-AI/
 │       │   ├── audit.js             # Audit log API
 │       │   ├── batches.js           # Batch submit/status/result/list/review/delete API
 │       │   ├── cameras.js           # Camera CRUD API
+│       │   ├── defectClasses.js     # Defect class CRUD API
 │       │   ├── detect.js            # Media Detection test/process upload API
 │       │   ├── models.js            # Detection model list API
 │       │   └── settings.js          # Settings API with snake/camel mapping
@@ -141,6 +142,7 @@ MQC-AI/
 │       │   ├── TopBar.vue           # Slim top bar (title, theme, i18n, profile)
 │       │   ├── BatchSidebar.vue     # Batch list with filter/search/review progress
 │       │   ├── InspectionCanvas.vue # Image canvas with zoom/pan/annotation
+│       │   ├── DefectClassModal.vue # Defect class add/edit modal
 │       │   ├── DefectPanel.vue      # Defect details + export + keyboard nav
 │       │   └── CropReviewDialog.vue # Shared crop approval dialog
 │       ├── composables/
@@ -150,6 +152,7 @@ MQC-AI/
 │       │   ├── useCameras.js        # Camera CRUD (live API)
 │       │   ├── useBatchHistory.js   # Batch history list/delete (live API)
 │       │   ├── useAuditLog.js       # Audit trail logging (live API + local cache)
+│       │   ├── useDefectClasses.js  # Defect class CRUD state (live API)
 │       │   ├── useSettings.js       # Model config + defect strategy + legacy input mode mapping (live API)
 │       │   └── useToast.js          # App-wide transient toast message
 │       ├── views/
@@ -159,7 +162,7 @@ MQC-AI/
 │       │   ├── MediaDetection.vue   # Production image/video upload, Test, and Process-to-QC crop flow
 │       │   ├── Reports.vue          # PDF report generator
 │       │   ├── AuditLog.vue         # Activity log table
-│       │   ├── Settings.vue         # Camera CRUD + model config + preferences
+│       │   ├── Settings.vue         # Camera CRUD + model config + defect classes + preferences
 │       │   └── __tests__/           # Vue component tests
 │       └── utils/
 │           ├── defect.js            # Defect type -> CSS variable color mapping
@@ -323,16 +326,16 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ## Current State · `[KEEP UPDATED]`
 
-### Status: Media Detection Production Upload UI Implemented · Backend M0-M3 Implemented
+### Status: Defect Class Management Implemented · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor has an explicit Start Camera raw preview, per-run Auto/Manual choice, Auto server-annotated MJPEG detection frames/boxes/count overlay with presence-cycle best-frame cropping for one-at-a-time parts, Manual one-shot Capture, `/count` polling for count + FPS, and a shared Review & Send crop approval dialog before submitting a QC batch. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, saves defect strategy, and confirms saves with a toast. Media Detection is always visible and stages uploaded images/videos before an explicit Run action for Test preview or Process-to-QC crop extraction, review, approval, and batch submission. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto presence-cycle crop, Media Detection crop-to-QC, and lossless padded PNG crop output are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, one-shot capture, crop approval endpoints, stream downscale/FPS cap, model-folder switcher, media detection upload/process endpoints, per-camera/media crop sessions, shared `crop_objects()` PNG writer with ~5% bbox padding, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, defect classes, batches, reports, audit log, and QC Studio flow. Live Monitor has an explicit Start Camera raw preview, per-run Auto/Manual choice, Auto server-annotated MJPEG detection frames/boxes/count overlay with presence-cycle best-frame cropping for one-at-a-time parts, Manual one-shot Capture, `/count` polling for count + FPS, and a shared Review & Send crop approval dialog before submitting a QC batch. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, saves defect strategy, manages grouped coating/welding defect classes with enable/add/edit/delete, and confirms saves with a toast. Media Detection is always visible and stages uploaded images/videos before an explicit Run action for Test preview or Process-to-QC crop extraction, review, approval, and batch submission. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto presence-cycle crop, Media Detection crop-to-QC, lossless padded PNG crop output, and defect-class management are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, comprehensive idempotent defect-class seed data, optional auto-generated defect-class create IDs, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, one-shot capture, crop approval endpoints, stream downscale/FPS cap, model-folder switcher, media detection upload/process endpoints, per-camera/media crop sessions, shared `crop_objects()` PNG writer with ~5% bbox padding, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
 
 ### Component Status
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | 7 pages, Carbon Design System, i18n, live API-backed data, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Auto presence-cycle crop results, shared Send-to-QC crop approval gate, active model switcher, production Media Detection upload Test/Process modes. |
-| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-3 + Auto/Manual redesign + Auto presence-cycle crop + Media Detection crop-to-QC + lossless padded PNG crop output done; SAM3 deferred. |
+| `qc_frontend/` | **Active** | 7 pages, Carbon Design System, i18n, live API-backed data, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Auto presence-cycle crop results, shared Send-to-QC crop approval gate, active model switcher, defect-class management, production Media Detection upload Test/Process modes. |
+| `qc_server/` | **Active** | FastAPI + SQLite backend. M0-M3 + Live Streaming Slices 1-3 + Auto/Manual redesign + Auto presence-cycle crop + Media Detection crop-to-QC + lossless padded PNG crop output + defect-class seed/API done; SAM3 deferred. |
 | `edge_app/` | **Not started** | Jetson Nano YOLO detection + live streaming. Planned. |
 
 ### Frontend Page Status
@@ -345,13 +348,13 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 | Media Detection | **Functional** | None | Always-visible production upload UI with drag/drop staging, explicit Run trigger, active-model image/video Test preview via `/api/detect/*`, Process image sync lossless padded PNG crop, Process video async presence-cycle crop extraction, crop approval, and QC batch submission wired; browser smoke pending |
 | Reports | **Functional** | None | Live batch/result API wired |
 | Audit Log | **Functional** | Local cache fallback | Live audit API wired |
-| Settings | **Functional** | None | Camera CRUD, settings API, active detection model switcher, decimal confidence, defect strategy, preferences, and save toast wired |
+| Settings | **Functional** | None | Camera CRUD, settings API, active detection model switcher, decimal confidence, defect strategy, grouped defect-class enable/add/edit/delete, preferences, and save toast wired |
 
 ### Detailed Log
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-30 (Crop Quality; Batch Delete + Sidebar Logo; Media Detection Production Upload UI).
+**Latest version**: [Unreleased] - 2026-06-30 (Defect Class Management; Crop Quality; Batch Delete + Sidebar Logo; Media Detection Production Upload UI).
 
 ---
 

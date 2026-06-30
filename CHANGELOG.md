@@ -11,6 +11,41 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - Defect Class Management
+
+### Summary
+
+Defect classes now have a comprehensive coating+welding seed set, idempotent startup seeding for existing databases, optional auto-generated create IDs, and a compact Settings management UI for enabling, adding, editing, and deleting classes.
+
+### Added
+
+- `qc_server/app/services/seed.py` - expanded canonical defect classes to 25 coating+welding variants with enabled defaults and idempotent add-missing-by-id seeding.
+- `qc_server/app/schemas.py` and `qc_server/app/routers/defect_classes.py` - `DefectClassCreate` lets `POST /api/defect-classes` omit `id`; the server slugifies `name` to `dc-*` and suffixes duplicates.
+- `qc_frontend/src/api/defectClasses.js` and `qc_frontend/src/composables/useDefectClasses.js` - live defect-class API helpers and singleton composable.
+- `qc_frontend/src/components/DefectClassModal.vue` - add/edit modal with name, category, and swatch color selection.
+- `qc_frontend/src/views/Settings.vue` - Defect Classes section grouped by coating/welding with enabled counts, toggles, add/edit, and delete confirmation.
+- `qc_frontend/src/views/__tests__/DefectClasses.test.js` - component coverage for grouped counts, toggles, add, and delete confirmation.
+
+### Changed
+
+- `POST /api/defect-classes` keeps explicit `id` creation working, but `id` is now optional for UI-created classes.
+- Settings now configures which defect classes future SAM 3 prompt-based batches should inspect.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Defect class seed | 2026-06-30 | 25 canonical coating+welding defect variants and add-missing-by-id seeding | Existing DBs gain new canonical classes without overwriting user edits. |
+| Defect class API | 2026-06-30 | Optional-id create with slug generation and duplicate suffixes | Operators can add classes without hand-writing stable IDs; explicit IDs still work. |
+| Settings UI | 2026-06-30 | Grouped Defect Classes section with counts, enable toggles, add/edit modal, and delete confirmation | Enabled class configuration is manageable from the dashboard and ready for SAM 3 Part B prompts. |
+| Verification | 2026-06-30 | Backend full suite, frontend full suite, and production build | Backend: 90 passed, 2 warnings. Frontend: 37 passed. Build succeeded. |
+
+### Notes
+
+- Browser smoke is pending for reviewer: grouped list/counts, toggle persistence, add auto-ids, edit/delete, and idempotent seed on an existing DB.
+- Deviation from plan test text: auto-id tests use `custom flaw` because `orange peel` is now seeded canonically and would correctly dedupe on startup.
+- Real `sam3_prompt` inference remains deferred to SAM 3 MVP Part B.
+
 ## [Unreleased] - 2026-06-30 - Crop Quality (Lossless PNG + Padding)
 
 ### Summary
