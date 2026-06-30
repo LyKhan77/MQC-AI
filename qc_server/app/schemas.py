@@ -45,6 +45,7 @@ class SettingOut(BaseModel):
     defect_strategy: str
     active_model: str
     qc_model: str
+    qc_confidence_threshold: float
     input_mode_enabled: bool
 
 
@@ -55,6 +56,7 @@ class SettingUpdate(BaseModel):
     defect_strategy: str | None = None
     active_model: str | None = None
     qc_model: str | None = None
+    qc_confidence_threshold: float | None = None
     input_mode_enabled: bool | None = None
 
 

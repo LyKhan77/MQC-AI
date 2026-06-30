@@ -36,6 +36,7 @@ def on_startup():
     ensure_active_model_column(engine)
     ensure_column(engine, "settings", "input_mode_enabled", "BOOLEAN DEFAULT 1")
     ensure_column(engine, "settings", "qc_model", "VARCHAR DEFAULT ''")
+    ensure_column(engine, "settings", "qc_confidence_threshold", "FLOAT DEFAULT 0.5")
     db = SessionLocal()
     try:
         seed_if_empty(db)
