@@ -2,10 +2,11 @@
 import { ref, computed } from 'vue'
 import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
-import { defectColor } from '../utils/defect.js'
+import { useDefectColor } from '../composables/useDefectColor.js'
 
 const { selected, hoveredDefectId, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
+const { colorFor } = useDefectColor()
 
 const zoom = ref(1)
 const panX = ref(0)
@@ -88,8 +89,8 @@ const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}p
             v-for="d in selected.defects"
             :key="d.id"
             :points="pointsAttr(d.polygon)"
-            :stroke="defectColor(d.type)"
-            :fill="defectColor(d.type)"
+            :stroke="colorFor(d.type)"
+            :fill="colorFor(d.type)"
             :fill-opacity="hoveredDefectId === d.id ? 0.4 : 0.15"
             :data-defect-id="d.id"
             class="defect-poly"

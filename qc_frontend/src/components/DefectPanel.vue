@@ -3,12 +3,13 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
-import { defectColor } from '../utils/defect.js'
+import { useDefectColor } from '../composables/useDefectColor.js'
 import { renderAnnotated, downloadCanvas, defectsBBox } from '../utils/export.js'
 
 const { selected, hoveredDefectId, images, selectImage, selectedId, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
+const { colorFor } = useDefectColor()
 
 const coating = computed(() => selected.value?.defects.filter((d) => d.category === 'coating') ?? [])
 const welding = computed(() => selected.value?.defects.filter((d) => d.category === 'welding') ?? [])
@@ -101,7 +102,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             @mouseenter="hoveredDefectId = d.id"
             @mouseleave="hoveredDefectId = null"
           >
-            <span class="swatch" :style="{ background: defectColor(d.type) }"></span>
+            <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
@@ -120,7 +121,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             @mouseenter="hoveredDefectId = d.id"
             @mouseleave="hoveredDefectId = null"
           >
-            <span class="swatch" :style="{ background: defectColor(d.type) }"></span>
+            <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
