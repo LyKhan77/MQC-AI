@@ -42,4 +42,19 @@ describe('settings api', () => {
       body: JSON.stringify({ confidence_threshold: 0.8, defect_strategy: 'sam3_prompt' }),
     })
   })
+
+  it('maps qc_model to qcModel and back', async () => {
+    vi.stubGlobal('fetch', ok({ qc_model: 'sam3.pt' }))
+    const s = await getSettings()
+    expect(s.qcModel).toBe('sam3.pt')
+
+    const f = ok({ qc_model: 'sam3.pt' })
+    vi.stubGlobal('fetch', f)
+    await updateSettings({ qcModel: 'sam3.pt' })
+    expect(f).toHaveBeenCalledWith('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qc_model: 'sam3.pt' }),
+    })
+  })
 })
