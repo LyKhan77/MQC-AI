@@ -109,6 +109,18 @@ describe('batches api', () => {
     })
   })
 
+  it('resetBatch posts to reset endpoint', async () => {
+    const f = fetchSequence([{ status: 200, body: { batch_id: 'b1', status: 'pending' } }])
+    vi.stubGlobal('fetch', f)
+    const { resetBatch } = await import('./batches.js')
+    await resetBatch('b1')
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+  })
+
   it('pollBatchUntilDone throws after maxAttempts', async () => {
     vi.stubGlobal('fetch', fetchSequence([
       { status: 200, body: { batch_id: 'b1', status: 'processing', progress: { done: 0, total: 3 } } },

@@ -7,7 +7,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 import QcRunDialog from './QcRunDialog.vue'
 
 const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
-  needsRun, prepareBatch, runAndLoad, removeImage, selectImage, toggleReviewed, isReviewed } = useInspection()
+  needsRun, prepareBatch, runAndLoad, removeImage, resetAndReload, selectImage, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 
@@ -46,6 +46,16 @@ async function onDeleteImage(img) {
   if (!confirm(t('qc.confirmDeleteImage'))) return
   await removeImage(img.id)
   log('IMAGE_DELETED', `Deleted image: ${img.filename}`)
+}
+
+function onRerun() {
+  showRunDialog.value = true
+}
+
+async function onReset() {
+  if (!confirm(t('qc.confirmReset'))) return
+  await resetAndReload(route.query.batch)
+  log('BATCH_RESET', `Reset batch ${currentBatchId.value}`)
 }
 
 onMounted(() => loadFor(route.query.batch))
@@ -103,6 +113,11 @@ function handleToggleReviewed(img) {
           <div class="progress-bar" :style="{ width: `${images.length ? (reviewedCount / images.length) * 100 : 0}%` }"></div>
         </div>
         <p class="progress-text">{{ t('qc.reviewProgress') }}: {{ reviewedCount }}/{{ images.length }}</p>
+      </div>
+
+      <div v-if="batch && !loading && !needsRun" class="batch-rerun-row">
+        <button class="btn-secondary" @click="onRerun">{{ t('qc.rerun') }}</button>
+        <button class="btn-secondary" @click="onReset">{{ t('qc.reset') }}</button>
       </div>
 
       <p v-else-if="needsRun" class="pending-hint">{{ t('qc.pendingHint') }}</p>
@@ -182,6 +197,25 @@ function handleToggleReviewed(img) {
 .btn-load:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.batch-rerun-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.batch-rerun-row .btn-secondary {
+  flex: 1;
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.16px;
+}
+.batch-rerun-row .btn-secondary:hover {
+  background: var(--color-surface-1);
 }
 .skeleton-meta {
   margin-top: 12px;

@@ -52,6 +52,10 @@ export function deleteImage(batchId, imageId) {
   return apiDelete(`/batches/${batchId}/images/${imageId}`)
 }
 
+export function resetBatch(batchId) {
+  return apiPost(`/batches/${batchId}/reset`, {})
+}
+
 export function patchBatch(batchId, { status, reviewer }) {
   return apiPatch(`/batches/${batchId}`, { status, reviewer })
 }

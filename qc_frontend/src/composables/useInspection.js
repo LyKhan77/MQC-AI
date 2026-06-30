@@ -7,6 +7,7 @@ import {
   patchImageReviewed,
   patchBatch,
   deleteImage,
+  resetBatch,
 } from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
@@ -82,6 +83,7 @@ async function prepareBatch(batchId) {
 // override), then poll + display the results.
 async function runAndLoad(batchId, confidenceThreshold) {
   if (!batchId) return
+  clearReviewedFor(images.value)
   needsRun.value = false
   try {
     await runBatch(batchId, { confidenceThreshold })
@@ -156,6 +158,32 @@ async function removeImage(imageId) {
   }
 }
 
+function clearReviewedFor(imgs) {
+  let changed = false
+  for (const im of imgs) {
+    if (reviewed.value.has(im.id)) {
+      reviewed.value.delete(im.id)
+      changed = true
+    }
+  }
+  if (changed) {
+    reviewed.value = new Set(reviewed.value)
+    persistReviewed()
+  }
+}
+
+async function resetAndReload(batchId) {
+  if (!batchId) return
+  clearReviewedFor(images.value)
+  try {
+    await resetBatch(batchId)
+  } catch (e) {
+    error.value = e.message || 'Failed to reset batch'
+    return
+  }
+  await prepareBatch(batchId)
+}
+
 // Batch status follows review completeness automatically:
 // all images reviewed -> "reviewed"; otherwise -> "done". Only PATCHes on change.
 function syncBatchStatus() {
@@ -192,6 +220,7 @@ export function useInspection() {
     runAndLoad,
     loadBatch,
     removeImage,
+    resetAndReload,
     selectImage,
     toggleReviewed,
     isReviewed,
