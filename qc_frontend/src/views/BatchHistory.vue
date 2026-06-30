@@ -242,6 +242,65 @@ const statusClass = (s) => `status-${s}`
 .btn-danger-sm:hover {
   background: var(--color-surface-1);
 }
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.dialog {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  width: 480px;
+  max-width: 90vw;
+}
+.dialog-title {
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-hairline);
+  letter-spacing: 0.16px;
+}
+.dialog-body {
+  padding: 24px;
+  color: var(--color-ink);
+  font-size: 14px;
+  letter-spacing: 0.16px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-hairline);
+}
+.dialog-actions .btn-ghost {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.dialog-actions .btn-ghost:hover { background: var(--color-surface-1); }
+.dialog-actions .btn-primary {
+  padding: 8px 16px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.dialog-actions .btn-primary:hover { background: var(--color-primary-hover); }
 .error-msg {
   color: var(--color-error);
   font-size: 13px;
