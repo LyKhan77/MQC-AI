@@ -80,3 +80,19 @@ def test_registry_reset_returns_started_session(tmp_path, monkeypatch):
     s = reset_session("cam-7")
     assert s.session_ts is not None
     assert get_session("cam-7") is s
+
+
+def test_approve_session_and_crop_file_path(tmp_path, monkeypatch):
+    import app.services.crop_session as cs
+
+    monkeypatch.setattr(cs.settings, "data_dir", str(tmp_path))
+    s = cs.reset_session("key-1")
+    s.add_captured(
+        np.zeros((50, 50, 3), dtype=np.uint8),
+        [Detection(5, 5, 20, 20, "o", 0.9)],
+    )
+    files = s.finalize()["files"]
+    approved = cs.approve_session("key-1", files)
+    assert approved.endswith("approved")
+    path = cs.crop_file_path("key-1", s.session_ts, files[0])
+    assert path.endswith(files[0]) and "key-1" in path

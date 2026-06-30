@@ -27,6 +27,10 @@ temp/
 IBM-darkmode.md
 IBM-lightmode.md
 
+# Impeccable skill tooling artifacts (bukan bagian codebase)
+.impeccable/
+PRODUCT.md
+
 # qc_server backend
 qc_server/.venv/
 qc_server/data/

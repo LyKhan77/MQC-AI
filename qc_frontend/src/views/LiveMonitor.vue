@@ -5,6 +5,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { submitBatch } from '../api/batches.js'
+import CropReviewDialog from '../components/CropReviewDialog.vue'
 import {
   startCropSession,
   captureDetection,
@@ -30,7 +31,6 @@ const tempC = ref(0)
 const capturing = ref(false)
 
 const showSendDialog = ref(false)
-const batchNameInput = ref('')
 const sendError = ref('')
 const crops = ref([])
 
@@ -44,7 +44,6 @@ const rawStreamUrl = computed(() =>
 const detectStreamUrl = computed(() =>
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/detect-stream` : '',
 )
-const selectedCropCount = computed(() => crops.value.filter((c) => c.selected).length)
 
 let statusTimer = null
 let countTimer = null
@@ -120,36 +119,28 @@ async function captureOnce() {
 }
 
 async function openReview() {
-  const now = new Date()
-  const ts = now.toISOString().replace(/[:T]/g, '-').slice(0, 19)
-  batchNameInput.value = `batch_${ts}`
   sendError.value = ''
   crops.value = []
   showSendDialog.value = true
   try {
     const res = await finalizeCropSession(selectedCameraId.value)
-    crops.value = res.crop_urls.map((url) => ({
-      url,
-      name: url.split('/').pop(),
-      selected: true,
-    }))
+    crops.value = res.crop_urls
   } catch (e) {
     sendError.value = e.message || t('sendToQC.sendFailed')
   }
 }
 
-async function sendToQC() {
+async function onReviewConfirm({ batchName, selectedFiles }) {
   const cam = selectedCamera.value
   sendError.value = ''
   try {
-    const selected = crops.value.filter((c) => c.selected).map((c) => c.name)
-    const approved = await approveCrops(selectedCameraId.value, selected)
+    const approved = await approveCrops(selectedCameraId.value, selectedFiles)
     const { batch_id } = await submitBatch({
-      batchName: batchNameInput.value,
+      batchName,
       sourcePath: approved.folder,
       cameraId: cam?.id ?? null,
     })
-    log('BATCH_SENT', `Sent batch ${batchNameInput.value} to QC`)
+    log('BATCH_SENT', `Sent batch ${batchName} to QC`)
     showSendDialog.value = false
     stopCamera()
     router.push({ name: 'qc', query: { batch: batch_id } })
@@ -262,62 +253,13 @@ function onCameraChange() {
       </div>
     </div>
 
-    <div v-if="showSendDialog" class="dialog-overlay" @click.self="showSendDialog = false">
-      <div class="dialog">
-        <h3 class="dialog-title">{{ t('sendToQC.title') }}</h3>
-
-        <div class="dialog-body">
-          <div class="form-row">
-            <label>{{ t('sendToQC.batchName') }}</label>
-            <input v-model="batchNameInput" class="text-input" :placeholder="t('sendToQC.batchNamePlaceholder')" />
-            <span class="form-hint">{{ t('sendToQC.autoTimestamp') }}</span>
-          </div>
-
-          <div class="form-row">
-            <div class="crop-head">
-              <label>{{ t('sendToQC.cropReview') }} ({{ selectedCropCount }}/{{ crops.length }})</label>
-              <div class="crop-head-actions">
-                <button class="btn-ghost btn-sm" @click="crops.forEach((c) => (c.selected = true))">{{ t('sendToQC.selectAll') }}</button>
-                <button class="btn-ghost btn-sm" @click="crops.forEach((c) => (c.selected = false))">{{ t('sendToQC.selectNone') }}</button>
-              </div>
-            </div>
-            <p v-if="crops.length === 0" class="form-hint">{{ t('sendToQC.noCrops') }}</p>
-            <div v-else class="crop-grid">
-              <label v-for="(c, i) in crops" :key="i" :class="['crop-cell', { unselected: !c.selected }]">
-                <input type="checkbox" v-model="c.selected" class="crop-check" />
-                <img :src="c.url" class="crop-thumb" :alt="t('sendToQC.cropReview')" />
-              </label>
-            </div>
-          </div>
-
-          <p v-if="sendError" class="send-error">{{ sendError }}</p>
-
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">{{ t('sendToQC.sourceCamera') }}</span>
-              <span class="info-value">{{ selectedCamera?.name }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">{{ t('sendToQC.imagesCaptured') }}</span>
-              <span class="info-value mono">{{ objectCount }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">{{ t('sendToQC.detectionModel') }}</span>
-              <span class="info-value">{{ settings.activeModel || settings.detectionModel }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">{{ t('sendToQC.confidence') }}</span>
-              <span class="info-value">{{ Math.round(settings.confidenceThreshold * 100) }}%</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="dialog-actions">
-          <button class="btn-ghost" @click="showSendDialog = false">{{ t('sendToQC.cancel') }}</button>
-          <button class="btn-primary" @click="sendToQC" :disabled="!batchNameInput.trim() || selectedCropCount === 0">{{ t('sendToQC.send') }}</button>
-        </div>
-      </div>
-    </div>
+    <CropReviewDialog
+      :show="showSendDialog"
+      :crops="crops"
+      :error="sendError"
+      @cancel="showSendDialog = false"
+      @confirm="onReviewConfirm"
+    />
   </div>
 </template>
 

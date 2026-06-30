@@ -108,7 +108,6 @@ describe('LiveMonitor Auto/Manual crop flow', () => {
     await flushPromises()
 
     expect(wrapper.findAll('.crop-cell')).toHaveLength(2)
-    expect(wrapper.vm.selectedCropCount).toBe(2)
     expect(wrapper.find('.dialog-actions .btn-primary').attributes('disabled')).toBeUndefined()
   })
 
@@ -118,10 +117,8 @@ describe('LiveMonitor Auto/Manual crop flow', () => {
     wrapper.vm.selectedCameraId = 'cam-1'
     await wrapper.vm.openReview()
     await flushPromises()
-    wrapper.vm.crops.forEach((c) => (c.selected = false))
-    await wrapper.vm.$nextTick()
+    await wrapper.findAll('.crop-head-actions button')[1].trigger('click')
 
-    expect(wrapper.vm.selectedCropCount).toBe(0)
     expect(wrapper.find('.dialog-actions .btn-primary').attributes('disabled')).toBeDefined()
   })
 
@@ -131,13 +128,13 @@ describe('LiveMonitor Auto/Manual crop flow', () => {
     wrapper.vm.selectedCameraId = 'cam-1'
     await wrapper.vm.openReview()
     await flushPromises()
-    wrapper.vm.crops[1].selected = false
-    await wrapper.vm.sendToQC()
+    await wrapper.findAll('input[type="checkbox"]')[1].setValue(false)
+    await wrapper.find('.dialog-actions .btn-primary').trigger('click')
     await flushPromises()
 
     expect(approveCrops).toHaveBeenCalledWith('cam-1', ['obj_000.jpg'])
     expect(submitBatch).toHaveBeenCalledWith({
-      batchName: wrapper.vm.batchNameInput,
+      batchName: expect.stringMatching(/^batch_/),
       sourcePath: '/data/crops/cam/x/approved',
       cameraId: 'cam-1',
     })

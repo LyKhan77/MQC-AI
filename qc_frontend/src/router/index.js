@@ -5,14 +5,14 @@ import BatchHistory from '../views/BatchHistory.vue'
 import Reports from '../views/Reports.vue'
 import AuditLog from '../views/AuditLog.vue'
 import Settings from '../views/Settings.vue'
-import DetectionTest from '../views/DetectionTest.vue'
+import MediaDetection from '../views/MediaDetection.vue'
 
 const routes = [
   { path: '/', redirect: '/live' },
   { path: '/live', name: 'live', component: LiveMonitor },
   { path: '/qc', name: 'qc', component: QCStudio },
   { path: '/batches', name: 'batches', component: BatchHistory },
-  { path: '/detect-test', name: 'detectTest', component: DetectionTest },
+  { path: '/media-detection', name: 'media', component: MediaDetection },
   { path: '/reports', name: 'reports', component: Reports },
   { path: '/audit', name: 'audit', component: AuditLog },
   { path: '/settings', name: 'settings', component: Settings },

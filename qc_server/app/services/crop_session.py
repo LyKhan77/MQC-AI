@@ -86,3 +86,11 @@ def reset_session(camera_id):
     s = get_session(camera_id)
     s.start()
     return s
+
+
+def approve_session(key, files):
+    return get_session(key).approve(files)
+
+
+def crop_file_path(key, session_ts, filename):
+    return os.path.join(settings.data_dir, "crops", key, session_ts, filename)
