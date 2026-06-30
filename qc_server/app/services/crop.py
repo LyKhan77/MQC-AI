@@ -3,7 +3,7 @@ import os
 import cv2
 
 
-def crop_objects(frame, detections, out_dir, scale=1.0, start_index=0, pad_frac=0.08):
+def crop_objects(frame, detections, out_dir, scale=1.0, start_index=0, pad_frac=0.05):
     os.makedirs(out_dir, exist_ok=True)
     h, w = frame.shape[:2]
     files = []
