@@ -1,9 +1,13 @@
+import os
+
+from ..config import settings as app_settings
 from .. import storage
 from ..models import Batch, DefectClass, Defect, Image, Setting
 from ..util import gen_id
 from . import job_queue
 from .inference.base import DefectClassSpec, get_strategy
 from .inference import mock  # noqa: F401  (registers "mock")
+from .inference import sam3  # noqa: F401  (registers "sam3_prompt")
 
 
 def run_batch(batch_id: str, session_factory) -> None:
@@ -24,7 +28,14 @@ def run_batch(batch_id: str, session_factory) -> None:
             DefectClassSpec(c.name, c.category, c.enabled)
             for c in db.query(DefectClass).all()
         ]
-        params = {"confidence_threshold": threshold}
+        qc_model = setting.qc_model if setting else ""
+        qc_model_path = (
+            os.path.join(app_settings.models_dir, qc_model) if qc_model else ""
+        )
+        params = {
+            "confidence_threshold": threshold,
+            "qc_model_path": qc_model_path,
+        }
 
         total_defects = 0
         for filename in files:
