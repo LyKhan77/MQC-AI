@@ -61,7 +61,9 @@ def get_predictor(model_path):
             task="segment",
             mode="predict",
             model=model_path,
-            half=True,
+            half=True,       # FP16 on GPU
+            save=False,       # don't write runs/segment/* annotated crops per image
+            verbose=False,    # quiet per-image logging during a batch
         ))
         _predictor_path = model_path
     return _predictor
