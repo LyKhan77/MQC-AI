@@ -44,3 +44,65 @@ def simplify_polygon(points, epsilon, width, height):
         cy = max(0, min(height, int(round(y))))
         out.append([cx, cy])
     return out
+
+
+_predictor = None
+_predictor_path = None
+
+
+def get_predictor(model_path):
+    global _predictor, _predictor_path
+    if _predictor is None or _predictor_path != model_path:
+        from ultralytics.models.sam import SAM3SemanticPredictor
+
+        _predictor = SAM3SemanticPredictor(overrides=dict(
+            conf=0.01,
+            task="segment",
+            mode="predict",
+            model=model_path,
+            half=True,
+        ))
+        _predictor_path = model_path
+    return _predictor
+
+
+class Sam3Strategy:
+    name = "sam3_prompt"
+
+    def detect(self, image_path, width, height, defect_classes, params):
+        model_path = params.get("qc_model_path")
+        if not model_path:
+            raise ValueError(
+                "No QC model selected (Settings -> QC / Segmentation Model)"
+            )
+        threshold = params.get("confidence_threshold", 0.5)
+
+        predictor = get_predictor(model_path)
+        predictor.set_image(image_path)
+
+        detections: list[Detection] = []
+        for spec in defect_classes:
+            if not spec.enabled:
+                continue
+            for result in predictor(text=[spec.name]):
+                masks = getattr(result, "masks", None)
+                boxes = getattr(result, "boxes", None)
+                if masks is None or boxes is None:
+                    continue
+                for poly, conf in zip(masks.xy, boxes.conf):
+                    score = float(conf)
+                    if score < threshold:
+                        continue
+                    polygon = simplify_polygon(poly, POLYGON_EPSILON, width, height)
+                    if not polygon:
+                        continue
+                    detections.append(Detection(
+                        type=spec.name,
+                        category=spec.category,
+                        confidence=round(score, 2),
+                        polygon=polygon,
+                    ))
+        return detections
+
+
+register(Sam3Strategy())
