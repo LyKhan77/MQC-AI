@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 
 from .base import Detection, DefectClassSpec, register
 
@@ -71,7 +72,7 @@ class Sam3Strategy:
 
     def detect(self, image_path, width, height, defect_classes, params):
         model_path = params.get("qc_model_path")
-        if not model_path:
+        if not model_path or not os.path.exists(model_path):
             raise ValueError(
                 "No QC model selected (Settings -> QC / Segmentation Model)"
             )

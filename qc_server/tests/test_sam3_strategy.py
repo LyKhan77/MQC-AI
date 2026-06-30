@@ -49,7 +49,7 @@ class _FakePredictor:
         return self.mapping.get(text[0], [])
 
 
-def test_detect_maps_filters_and_simplifies(monkeypatch):
+def test_detect_maps_filters_and_simplifies(monkeypatch, tmp_path):
     square = [[10, 10], [25, 10], [40, 10], [40, 40], [10, 40]]
     mapping = {
         "scratch": [_FakeResult([square], [0.91])],
@@ -57,6 +57,8 @@ def test_detect_maps_filters_and_simplifies(monkeypatch):
     }
     fake = _FakePredictor(mapping)
     monkeypatch.setattr(sam3, "get_predictor", lambda _: fake)
+    model_path = tmp_path / "sam3.pt"
+    model_path.write_text("fake")
 
     specs = [
         DefectClassSpec("scratch", "coating", True),
@@ -65,7 +67,7 @@ def test_detect_maps_filters_and_simplifies(monkeypatch):
     ]
     dets = sam3.Sam3Strategy().detect(
         "img.jpg", 100, 100, specs,
-        {"qc_model_path": "sam3.pt", "confidence_threshold": 0.5},
+        {"qc_model_path": str(model_path), "confidence_threshold": 0.5},
     )
 
     assert fake.image == "img.jpg"
@@ -79,3 +81,11 @@ def test_detect_maps_filters_and_simplifies(monkeypatch):
 def test_detect_requires_qc_model_path():
     with pytest.raises(ValueError):
         sam3.Sam3Strategy().detect("img.jpg", 10, 10, [], {"confidence_threshold": 0.5})
+
+
+def test_detect_requires_existing_qc_model_path(tmp_path):
+    with pytest.raises(ValueError, match="No QC model selected"):
+        sam3.Sam3Strategy().detect(
+            "img.jpg", 10, 10, [],
+            {"qc_model_path": str(tmp_path / "missing.pt"), "confidence_threshold": 0.5},
+        )
