@@ -245,7 +245,6 @@ export default {
     preferences: 'Preferensi',
     preferencesDesc: 'Tampilan dan bahasa',
     language: 'Bahasa',
-    inputMode: 'Aktifkan halaman Deteksi Media',
     theme: 'Tema',
     themeLight: 'Terang',
     themeDark: 'Gelap',

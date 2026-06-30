@@ -235,7 +235,6 @@ export default {
     preferences: 'Preferences',
     preferencesDesc: 'Display and language',
     language: 'Language',
-    inputMode: 'Enable Media Detection page',
     theme: 'Theme',
     themeLight: 'Light',
     themeDark: 'Dark',
