@@ -48,6 +48,10 @@ export function patchImageReviewed(batchId, imageId, reviewed) {
   return apiPatch(`/batches/${batchId}/images/${imageId}`, { reviewed })
 }
 
+export function deleteImage(batchId, imageId) {
+  return apiDelete(`/batches/${batchId}/images/${imageId}`)
+}
+
 export function patchBatch(batchId, { status, reviewer }) {
   return apiPatch(`/batches/${batchId}`, { status, reviewer })
 }

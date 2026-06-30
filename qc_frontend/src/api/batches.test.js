@@ -98,6 +98,17 @@ describe('batches api', () => {
     })
   })
 
+  it('deleteImage calls the batch image delete endpoint', async () => {
+    const f = fetchSequence([{ status: 200, body: { deleted: 'i1' } }])
+    vi.stubGlobal('fetch', f)
+    const { deleteImage } = await import('./batches.js')
+    await deleteImage('b1', 'i1')
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/images/i1', {
+      method: 'DELETE',
+      headers: {},
+    })
+  })
+
   it('pollBatchUntilDone throws after maxAttempts', async () => {
     vi.stubGlobal('fetch', fetchSequence([
       { status: 200, body: { batch_id: 'b1', status: 'processing', progress: { done: 0, total: 3 } } },

@@ -7,7 +7,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 import QcRunDialog from './QcRunDialog.vue'
 
 const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
-  needsRun, prepareBatch, runAndLoad, selectImage, toggleReviewed, isReviewed } = useInspection()
+  needsRun, prepareBatch, runAndLoad, removeImage, selectImage, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 
@@ -40,6 +40,12 @@ async function onRunConfirm({ confidenceThreshold }) {
   showRunDialog.value = false
   await runAndLoad(route.query.batch, confidenceThreshold)
   if (batch.value) log('BATCH_SENT', `Started QC segmentation: ${batch.value.batch_name}`)
+}
+
+async function onDeleteImage(img) {
+  if (!confirm(t('qc.confirmDeleteImage'))) return
+  await removeImage(img.id)
+  log('IMAGE_DELETED', `Deleted image: ${img.filename}`)
 }
 
 onMounted(() => loadFor(route.query.batch))
@@ -132,6 +138,11 @@ function handleToggleReviewed(img) {
         <span class="fname mono">{{ img.filename }}</span>
         <span v-if="img.defects.length" class="count mono">{{ img.defects.length }}</span>
         <span v-if="isReviewed(img.id)" class="check-mark" title="Reviewed">&#10003;</span>
+        <button
+          class="img-del"
+          :title="t('common.delete')"
+          @click.stop="onDeleteImage(img)"
+        >&times;</button>
       </li>
     </ul>
 
@@ -341,6 +352,23 @@ function handleToggleReviewed(img) {
   color: var(--color-success);
   font-size: 12px;
   font-weight: 600;
+}
+.img-del {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 18px;
+  padding: 0;
+}
+.img-del:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: var(--color-surface-1);
 }
 .empty {
   color: var(--color-ink-subtle);

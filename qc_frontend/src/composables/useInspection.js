@@ -6,6 +6,7 @@ import {
   runBatch,
   patchImageReviewed,
   patchBatch,
+  deleteImage,
 } from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
@@ -66,8 +67,8 @@ async function prepareBatch(batchId) {
     const status = await getBatchStatus(batchId)
     if (status.status === 'pending') {
       needsRun.value = true
-      batch.value = null
-      selectedId.value = null
+      batch.value = await getBatchResult(batchId)
+      selectedId.value = images.value[0]?.id ?? null
       return
     }
   } catch {
@@ -141,6 +142,20 @@ function toggleReviewed(id) {
   }
 }
 
+async function removeImage(imageId) {
+  if (!imageId || !currentBatchId.value) return
+  await deleteImage(currentBatchId.value, imageId)
+  if (batch.value) {
+    batch.value = {
+      ...batch.value,
+      images: images.value.filter((img) => img.id !== imageId),
+    }
+  }
+  if (selectedId.value === imageId) {
+    selectedId.value = images.value[0]?.id ?? null
+  }
+}
+
 // Batch status follows review completeness automatically:
 // all images reviewed -> "reviewed"; otherwise -> "done". Only PATCHes on change.
 function syncBatchStatus() {
@@ -176,6 +191,7 @@ export function useInspection() {
     prepareBatch,
     runAndLoad,
     loadBatch,
+    removeImage,
     selectImage,
     toggleReviewed,
     isReviewed,
