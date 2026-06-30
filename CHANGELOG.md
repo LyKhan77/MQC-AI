@@ -11,6 +11,42 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - Batch Delete + Sidebar Logo
+
+### Summary
+
+Batch History can now delete batches through a backend `DELETE /api/batches/{id}` endpoint with a confirmation dialog in the dashboard. The sidebar brand lockup now displays `GSPE | MQC-AI` when expanded and centers `GSPE` when collapsed.
+
+### Added
+
+- `DELETE /api/batches/{batch_id}` - deletes the batch, its images, defects, and `data/batches/<batch_id>/` result directory while leaving source crop folders untouched.
+- `qc_frontend/src/api/batches.js` - `deleteBatch(batchId)` helper using the existing `apiDelete`.
+- `qc_frontend/src/composables/useBatchHistory.js` - `remove(id)` deletes a batch and removes it from loaded state.
+- `qc_frontend/src/views/BatchHistory.vue` - Delete action with confirm/cancel dialog and error display.
+- `qc_frontend/src/views/__tests__/BatchHistory.test.js` - component coverage for delete confirmation.
+
+### Changed
+
+- `qc_frontend/src/components/AppSidebar.vue` - refined sidebar wordmark to `GSPE | MQC-AI` expanded and centered `GSPE` collapsed.
+- `qc_frontend/src/assets/locales/en.js` and `qc_frontend/src/assets/locales/id.js` - added Batch History delete dialog strings.
+
+### Fixed
+
+- Batch History delete confirmation now renders as a centered modal overlay instead of an inline block that expanded the page (the `.dialog-overlay`/`.dialog` classes were not global).
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Batch deletion API | 2026-06-30 | `DELETE /api/batches/{batch_id}` with image/defect cleanup and result directory removal | Operators can remove obsolete processed batches without deleting source crop folders. |
+| Batch History UI | 2026-06-30 | Delete button, confirmation modal, local row removal, and component test | Batch deletion is explicit and confirmed via a centered modal. |
+| Sidebar branding | 2026-06-30 | Expanded `GSPE | MQC-AI` lockup and collapsed centered `GSPE` | The collapsed sidebar no longer clips or left-aligns the brand mark. |
+| Verification | 2026-06-30 | Backend full suite, frontend full suite, and production build | Backend: 82 passed, 2 warnings. Frontend: 28 passed. Build succeeded. |
+
+### Notes
+
+- Browser smoke confirmed by the reviewer: delete confirm/cancel flow and collapsed sidebar centering.
+
 ## [Unreleased] - 2026-06-30 - Media Detection Production Upload UI
 
 ### Summary

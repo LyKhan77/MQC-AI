@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from './client.js'
+import { apiGet, apiPost, apiPatch, apiDelete } from './client.js'
 
 export function submitBatch({ batchName, sourcePath, cameraId }) {
   return apiPost('/batches', {
@@ -44,6 +44,10 @@ export function patchImageReviewed(batchId, imageId, reviewed) {
 
 export function patchBatch(batchId, { status, reviewer }) {
   return apiPatch(`/batches/${batchId}`, { status, reviewer })
+}
+
+export function deleteBatch(batchId) {
+  return apiDelete(`/batches/${batchId}`)
 }
 
 export async function pollBatchUntilDone(batchId, { onProgress, intervalMs = 1000, maxAttempts = 600 } = {}) {

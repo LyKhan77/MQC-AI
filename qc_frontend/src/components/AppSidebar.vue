@@ -24,6 +24,7 @@ const navItems = [
   <aside class="app-sidebar" :class="{ collapsed }">
     <div class="sidebar-header">
       <span class="brand-mark">GSPE</span>
+      <span v-if="!collapsed" class="brand-divider" aria-hidden="true"></span>
       <span v-if="!collapsed" class="brand-text">MQC-AI</span>
     </div>
 
@@ -77,18 +78,30 @@ const navItems = [
   flex-shrink: 0;
 }
 
+.app-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0 4px;
+}
+
 .brand-mark {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-primary);
-  letter-spacing: 0.16px;
+  letter-spacing: 0;
   white-space: nowrap;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-ink-subtle);
+  flex-shrink: 0;
 }
 
 .brand-text {
   font-weight: 400;
   font-size: 14px;
-  color: var(--color-ink);
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
   white-space: nowrap;
 }

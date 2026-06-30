@@ -68,7 +68,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 |---|---|---|
 | `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), Start Camera raw preview, Auto annotated MJPEG detection with presence-cycle best-frame crop, Manual capture, live object count/FPS, real online/offline status, Send to QC crop approval dialog |
 | `/qc` | **QC Studio** | 3-column inspection: batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
-| `/batches` | **Batch History** | Searchable table of all processed batches, filter by status |
+| `/batches` | **Batch History** | Searchable table of all processed batches, filter by status, delete with confirmation |
 | `/media-detection` | **Media Detection** | Always-visible production upload page with drag/drop staging, explicit Run trigger, Test preview, and Process-to-QC crop export for images/videos |
 | `/reports` | **Reports** | PDF audit report generator with summary, defect table, approval fields |
 | `/audit` | **Audit Log** | Auto-logged activity trail, filterable by action type |
@@ -78,7 +78,8 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 - **Bilingual i18n** (Bahasa Indonesia / English) dengan toggle, persisted di localStorage
 - **Light/Dark mode toggle** dengan Carbon Gray-100 dark theme, persisted di localStorage
-- **Collapsible sidebar navigation** dengan 7 menu items
+- **Collapsible sidebar navigation** dengan 7 menu items and a refined `GSPE | MQC-AI` wordmark (centered `GSPE` when collapsed)
+- **Batch History delete**: batches can be deleted from the dashboard after a confirmation modal via `DELETE /api/batches/{id}`
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
 - **Live API-backed data**: cameras, settings, batches, reports, and audit logs load from `qc_server`; Live Monitor streams raw/annotated MJPEG frames, shows real camera status, and sends approved crop folders to QC
@@ -123,7 +124,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 ### Current Scope
 
-Implemented M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto presence-cycle crop, and Media Detection crop-to-QC: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream with downscale/FPS cap and presence-cycle best-frame crop, `GET /api/cameras/{id}/count` returning count and FPS, one-shot `grab_one()` capture, per-camera/media crop sessions, `POST /api/cameras/{id}/crop-session/start`, `POST /api/cameras/{id}/capture`, `POST /api/cameras/{id}/crop-session/finalize`, `POST /api/cameras/{id}/crop-session/approve`, camera/media crop thumbnail serving, `/api/detect/*` sample image/video detection endpoints, image process crop export, async video crop extraction/status polling, media crop approval, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4.
+Implemented M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto presence-cycle crop, Media Detection crop-to-QC, and batch deletion: health/startup, SQLite schema, seeded cameras/defect classes/settings, metadata CRUD, audit log, async batch polling, `DELETE /api/batches/{id}` cleanup, deterministic `mock` defect strategy, `result.json` output, crop image serving, `GET /api/cameras/{id}/stream` raw MJPEG streaming, `GET /api/cameras/{id}/detect-stream` annotated MJPEG detection/counting stream with downscale/FPS cap and presence-cycle best-frame crop, `GET /api/cameras/{id}/count` returning count and FPS, one-shot `grab_one()` capture, per-camera/media crop sessions, `POST /api/cameras/{id}/crop-session/start`, `POST /api/cameras/{id}/capture`, `POST /api/cameras/{id}/crop-session/finalize`, `POST /api/cameras/{id}/crop-session/approve`, camera/media crop thumbnail serving, `/api/detect/*` sample image/video detection endpoints, image process crop export, async video crop extraction/status polling, media crop approval, and background camera status monitoring. Real `sam3_prompt` inference is deferred to M4.
 
 Detection stream performance is configured with `MQC_STREAM_MAX_WIDTH` (default `960`) and `MQC_STREAM_MAX_FPS` (default `15`). Downscaling happens before detection so drawn boxes match the streamed frame.
 

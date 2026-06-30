@@ -130,6 +130,8 @@ export default {
     open: 'Open',
     noBatches: 'No batches found.',
     generateReport: 'Generate Report',
+    deleteTitle: 'Delete Batch',
+    confirmDelete: 'Delete batch',
   },
 
   media: {
