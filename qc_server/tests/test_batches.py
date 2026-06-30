@@ -102,6 +102,29 @@ def test_patch_image_reviewed(client, tmp_path):
     assert patched["reviewed"] is True
 
 
+def test_delete_image_removes_row_and_file(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit(client, folder, "Del")
+    images = client.get(f"/api/batches/{batch_id}").json()["images"]
+    target = images[0]
+    file_path = os.path.join(folder, target["filename"])
+    assert os.path.exists(file_path)
+
+    resp = client.delete(f"/api/batches/{batch_id}/images/{target['id']}")
+    assert resp.status_code == 200
+    assert not os.path.exists(file_path)
+    remaining = client.get(f"/api/batches/{batch_id}").json()["images"]
+    assert len(remaining) == len(images) - 1
+    row = next(b for b in client.get("/api/batches").json() if b["id"] == batch_id)
+    assert row["image_count"] == len(images) - 1
+
+
+def test_delete_image_404(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit(client, folder, "Del2")
+    assert client.delete(f"/api/batches/{batch_id}/images/nope").status_code == 404
+
+
 def test_list_batches_includes_reviewed_count(client, tmp_path):
     folder = _make_crops(str(tmp_path / "crops"))
     batch_id = _submit_and_run(client, folder, "RC")

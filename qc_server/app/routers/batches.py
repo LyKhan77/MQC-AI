@@ -153,3 +153,19 @@ def patch_image(batch_id: str, image_id: str, payload: ImagePatch,
     db.commit()
     db.refresh(image)
     return ImageOut.model_validate(image)
+
+
+@router.delete("/{batch_id}/images/{image_id}")
+def delete_image(batch_id: str, image_id: str, db: Session = Depends(get_db)):
+    image = db.get(Image, image_id)
+    if not image or image.batch_id != batch_id:
+        raise HTTPException(404, "image not found")
+    batch = db.get(Batch, batch_id)
+    path = os.path.join(batch.source_path, image.filename)
+    if os.path.exists(path):
+        os.remove(path)
+    db.delete(image)
+    db.commit()
+    batch.image_count = db.query(Image).filter(Image.batch_id == batch_id).count()
+    db.commit()
+    return {"deleted": image_id}
