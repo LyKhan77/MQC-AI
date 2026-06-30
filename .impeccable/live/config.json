@@ -1,6 +1,0 @@
-{
-  "files": ["qc_frontend/index.html"],
-  "insertBefore": "</body>",
-  "commentSyntax": "html",
-  "cspChecked": true
-}
