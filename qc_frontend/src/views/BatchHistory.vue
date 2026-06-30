@@ -6,12 +6,14 @@ import { useBatchHistory } from '../composables/useBatchHistory.js'
 
 const { t } = useI18n()
 const router = useRouter()
-const { batches, refresh } = useBatchHistory()
+const { batches, refresh, remove } = useBatchHistory()
 
 onMounted(refresh)
 
 const search = ref('')
 const statusFilter = ref('')
+const pendingDelete = ref(null)
+const deleteError = ref('')
 
 const filtered = computed(() => {
   let result = batches.value
@@ -27,6 +29,20 @@ const filtered = computed(() => {
 
 function openBatch(batch) {
   router.push({ name: 'qc', query: { batch: batch.id } })
+}
+
+function askDelete(batch) {
+  deleteError.value = ''
+  pendingDelete.value = batch
+}
+
+async function confirmDelete() {
+  try {
+    await remove(pendingDelete.value.id)
+    pendingDelete.value = null
+  } catch (e) {
+    deleteError.value = e.message || t('common.error')
+  }
 }
 
 function formatDate(iso) {
@@ -89,11 +105,26 @@ const statusClass = (s) => `status-${s}`
             <td>
               <button class="btn-sm" @click="openBatch(batch)">{{ t('batches.open') }}</button>
               <button class="btn-sm" @click="router.push({ name: 'reports' })">{{ t('batches.generateReport') }}</button>
+              <button class="btn-sm btn-danger-sm" @click="askDelete(batch)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
       <p v-if="!filtered.length" class="empty-state">{{ t('batches.noBatches') }}</p>
+    </div>
+
+    <div v-if="pendingDelete" class="dialog-overlay" @click.self="pendingDelete = null">
+      <div class="dialog">
+        <h3 class="dialog-title">{{ t('batches.deleteTitle') }}</h3>
+        <div class="dialog-body">
+          <p>{{ t('batches.confirmDelete') }} <span class="mono">{{ pendingDelete.name }}</span>?</p>
+          <p v-if="deleteError" class="error-msg">{{ deleteError }}</p>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn-ghost" @click="pendingDelete = null">{{ t('common.cancel') }}</button>
+          <button class="btn-primary" @click="confirmDelete">{{ t('common.delete') }}</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -204,6 +235,17 @@ const statusClass = (s) => `status-${s}`
 }
 .btn-sm:hover {
   background: var(--color-surface-1);
+}
+.btn-danger-sm {
+  color: var(--color-error);
+}
+.btn-danger-sm:hover {
+  background: var(--color-surface-1);
+}
+.error-msg {
+  color: var(--color-error);
+  font-size: 13px;
+  margin-top: 8px;
 }
 .empty-state {
   padding: 32px 16px;

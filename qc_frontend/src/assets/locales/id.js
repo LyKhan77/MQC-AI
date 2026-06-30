@@ -137,6 +137,8 @@ export default {
     open: 'Buka',
     noBatches: 'Tidak ada batch.',
     generateReport: 'Generate Report',
+    deleteTitle: 'Hapus Batch',
+    confirmDelete: 'Hapus batch',
   },
 
   detectTest: {
