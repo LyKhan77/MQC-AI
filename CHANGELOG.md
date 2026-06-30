@@ -11,6 +11,40 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - Batch Delete + Sidebar Logo
+
+### Summary
+
+Batch History can now delete batches through a backend `DELETE /api/batches/{id}` endpoint with a confirmation dialog in the dashboard. The sidebar brand lockup now displays `GSPE | MQC-AI` when expanded and centers `GSPE` when collapsed.
+
+### Added
+
+- `DELETE /api/batches/{batch_id}` - deletes the batch, its images, defects, and `data/batches/<batch_id>/` result directory while leaving source crop folders untouched.
+- `qc_frontend/src/api/batches.js` - `deleteBatch(batchId)` helper using the existing `apiDelete`.
+- `qc_frontend/src/composables/useBatchHistory.js` - `remove(id)` deletes a batch and removes it from loaded state.
+- `qc_frontend/src/views/BatchHistory.vue` - Delete action with confirm/cancel dialog and error display.
+- `qc_frontend/src/views/__tests__/BatchHistory.test.js` - component coverage for delete confirmation.
+
+### Changed
+
+- `qc_frontend/src/components/AppSidebar.vue` - refined sidebar wordmark to `GSPE | MQC-AI` expanded and centered `GSPE` collapsed.
+- `qc_frontend/src/assets/locales/en.js` and `qc_frontend/src/assets/locales/id.js` - added Batch History delete dialog strings.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Batch deletion API | 2026-06-30 | `DELETE /api/batches/{batch_id}` with image/defect cleanup and result directory removal | Operators can remove obsolete processed batches without deleting source crop folders. |
+| Batch History UI | 2026-06-30 | Delete button, confirmation dialog, local row removal, and component test | Batch deletion is explicit and reversible until confirmed. |
+| Sidebar branding | 2026-06-30 | Expanded `GSPE | MQC-AI` lockup and collapsed centered `GSPE` | The collapsed sidebar no longer clips or left-aligns the brand mark. |
+| Verification | 2026-06-30 | Backend full suite, frontend full suite, and production build | Backend: 82 passed, 2 warnings. Frontend: 28 passed. Build succeeded. |
+
+### Notes
+
+- Deviation: the plan's `t('batches.confirmDelete', )` typo was corrected to `t('batches.confirmDelete')`.
+- Deviation: the plan's negative `letter-spacing` on `GSPE` was changed to `0` to follow the higher UI rule that letter spacing must not be negative.
+- Browser smoke is pending for reviewer: delete confirm/cancel flow and collapsed sidebar centering.
+
 ## [Unreleased] - 2026-06-29 - Auto Presence-Cycle Crop
 
 ### Summary

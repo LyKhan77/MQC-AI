@@ -70,10 +70,10 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 
 ### Frontend (current)
 
-- **Sidebar navigation shell** (collapsible) with 7 pages when Detection Test is enabled.
+- **Sidebar navigation shell** (collapsible) with 7 pages when Detection Test is enabled and a `GSPE | MQC-AI` wordmark that centers `GSPE` when collapsed.
 - **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), explicit Start Camera raw preview, per-run Auto/Manual mode, Auto server-annotated MJPEG detection feed with bounding-box/count overlay and presence-cycle best-frame crop per object, Manual one-shot Capture, polled live object count/FPS, real online/offline camera status, and Send to QC crop approval gate with batch name + auto-timestamp.
 - **QC Studio**: 3-column layout with batch sidebar (filter/search/sort/skeleton loading), inspection canvas (zoom/pan/annotation toggle), defect panel (keyboard navigation, review workflow).
-- **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio.
+- **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio, delete with confirmation.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
 - **Settings**: API-backed camera CRUD, active detection model switcher, decimal confidence threshold, defect strategy, save toast, preferences (language, theme).
@@ -91,7 +91,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 - Detection test upload endpoints: `POST /api/detect/image`, `POST /api/detect/video`, and annotated video playback `GET /api/detect/video/{video_id}/stream`.
 - Server-only object detection dependencies in `requirements-ml.txt`; `qc_server/models/*.pt` files are listed by `/api/models`, Settings persists `active_model`, and ML imports stay lazy for laptop tests.
 - `Setting.input_mode_enabled` guarded migration controls Detection Test navigation visibility.
-- Async batch **defect** segmentation over crop folders via **polling** (`job_id` → poll status).
+- Async batch **defect** segmentation over crop folders via **polling** (`job_id` → poll status), with `DELETE /api/batches/{batch_id}` cleanup for batch records, images, defects, and result directories.
 - Pluggable defect strategy interface with deterministic `mock` strategy implemented; real `sam3_prompt` deferred to M4.
 - Filesystem result output under `qc_server/data/batches/<batch_id>/result.json`, source crops under `qc_server/data/crops/<camera_id>/<session_ts>/`, and crop/result image serving via `/api/cameras/.../crops/...` and `/api/images/{image_id}/file`.
 
@@ -125,7 +125,7 @@ MQC-AI/
 │       ├── api/
 │       │   ├── client.js            # HTTP helpers (GET/POST/PATCH/PUT/DELETE)
 │       │   ├── audit.js             # Audit log API
-│       │   ├── batches.js           # Batch submit/status/result/list/review API
+│       │   ├── batches.js           # Batch submit/status/result/list/review/delete API
 │       │   ├── cameras.js           # Camera CRUD API
 │       │   ├── detect.js            # Detection Test image/video upload API
 │       │   ├── models.js            # Detection model list API
@@ -147,7 +147,7 @@ MQC-AI/
 │       │   ├── useI18n.js           # ID/EN language toggle (localStorage)
 │       │   ├── useInspection.js     # Batch loading, image selection, review workflow
 │       │   ├── useCameras.js        # Camera CRUD (live API)
-│       │   ├── useBatchHistory.js   # Batch history list (live API)
+│       │   ├── useBatchHistory.js   # Batch history list/delete (live API)
 │       │   ├── useAuditLog.js       # Audit trail logging (live API + local cache)
 │       │   ├── useSettings.js       # Model config + defect strategy + input mode (live API)
 │       │   └── useToast.js          # App-wide transient toast message
@@ -322,7 +322,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ### Status: Auto Presence-Cycle Crop Implemented · Backend M0-M3 Implemented
 
-**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor has an explicit Start Camera raw preview, per-run Auto/Manual choice, Auto server-annotated MJPEG detection frames/boxes/count overlay with presence-cycle best-frame cropping for one-at-a-time parts, Manual one-shot Capture, `/count` polling for count + FPS, and a Review & Send crop approval grid before submitting a QC batch. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, controls the `input_mode_enabled` Detection Test nav gate, and confirms saves with a toast. Detection Test uploads sample images/videos to `/api/detect/*` and renders annotated active-model output. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, and Auto presence-cycle crop are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, one-shot capture, crop approval endpoints, stream downscale/FPS cap, model-folder switcher, detection test upload endpoints, per-camera crop sessions, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
+**What is developed now**: Frontend dashboard data is now backed by the live `qc_server` API for cameras, settings, batches, reports, audit log, and QC Studio flow. Live Monitor has an explicit Start Camera raw preview, per-run Auto/Manual choice, Auto server-annotated MJPEG detection frames/boxes/count overlay with presence-cycle best-frame cropping for one-at-a-time parts, Manual one-shot Capture, `/count` polling for count + FPS, and a Review & Send crop approval grid before submitting a QC batch. Batch History can delete batches through a confirmation dialog. The sidebar uses a refined `GSPE | MQC-AI` wordmark and centers `GSPE` when collapsed. Settings lists `.pt` files from `qc_server/models/`, persists the selected `active_model`, shows decimal confidence, controls the `input_mode_enabled` Detection Test nav gate, and confirms saves with a toast. Detection Test uploads sample images/videos to `/api/detect/*` and renders annotated active-model output. **Backend (`qc_server`) M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto presence-cycle crop, and batch deletion are implemented**: FastAPI + SQLite metadata APIs, async batch pipeline, batch deletion cleanup, mock defect strategy, result JSON, crop image serving, OpenCV raw/annotated MJPEG streaming, latest-frame grabber, one-shot capture, crop approval endpoints, stream downscale/FPS cap, model-folder switcher, detection test upload endpoints, per-camera crop sessions, and background camera status monitoring. Real SAM3 (`sam3_prompt`) remains deferred to M4.
 
 ### Component Status
 
@@ -338,7 +338,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 |---|---|---|---|
 | Live Monitor | **Functional** | None for camera feed/counting | Camera list, Start Camera raw preview, Auto presence-cycle detection/crop stream, Manual capture, `/count` count/FPS polling, real status, crop-session finalize/approve review gate, and Send to QC API wired |
 | QC Studio | **Functional** | None for live batches | Batch polling/result/review/sign-off API wired; real SAM3 deferred |
-| Batch History | **Functional** | None | Live batch list API wired |
+| Batch History | **Functional** | None | Live batch list and delete APIs wired |
 | Detection Test | **Functional** | None | Server-gated active-model image/video upload test via `/api/detect/*`; GPU `pcb-1.pt` smoke verified at confidence 0.1 |
 | Reports | **Functional** | None | Live batch/result API wired |
 | Audit Log | **Functional** | Local cache fallback | Live audit API wired |
@@ -348,7 +348,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 See [`CHANGELOG.md`](./CHANGELOG.md) for the comprehensive, per-feature change log with Current Codebase State tables.
 
-**Latest version**: [Unreleased] - 2026-06-29 (Auto Presence-Cycle Crop).
+**Latest version**: [Unreleased] - 2026-06-30 (Batch Delete + Sidebar Logo).
 
 ---
 
