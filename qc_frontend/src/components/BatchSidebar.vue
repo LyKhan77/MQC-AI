@@ -4,9 +4,10 @@ import { useRoute } from 'vue-router'
 import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
+import QcRunDialog from './QcRunDialog.vue'
 
 const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
-  loadBatch, selectImage, toggleReviewed, isReviewed } = useInspection()
+  needsRun, prepareBatch, runAndLoad, selectImage, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 
@@ -15,11 +16,12 @@ const route = useRoute()
 const search = ref('')
 const filterMode = ref('all')
 const sortBy = ref('name')
+const showRunDialog = ref(false)
 
 async function loadFor(batchId) {
   if (!batchId) return
   try {
-    await loadBatch(batchId)
+    await prepareBatch(batchId)
     if (batch.value) log('BATCH_LOADED', `Loaded batch ${batch.value.batch_name}`)
   } catch (e) {
     console.error(e)
@@ -27,7 +29,17 @@ async function loadFor(batchId) {
 }
 
 function onLoad() {
+  if (needsRun.value) {
+    showRunDialog.value = true
+    return
+  }
   loadFor(route.query.batch)
+}
+
+async function onRunConfirm({ confidenceThreshold }) {
+  showRunDialog.value = false
+  await runAndLoad(route.query.batch, confidenceThreshold)
+  if (batch.value) log('BATCH_SENT', `Started QC segmentation: ${batch.value.batch_name}`)
 }
 
 onMounted(() => loadFor(route.query.batch))
@@ -87,8 +99,12 @@ function handleToggleReviewed(img) {
         <p class="progress-text">{{ t('qc.reviewProgress') }}: {{ reviewedCount }}/{{ images.length }}</p>
       </div>
 
+      <p v-else-if="needsRun" class="pending-hint">{{ t('qc.pendingHint') }}</p>
+
       <p v-if="error" class="error-msg">{{ t('common.error') }}: {{ error }}</p>
     </div>
+
+    <QcRunDialog :show="showRunDialog" @cancel="showRunDialog = false" @confirm="onRunConfirm" />
 
     <div v-if="images.length" class="filter-section">
       <input v-model="search" class="search-input" :placeholder="t('qc.searchPlaceholder')" />
@@ -208,6 +224,12 @@ function handleToggleReviewed(img) {
   font-size: 12px;
   color: var(--color-error);
   margin: 8px 0 0;
+  letter-spacing: 0.16px;
+}
+.pending-hint {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  margin: 12px 0 0;
   letter-spacing: 0.16px;
 }
 .filter-section {

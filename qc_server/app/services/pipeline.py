@@ -10,7 +10,7 @@ from .inference import mock  # noqa: F401  (registers "mock")
 from .inference import sam3  # noqa: F401  (registers "sam3_prompt")
 
 
-def run_batch(batch_id: str, session_factory) -> None:
+def run_batch(batch_id: str, session_factory, confidence_override=None) -> None:
     db = session_factory()
     try:
         batch = db.get(Batch, batch_id)
@@ -23,6 +23,8 @@ def run_batch(batch_id: str, session_factory) -> None:
         setting = db.get(Setting, 1)
         strategy_name = setting.defect_strategy if setting else "mock"
         threshold = setting.confidence_threshold if setting else 0.5
+        if confidence_override is not None:
+            threshold = confidence_override
         strategy = get_strategy(strategy_name)
         specs = [
             DefectClassSpec(c.name, c.category, c.enabled)

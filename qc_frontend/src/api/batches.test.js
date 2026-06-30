@@ -25,6 +25,30 @@ describe('batches api', () => {
     expect(res.batch_id).toBe('b1')
   })
 
+  it('runBatch posts the confidence override', async () => {
+    const f = fetchSequence([{ status: 200, body: { batch_id: 'b1', status: 'processing' } }])
+    vi.stubGlobal('fetch', f)
+    const { runBatch } = await import('./batches.js')
+    await runBatch('b1', { confidenceThreshold: 0.7 })
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confidence_threshold: 0.7 }),
+    })
+  })
+
+  it('runBatch sends null when no confidence given', async () => {
+    const f = fetchSequence([{ status: 200, body: {} }])
+    vi.stubGlobal('fetch', f)
+    const { runBatch } = await import('./batches.js')
+    await runBatch('b1')
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confidence_threshold: null }),
+    })
+  })
+
   it('pollBatchUntilDone resolves on done and reports progress', async () => {
     vi.stubGlobal('fetch', fetchSequence([
       { status: 200, body: { batch_id: 'b1', status: 'done', progress: { done: 3, total: 3 } } },

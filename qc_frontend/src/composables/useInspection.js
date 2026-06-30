@@ -1,5 +1,12 @@
 import { ref, computed } from 'vue'
-import { pollBatchUntilDone, getBatchResult, patchImageReviewed, patchBatch } from '../api/batches.js'
+import {
+  pollBatchUntilDone,
+  getBatchResult,
+  getBatchStatus,
+  runBatch,
+  patchImageReviewed,
+  patchBatch,
+} from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
 
@@ -14,6 +21,7 @@ const reviewed = ref(new Set())
 const currentBatchId = ref(null)
 const progress = ref({ done: 0, total: 0 })
 const lastAllReviewed = ref(false)
+const needsRun = ref(false)
 
 function loadReviewed() {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -40,6 +48,49 @@ const selected = computed(
 const reviewedCount = computed(() =>
   images.value.filter((img) => reviewed.value.has(img.id)).length,
 )
+
+// Decide how to open a batch: a "pending" batch waits for an explicit run
+// (the QC Studio confirmation step) and must NOT be polled; anything already
+// processing/done/reviewed is loaded and displayed normally.
+async function prepareBatch(batchId) {
+  if (!batchId) {
+    error.value = 'No batch selected'
+    batch.value = null
+    selectedId.value = null
+    needsRun.value = false
+    return
+  }
+  error.value = null
+  currentBatchId.value = batchId
+  try {
+    const status = await getBatchStatus(batchId)
+    if (status.status === 'pending') {
+      needsRun.value = true
+      batch.value = null
+      selectedId.value = null
+      return
+    }
+  } catch {
+    // fall through; loadBatch will surface a clearer error
+  }
+  needsRun.value = false
+  await loadBatch(batchId)
+}
+
+// Start segmentation for a pending batch (optional per-run confidence
+// override), then poll + display the results.
+async function runAndLoad(batchId, confidenceThreshold) {
+  if (!batchId) return
+  needsRun.value = false
+  try {
+    await runBatch(batchId, { confidenceThreshold })
+  } catch (e) {
+    error.value = e.message || 'Failed to start segmentation'
+    needsRun.value = true
+    return
+  }
+  await loadBatch(batchId)
+}
 
 async function loadBatch(batchId) {
   if (!batchId) {
@@ -121,6 +172,9 @@ export function useInspection() {
     reviewedCount,
     currentBatchId,
     progress,
+    needsRun,
+    prepareBatch,
+    runAndLoad,
     loadBatch,
     selectImage,
     toggleReviewed,

@@ -13,6 +13,7 @@ from ..schemas import (
     BatchCreateResponse,
     BatchPatch,
     BatchResult,
+    BatchRunRequest,
     BatchStatusOut,
     BatchSummary,
     ImageOut,
@@ -27,8 +28,9 @@ router = APIRouter(prefix="/api/batches", tags=["batches"])
 
 
 @router.post("", response_model=BatchCreateResponse, status_code=201)
-def submit_batch(payload: BatchCreate, background: BackgroundTasks,
-                 db: Session = Depends(get_db)):
+def submit_batch(payload: BatchCreate, db: Session = Depends(get_db)):
+    # Creates the batch in a "pending" state. Segmentation is started
+    # separately via POST /batches/{id}/run (the QC Studio "Load Batch" step).
     setting = get_or_create_setting(db)
     batch_id = gen_id("batch")
     job_id = gen_id("job")
@@ -38,7 +40,7 @@ def submit_batch(payload: BatchCreate, background: BackgroundTasks,
         source_path=payload.source_path,
         camera_id=payload.camera_id,
         created_at=now_iso(),
-        status="processing",
+        status="pending",
         model_info={
             "detection": setting.detection_model,
             "segmentation": setting.segmentation_model,
@@ -48,9 +50,27 @@ def submit_batch(payload: BatchCreate, background: BackgroundTasks,
     )
     db.add(batch)
     db.commit()
-    job_queue.set_total(batch_id, 0)
-    background.add_task(run_batch, batch_id, SessionLocal)
     return BatchCreateResponse(batch_id=batch_id, job_id=job_id)
+
+
+@router.post("/{batch_id}/run", response_model=BatchStatusOut)
+def run_batch_endpoint(batch_id: str, payload: BatchRunRequest,
+                       background: BackgroundTasks, db: Session = Depends(get_db)):
+    batch = db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(404, "batch not found")
+    if batch.status != "pending":
+        raise HTTPException(409, "batch is not pending")
+    batch.status = "processing"
+    if payload.confidence_threshold is not None and isinstance(batch.model_info, dict):
+        info = dict(batch.model_info)
+        info["confidence"] = payload.confidence_threshold
+        batch.model_info = info
+    db.commit()
+    job_queue.set_total(batch_id, 0)
+    background.add_task(run_batch, batch_id, SessionLocal, payload.confidence_threshold)
+    return BatchStatusOut(batch_id=batch_id, status="processing",
+                          progress=job_queue.get(batch_id))
 
 
 @router.get("", response_model=list[BatchSummary])

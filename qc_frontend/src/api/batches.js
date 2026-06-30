@@ -12,6 +12,12 @@ export function getBatchStatus(batchId) {
   return apiGet(`/batches/${batchId}/status`)
 }
 
+export function runBatch(batchId, { confidenceThreshold } = {}) {
+  return apiPost(`/batches/${batchId}/run`, {
+    confidence_threshold: confidenceThreshold ?? null,
+  })
+}
+
 export function getBatchResult(batchId) {
   return apiGet(`/batches/${batchId}`)
 }

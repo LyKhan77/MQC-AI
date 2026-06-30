@@ -14,6 +14,8 @@ def test_serve_image_file(client, tmp_path):
     folder = _make_crops(str(tmp_path / "crops"))
     batch_id = client.post("/api/batches", json={"batch_name": "S",
                                                  "source_path": folder}).json()["batch_id"]
+    # Segmentation (and thus image rows) only exists after the batch is run.
+    client.post(f"/api/batches/{batch_id}/run", json={})
     image = client.get(f"/api/batches/{batch_id}").json()["images"][0]
 
     resp = client.get(image["url"])

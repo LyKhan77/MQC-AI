@@ -79,6 +79,10 @@ class BatchCreate(BaseModel):
     camera_id: str | None = None
 
 
+class BatchRunRequest(BaseModel):
+    confidence_threshold: float | None = None
+
+
 class BatchCreateResponse(BaseModel):
     batch_id: str
     job_id: str
