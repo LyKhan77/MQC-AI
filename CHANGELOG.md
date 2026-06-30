@@ -11,11 +11,11 @@ Each entry contains:
 
 ---
 
-## [Unreleased] - 2026-06-30 - QC Workflow Raw Images, Delete, Confidence, Colors
+## [Unreleased] - 2026-06-30 - QC Workflow Raw Images, Delete, Confidence, Colors, Re-run
 
 ### Summary
 
-QC Studio now opens pending batches with raw image rows already visible, supports deleting an image and its source crop file, uses a dedicated QC confidence setting separate from object detection, and colors annotations from configured defect-class colors.
+QC Studio now opens pending batches with raw image rows already visible, supports deleting an image and its source crop file, uses a dedicated QC confidence setting separate from object detection, colors annotations from configured defect-class colors, and can re-run or reset finished batches.
 
 ### Added
 
@@ -24,6 +24,7 @@ QC Studio now opens pending batches with raw image rows already visible, support
 - `Setting.qc_confidence_threshold` with startup migration and settings API schema support.
 - `qc_frontend/src/composables/useDefectColor.js` - resolves annotation and panel swatch colors from `DefectClass.color`.
 - QC Studio image delete control with confirmation and `IMAGE_DELETED` audit label.
+- `POST /api/batches/{batch_id}/reset` plus QC Studio **Re-run** and **Reset** controls.
 
 ### Changed
 
@@ -32,6 +33,8 @@ QC Studio now opens pending batches with raw image rows already visible, support
 - Settings relabels the original threshold as **Object Detection Confidence** and adds **QC Confidence**.
 - `QcRunDialog` defaults its confidence input from `settings.qcConfidenceThreshold`.
 - `InspectionCanvas.vue` and `DefectPanel.vue` use configured defect-class colors instead of the old hardcoded four-entry defect map.
+- `POST /api/batches/{batch_id}/run` now allows finished/failed/reviewed batches and rejects only currently processing batches.
+- Re-running or resetting clears stale defect results and local reviewed marks.
 
 ### Current Codebase State
 
@@ -41,11 +44,12 @@ QC Studio now opens pending batches with raw image rows already visible, support
 | Image delete | 2026-06-30 | Backend image delete endpoint plus QC Studio per-image delete control and audit label | Operators can permanently remove a bad crop from a pending/loaded batch before any run. |
 | QC confidence | 2026-06-30 | `qc_confidence_threshold` DB/API/frontend setting and dialog default | Object detection and QC segmentation confidence can be tuned independently. |
 | Defect colors | 2026-06-30 | `useDefectColor()` maps defect type names to `DefectClass.color` | QC polygons and panel swatches match the colors configured in Settings. |
-| Verification | 2026-06-30 | Backend affected suites and frontend full suite/build | Backend affected tests passed; frontend: 43 passed; build succeeded. |
+| Re-run/reset | 2026-06-30 | Run endpoint relaxed; reset endpoint and QC Studio controls added | Finished batches can be segmented again or returned to the pending raw state. |
+| Verification | 2026-06-30 | Backend full suite and frontend full suite/build | Backend: 107 passed; frontend: 44 passed; build succeeded. |
 
 ### Notes
 
-- Browser/GPU smoke is pending for reviewer: pending raw list, image delete file removal, Load Batch colors matching Settings, and QC confidence independence.
+- Browser/GPU smoke is pending for reviewer: pending raw list, image delete file removal, Load Batch colors matching Settings, QC confidence independence, and re-run/reset UI flow.
 
 ## [Unreleased] - 2026-06-30 - SAM 3 Prompt Strategy
 
