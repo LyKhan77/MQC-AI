@@ -60,8 +60,8 @@ def run_batch_endpoint(batch_id: str, payload: BatchRunRequest,
     batch = db.get(Batch, batch_id)
     if not batch:
         raise HTTPException(404, "batch not found")
-    if batch.status != "pending":
-        raise HTTPException(409, "batch is not pending")
+    if batch.status == "processing":
+        raise HTTPException(409, "batch already processing")
     batch.status = "processing"
     if payload.confidence_threshold is not None and isinstance(batch.model_info, dict):
         info = dict(batch.model_info)
@@ -71,6 +71,27 @@ def run_batch_endpoint(batch_id: str, payload: BatchRunRequest,
     job_queue.set_total(batch_id, 0)
     background.add_task(run_batch, batch_id, SessionLocal, payload.confidence_threshold)
     return BatchStatusOut(batch_id=batch_id, status="processing",
+                          progress=job_queue.get(batch_id))
+
+
+@router.post("/{batch_id}/reset", response_model=BatchStatusOut)
+def reset_batch(batch_id: str, db: Session = Depends(get_db)):
+    batch = db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(404, "batch not found")
+    if batch.status == "processing":
+        raise HTTPException(409, "batch is processing")
+    images = db.query(Image).filter(Image.batch_id == batch_id).all()
+    for image in images:
+        image.defects.clear()
+        image.status = "pending"
+        image.reviewed = False
+    batch.status = "pending"
+    batch.defect_count = 0
+    batch.reviewer = None
+    batch.error = None
+    db.commit()
+    return BatchStatusOut(batch_id=batch_id, status="pending",
                           progress=job_queue.get(batch_id))
 
 

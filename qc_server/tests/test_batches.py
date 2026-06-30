@@ -58,11 +58,25 @@ def test_run_processes_and_returns_result(client, tmp_path):
     assert clean["defects"] == []
 
 
-def test_run_rejects_non_pending_batch(client, tmp_path):
+def test_rerun_allowed_after_done(client, tmp_path):
     folder = _make_crops(str(tmp_path / "crops"))
-    batch_id = _submit_and_run(client, folder, "Once")
+    batch_id = _submit_and_run(client, folder, "Rerun")
+    assert client.get(f"/api/batches/{batch_id}/status").json()["status"] == "done"
     second = client.post(f"/api/batches/{batch_id}/run", json={})
-    assert second.status_code == 409
+    assert second.status_code == 200
+    assert client.get(f"/api/batches/{batch_id}/status").json()["status"] == "done"
+    assert len(client.get(f"/api/batches/{batch_id}").json()["images"]) == 3
+
+
+def test_reset_returns_batch_to_pending_raw(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit_and_run(client, folder, "Reset")
+    resp = client.post(f"/api/batches/{batch_id}/reset", json={})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+    images = client.get(f"/api/batches/{batch_id}").json()["images"]
+    assert len(images) == 3
+    assert all(im["status"] == "pending" and im["defects"] == [] for im in images)
 
 
 def test_run_missing_batch_404(client):

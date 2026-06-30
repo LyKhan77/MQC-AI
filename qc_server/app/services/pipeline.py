@@ -38,6 +38,8 @@ def run_batch(batch_id: str, session_factory, confidence_override=None) -> None:
         batch = db.get(Batch, batch_id)
         if batch is None:
             return
+        batch.reviewer = None
+        batch.error = None
 
         setting = db.get(Setting, 1)
         strategy_name = setting.defect_strategy if setting else "mock"
@@ -66,6 +68,7 @@ def run_batch(batch_id: str, session_factory, confidence_override=None) -> None:
             path = storage.image_path(batch, image.filename)
             detections = strategy.detect(path, image.width, image.height, specs, params)
             image.defects.clear()
+            image.reviewed = False
             for det in detections:
                 db.add(Defect(
                     id=gen_id("d"),
