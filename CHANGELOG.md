@@ -30,6 +30,10 @@ Batch History can now delete batches through a backend `DELETE /api/batches/{id}
 - `qc_frontend/src/components/AppSidebar.vue` - refined sidebar wordmark to `GSPE | MQC-AI` expanded and centered `GSPE` collapsed.
 - `qc_frontend/src/assets/locales/en.js` and `qc_frontend/src/assets/locales/id.js` - added Batch History delete dialog strings.
 
+### Fixed
+
+- Batch History delete confirmation now renders as a centered modal overlay instead of an inline block that expanded the page.
+
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
