@@ -11,6 +11,34 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - Crop Quality (Lossless PNG + Padding)
+
+### Summary
+
+Defect object crops are now saved as lossless PNG files with about 5% bbox padding, preserving fine defect texture and reducing clipped-edge crops across Live Monitor and Media Detection crop paths.
+
+### Changed
+
+- `qc_server/app/services/crop.py` - `crop_objects()` now pads scaled bounding boxes by `pad_frac=0.05`, clamps to frame bounds, skips zero-area boxes before padding, writes `obj_NNN.png`, and keeps existing callers compatible.
+- `qc_server/app/routers/cameras.py` and `qc_server/app/routers/detect.py` - crop serving now uses `FileResponse(path)` so Starlette infers `image/png` from the filename instead of hardcoding `image/jpeg`.
+- `qc_server/tests/test_crop.py` and `qc_server/tests/test_crop_session.py` - crop tests now assert PNG filenames, scaled padding, clamped padding, and accumulated session filenames.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Crop writer | 2026-06-30 | Shared `crop_objects()` changed from tight JPEG boxes to padded PNG crops | Auto, Manual, and Media Detection crop paths produce lossless `obj_NNN.png` files with small context margins. |
+| Crop serving | 2026-06-30 | Camera/media crop endpoints infer response content type from the saved file | PNG crop thumbnails are served as `image/png` without route-specific media-type drift. |
+| Verification | 2026-06-30 | Backend full suite, frontend full suite rerun, and production build | Backend: 87 passed, 2 warnings. Frontend: 34 passed after one transient BatchHistory timeout rerun. Build succeeded. |
+
+### Notes
+
+- Crops already came from original full-resolution frames; this change improves encoding and bbox margins, not camera capture resolution.
+- Reduced crop padding from 8% to 5% per side (SAM 3 best practice: small margin, subject dominant).
+- Clamp-test integer asserted: `21` pixels for a top-left `20x20` box with `pad_frac=0.05` because `round(21.0)=21`.
+- Real `sam3_prompt` segmentation remains deferred to M4.
+- Manual smoke is pending for reviewer: confirm `obj_NNN.png`, visible margin/sharpness, and `image/png` thumbnails in browser flows.
+
 ## [Unreleased] - 2026-06-30 - Batch Delete + Sidebar Logo
 
 ### Summary

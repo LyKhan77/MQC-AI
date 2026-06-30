@@ -30,7 +30,7 @@ def test_multiple_captures_accumulate(tmp_path, monkeypatch):
     s.add_captured(_frame(), [Detection(20, 20, 60, 60, "o", 0.9)])
     out = s.finalize()
     assert out["count"] == 2
-    assert sorted(out["files"]) == ["obj_000.jpg", "obj_001.jpg"]
+    assert sorted(out["files"]) == ["obj_000.png", "obj_001.png"]
 
 
 def test_tracking_mode_dedupes_by_track_id(tmp_path, monkeypatch):
