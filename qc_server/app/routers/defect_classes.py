@@ -1,9 +1,11 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import DefectClass
-from ..schemas import DefectClassIn, DefectClassOut
+from ..schemas import DefectClassCreate, DefectClassOut
 
 router = APIRouter(prefix="/api/defect-classes", tags=["defect-classes"])
 
@@ -13,11 +15,23 @@ def list_classes(db: Session = Depends(get_db)):
     return db.query(DefectClass).all()
 
 
+def _slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return f"dc-{slug}" if slug else "dc-class"
+
+
 @router.post("", response_model=DefectClassOut, status_code=201)
-def create_class(payload: DefectClassIn, db: Session = Depends(get_db)):
-    if db.get(DefectClass, payload.id):
+def create_class(payload: DefectClassCreate, db: Session = Depends(get_db)):
+    cid = payload.id or _slugify(payload.name)
+    if payload.id and db.get(DefectClass, cid):
         raise HTTPException(409, "defect class id already exists")
-    dc = DefectClass(**payload.model_dump())
+    base = cid
+    i = 2
+    while db.get(DefectClass, cid):
+        cid = f"{base}-{i}"
+        i += 1
+    dc = DefectClass(id=cid, name=payload.name, category=payload.category,
+                     color=payload.color, enabled=payload.enabled)
     db.add(dc)
     db.commit()
     db.refresh(dc)

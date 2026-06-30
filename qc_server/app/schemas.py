@@ -29,6 +29,14 @@ class DefectClassOut(DefectClassIn):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DefectClassCreate(BaseModel):
+    id: str | None = None
+    name: str
+    category: str
+    color: str = "#da1e28"
+    enabled: bool = True
+
+
 class SettingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     confidence_threshold: float
