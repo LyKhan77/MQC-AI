@@ -128,7 +128,7 @@ Implemented M0-M3 plus Live Streaming Slices 1-3, the Auto/Manual redesign, Auto
 
 Detection stream performance is configured with `MQC_STREAM_MAX_WIDTH` (default `960`) and `MQC_STREAM_MAX_FPS` (default `15`). Downscaling happens before detection so drawn boxes match the streamed frame.
 
-Crop sessions store source images under `qc_server/data/crops/<camera_id>/<session_ts>/` as `obj_NNN.png`. Start Camera resets the session; Auto detection appends one lossless PNG best-frame crop per debounced presence cycle and Manual Capture appends one-shot crops. Each crop uses about 8% bbox padding, clamped to the original frame, so fine defect texture stays lossless and edge defects keep context. Stop Detection leaves the buffer available for Review & Send; approved copies go under `approved/`.
+Crop sessions store source images under `qc_server/data/crops/<camera_id>/<session_ts>/` as `obj_NNN.png`. Start Camera resets the session; Auto detection appends one lossless PNG best-frame crop per debounced presence cycle and Manual Capture appends one-shot crops. Each crop uses about 5% bbox padding, clamped to the original frame, so fine defect texture stays lossless and edge defects keep context. Stop Detection leaves the buffer available for Review & Send; approved copies go under `approved/`.
 
 Media Detection uploads require `python-multipart`. Test images return annotated JPEG data and serialized detections. Test videos are saved to `qc_server/data/uploads/` and streamed back as annotated MJPEG using the active model. Process images crop detected objects synchronously as lossless padded PNG files; Process videos run a background presence-cycle extraction job and expose crop review/approval endpoints before QC batch submission.
 

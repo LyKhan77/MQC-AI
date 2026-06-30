@@ -15,11 +15,11 @@ Each entry contains:
 
 ### Summary
 
-Defect object crops are now saved as lossless PNG files with about 8% bbox padding, preserving fine defect texture and reducing clipped-edge crops across Live Monitor and Media Detection crop paths.
+Defect object crops are now saved as lossless PNG files with about 5% bbox padding, preserving fine defect texture and reducing clipped-edge crops across Live Monitor and Media Detection crop paths.
 
 ### Changed
 
-- `qc_server/app/services/crop.py` - `crop_objects()` now pads scaled bounding boxes by `pad_frac=0.08`, clamps to frame bounds, skips zero-area boxes before padding, writes `obj_NNN.png`, and keeps existing callers compatible.
+- `qc_server/app/services/crop.py` - `crop_objects()` now pads scaled bounding boxes by `pad_frac=0.05`, clamps to frame bounds, skips zero-area boxes before padding, writes `obj_NNN.png`, and keeps existing callers compatible.
 - `qc_server/app/routers/cameras.py` and `qc_server/app/routers/detect.py` - crop serving now uses `FileResponse(path)` so Starlette infers `image/png` from the filename instead of hardcoding `image/jpeg`.
 - `qc_server/tests/test_crop.py` and `qc_server/tests/test_crop_session.py` - crop tests now assert PNG filenames, scaled padding, clamped padding, and accumulated session filenames.
 
@@ -34,7 +34,8 @@ Defect object crops are now saved as lossless PNG files with about 8% bbox paddi
 ### Notes
 
 - Crops already came from original full-resolution frames; this change improves encoding and bbox margins, not camera capture resolution.
-- Clamp-test integer asserted: `22` pixels for a top-left `20x20` box with `pad_frac=0.08` because `round(21.6)=22`.
+- Reduced crop padding from 8% to 5% per side (SAM 3 best practice: small margin, subject dominant).
+- Clamp-test integer asserted: `21` pixels for a top-left `20x20` box with `pad_frac=0.05` because `round(21.0)=21`.
 - Real `sam3_prompt` segmentation remains deferred to M4.
 - Manual smoke is pending for reviewer: confirm `obj_NNN.png`, visible margin/sharpness, and `image/png` thumbnails in browser flows.
 
