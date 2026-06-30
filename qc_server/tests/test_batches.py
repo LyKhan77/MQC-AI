@@ -70,3 +70,20 @@ def test_list_batches_includes_reviewed_count(client, tmp_path):
     row = next(b for b in client.get("/api/batches").json() if b["id"] == batch_id)
     assert row["image_count"] == 3
     assert row["reviewed_count"] == 1
+
+
+def test_delete_batch_removes_it(client, tmp_path):
+    src = tmp_path / "crops"
+    src.mkdir()
+    created = client.post(
+        "/api/batches",
+        json={"batch_name": "todelete", "source_path": str(src), "camera_id": None},
+    ).json()
+    batch_id = created["batch_id"]
+
+    assert client.delete(f"/api/batches/{batch_id}").status_code == 200
+    assert client.get(f"/api/batches/{batch_id}").status_code == 404
+
+
+def test_delete_missing_batch_404(client):
+    assert client.delete("/api/batches/nope").status_code == 404

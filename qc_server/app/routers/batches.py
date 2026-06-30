@@ -1,9 +1,13 @@
+import os
+import shutil
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..config import settings as app_settings
 from ..database import SessionLocal, get_db
-from ..models import Batch, Image
+from ..models import Batch, Defect, Image
 from ..schemas import (
     BatchCreate,
     BatchCreateResponse,
@@ -101,6 +105,21 @@ def patch_batch(batch_id: str, payload: BatchPatch, db: Session = Depends(get_db
     db.commit()
     db.refresh(batch)
     return batch
+
+
+@router.delete("/{batch_id}")
+def delete_batch(batch_id: str, db: Session = Depends(get_db)):
+    batch = db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(404, "batch not found")
+    image_ids = [i.id for i in db.query(Image).filter(Image.batch_id == batch_id).all()]
+    if image_ids:
+        db.query(Defect).filter(Defect.image_id.in_(image_ids)).delete(synchronize_session=False)
+    db.query(Image).filter(Image.batch_id == batch_id).delete(synchronize_session=False)
+    db.delete(batch)
+    db.commit()
+    shutil.rmtree(os.path.join(app_settings.data_dir, "batches", batch_id), ignore_errors=True)
+    return {"deleted": batch_id}
 
 
 @router.patch("/{batch_id}/images/{image_id}", response_model=ImageOut)
