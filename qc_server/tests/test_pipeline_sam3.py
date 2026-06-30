@@ -37,6 +37,7 @@ def test_run_batch_passes_resolved_qc_model_path(tmp_path):
         db.add(Batch(id="batch-sam3", name="Shift", source_path=folder,
                      created_at=now_iso(), status="processing"))
         db.commit()
+        pipeline.prepare_images(db, db.get(Batch, "batch-sam3"))
     finally:
         db.close()
 

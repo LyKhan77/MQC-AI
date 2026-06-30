@@ -25,6 +25,7 @@ def test_run_batch_creates_images_and_defects(tmp_path):
         db.add(Batch(id="batch-1", name="Shift 1", source_path=folder,
                      created_at=now_iso(), status="processing"))
         db.commit()
+        pipeline.prepare_images(db, db.get(Batch, "batch-1"))
     finally:
         db.close()
 
@@ -54,6 +55,7 @@ def test_run_batch_writes_result_json(tmp_path):
         db.add(Batch(id="batch-2", name="Shift 2", source_path=folder,
                      created_at=now_iso(), status="processing"))
         db.commit()
+        pipeline.prepare_images(db, db.get(Batch, "batch-2"))
     finally:
         db.close()
 

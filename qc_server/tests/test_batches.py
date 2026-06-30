@@ -32,10 +32,11 @@ def test_submit_creates_pending_batch_without_processing(client, tmp_path):
     batch_id = resp.json()["batch_id"]
     assert resp.json()["job_id"]
 
-    # No segmentation has run yet: status is pending and there are no images.
     status = client.get(f"/api/batches/{batch_id}/status").json()
     assert status["status"] == "pending"
-    assert client.get(f"/api/batches/{batch_id}").json()["images"] == []
+    images = client.get(f"/api/batches/{batch_id}").json()["images"]
+    assert len(images) == 3
+    assert all(im["status"] == "pending" and im["defects"] == [] for im in images)
 
 
 def test_run_processes_and_returns_result(client, tmp_path):

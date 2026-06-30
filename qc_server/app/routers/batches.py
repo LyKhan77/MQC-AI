@@ -20,7 +20,7 @@ from ..schemas import (
     ImagePatch,
 )
 from ..services import job_queue
-from ..services.pipeline import run_batch
+from ..services.pipeline import prepare_images, run_batch
 from ..util import gen_id, now_iso
 from .settings import get_or_create_setting
 
@@ -50,6 +50,7 @@ def submit_batch(payload: BatchCreate, db: Session = Depends(get_db)):
     )
     db.add(batch)
     db.commit()
+    prepare_images(db, batch)
     return BatchCreateResponse(batch_id=batch_id, job_id=job_id)
 
 
