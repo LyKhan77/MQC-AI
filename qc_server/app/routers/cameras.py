@@ -177,4 +177,4 @@ def serve_crop(camera_id: str, session_ts: str, filename: str):
     path = crop_file_path(camera_id, session_ts, filename)
     if not os.path.isfile(path):
         raise HTTPException(404, "crop not found")
-    return FileResponse(path, media_type="image/jpeg")
+    return FileResponse(path)
