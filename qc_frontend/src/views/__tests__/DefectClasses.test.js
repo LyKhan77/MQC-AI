@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   refreshCameras: vi.fn(),
   refreshSettings: vi.fn(),
+  updateSettings: vi.fn(),
   showToast: vi.fn(),
   log: vi.fn(),
   listModels: vi.fn(),
@@ -46,9 +47,10 @@ vi.mock('../../composables/useSettings.js', async () => {
         confidenceThreshold: 0.5,
         defectStrategy: 'mock',
         activeModel: '',
+        qcModel: 'sam3.pt',
       }),
       refresh: mocks.refreshSettings,
-      update: vi.fn(),
+      update: mocks.updateSettings,
     }),
   }
 })
@@ -91,6 +93,19 @@ describe('Settings defect classes', () => {
     mocks.update.mockResolvedValue({})
     mocks.toggle.mockResolvedValue({})
     mocks.remove.mockResolvedValue()
+    mocks.updateSettings.mockResolvedValue({})
+  })
+
+  it('saves the QC model selection', async () => {
+    const wrapper = mount(Settings)
+    await flushPromises()
+
+    await wrapper.findAll('.form-actions .btn-sm.primary').at(0).trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      qcModel: 'sam3.pt',
+    }))
   })
 
   it('renders grouped counts and toggles a class', async () => {

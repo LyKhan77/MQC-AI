@@ -90,6 +90,7 @@ async function saveSettings() {
     confidenceThreshold: Number(settings.value.confidenceThreshold),
     defectStrategy: settings.value.defectStrategy,
     activeModel: settings.value.activeModel,
+    qcModel: settings.value.qcModel,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
   showToast(t('settings.saved'))
@@ -221,6 +222,14 @@ async function confirmDeleteClass() {
           <div class="form-row">
             <label>{{ t('settings.activeModel') }}</label>
             <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
+              <option value="">{{ t('settings.noModelSelected') }}</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.qcModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.qcModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
             </select>
