@@ -11,6 +11,41 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - Media Detection Production Upload UI
+
+### Summary
+
+Media Detection now behaves like a production CV upload tool: drag-and-drop staging, explicit Run trigger, active-model context, progress feedback, confidence-bar results, and complete upload/error/no-model states. The Media Detection navigation item is always visible, and the Settings page toggle was removed while leaving the backend `input_mode_enabled` field vestigial.
+
+### Added
+
+- `PRODUCT.md` - strategic product context required by the `impeccable` design workflow.
+- `.impeccable/live/config.json` - live-mode config for the Vite shell.
+- Media Detection staged upload state: selected file preview, drag-over state, invalid-type messaging, no-model disabled state, and active-model strip.
+- Media Detection unit coverage for staging without auto-processing, invalid types, Process-to-QC review, approve/submit routing, and no-model run guard.
+
+### Changed
+
+- `qc_frontend/src/views/MediaDetection.vue` - rewritten around drag-and-drop upload, staged file preview, explicit Run detection action, image/video Test mode, Process-to-QC crop review, video progress bar, and per-detection confidence bars.
+- `qc_frontend/src/components/AppSidebar.vue` - Media Detection nav item is unconditional.
+- `qc_frontend/src/views/Settings.vue` - removed the "Enable Media Detection page" checkbox and save handler.
+- `qc_frontend/src/assets/locales/en.js` and `qc_frontend/src/assets/locales/id.js` - added production upload strings and removed the unused Settings toggle label.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Media Detection upload UX | 2026-06-30 | Drag-and-drop zone, staged preview, explicit Run trigger, active-model strip, progress, confidence bars, and no-model/error states | Operators can stage media safely and run active-model detection only when ready. |
+| Media Detection navigation | 2026-06-30 | Sidebar entry made unconditional; Settings toggle removed | Media Detection is always available in the dashboard. |
+| Settings input mode | 2026-06-30 | Frontend usage removed; backend field left untouched | `input_mode_enabled` remains vestigial for compatibility. |
+| Verification | 2026-06-30 | Frontend full suite, production build, and backend regression suite | Frontend: 33 passed. Build succeeded. Backend: 84 passed, 2 warnings. |
+
+### Notes
+
+- Supersedes the earlier UX-refinements plan; the Run trigger is included here.
+- Deviation: `useI18n.t()` does not support `{var}` interpolation, so invalid-type and frame labels use plain translated strings plus JS composition instead of `{kind}` / `{done}` / `{total}` placeholders.
+- Browser smoke is pending for reviewer: drag/drop, staged preview, Run trigger, invalid-type, progress, no-model disabled, empty detections, and Settings no-toggle checks.
+
 ## [Unreleased] - 2026-06-29 - Media Detection Crop-to-QC
 
 ### Summary
