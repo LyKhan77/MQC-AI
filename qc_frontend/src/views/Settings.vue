@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useSettings } from '../composables/useSettings.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useToast } from '../composables/useToast.js'
+import { useDefectClasses } from '../composables/useDefectClasses.js'
+import DefectClassModal from '../components/DefectClassModal.vue'
 import { listModels } from '../api/models.js'
 
 const { t, locale, setLocale } = useI18n()
@@ -12,11 +14,24 @@ const { cameras, refresh: refreshCameras, addCamera, updateCamera, deleteCamera 
 const { settings, refresh: refreshSettings, update } = useSettings()
 const { log } = useAuditLog()
 const { showToast } = useToast()
+const { classes, refresh: refreshClasses, add, update: updateClass, toggle, remove } = useDefectClasses()
 
 const editingId = ref(null)
 const showForm = ref(false)
 const form = ref({ name: '', type: 'rpi', source: '', location: '', status: 'offline' })
 const availableModels = ref([])
+const showClassModal = ref(false)
+const editingClass = ref(null)
+const pendingDeleteClass = ref(null)
+
+const coating = computed(() => classes.value.filter((c) => c.category === 'coating'))
+const welding = computed(() => classes.value.filter((c) => c.category === 'welding'))
+const coatingOn = computed(() => coating.value.filter((c) => c.enabled).length)
+const weldingOn = computed(() => welding.value.filter((c) => c.enabled).length)
+const classGroups = computed(() => [
+  { key: 'coating', items: coating.value, on: coatingOn.value },
+  { key: 'welding', items: welding.value, on: weldingOn.value },
+])
 
 const cameraTypes = [
   { value: 'rpi', label: 'Raspberry Pi Cam (CSI)' },
@@ -27,6 +42,7 @@ const cameraTypes = [
 onMounted(async () => {
   refreshCameras()
   refreshSettings()
+  refreshClasses()
   try {
     availableModels.value = (await listModels()).models
   } catch {
@@ -77,6 +93,31 @@ async function saveSettings() {
 function changeLanguage(lang) {
   setLocale(lang)
   log('SETTINGS_CHANGED', `Changed language to ${lang === 'id' ? 'Indonesia' : 'English'}`)
+}
+
+function openAddClass() {
+  editingClass.value = null
+  showClassModal.value = true
+}
+
+function openEditClass(cls) {
+  editingClass.value = cls
+  showClassModal.value = true
+}
+
+async function saveClass(payload) {
+  if (editingClass.value) {
+    await updateClass(editingClass.value.id, payload)
+  } else {
+    await add(payload)
+  }
+  showClassModal.value = false
+  showToast(t('defectClasses.saved'))
+}
+
+async function confirmDeleteClass() {
+  await remove(pendingDeleteClass.value.id)
+  pendingDeleteClass.value = null
 }
 </script>
 
@@ -189,6 +230,37 @@ function changeLanguage(lang) {
       <section class="settings-section">
         <div class="section-header">
           <div>
+            <h3>{{ t('defectClasses.title') }}</h3>
+            <p class="section-desc">{{ t('defectClasses.desc') }}</p>
+          </div>
+          <button class="btn-sm" @click="openAddClass">+ {{ t('defectClasses.add') }}</button>
+        </div>
+
+        <div class="dc-list">
+          <template v-for="grp in classGroups" :key="grp.key">
+            <div class="dc-group-head">
+              <span>{{ t('defectClasses.' + grp.key) }}</span>
+              <span class="mono">{{ grp.on }} / {{ grp.items.length }} {{ t('defectClasses.on') }}</span>
+            </div>
+            <p v-if="grp.items.length === 0" class="form-hint">{{ t('defectClasses.empty') }}</p>
+            <div v-for="c in grp.items" :key="c.id" class="dc-row">
+              <label class="dc-check">
+                <input type="checkbox" :checked="c.enabled" @change="toggle(c)" />
+                <span class="dc-swatch" :style="{ background: c.color }"></span>
+                <span class="dc-name">{{ c.name }}</span>
+              </label>
+              <div class="dc-actions">
+                <button class="dc-icon" :title="t('common.edit')" @click="openEditClass(c)">{{ t('common.edit') }}</button>
+                <button class="dc-icon danger" :title="t('common.delete')" @click="pendingDeleteClass = c">{{ t('common.delete') }}</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <div class="section-header">
+          <div>
             <h3>{{ t('settings.preferences') }}</h3>
             <p class="section-desc">{{ t('settings.preferencesDesc') }}</p>
           </div>
@@ -201,6 +273,21 @@ function changeLanguage(lang) {
           </div>
         </div>
       </section>
+    </div>
+
+    <DefectClassModal :show="showClassModal" :editing="editingClass" @cancel="showClassModal = false" @save="saveClass" />
+
+    <div v-if="pendingDeleteClass" class="dialog-overlay" @click.self="pendingDeleteClass = null">
+      <div class="dialog">
+        <h3 class="dialog-title">{{ t('defectClasses.deleteTitle') }}</h3>
+        <div class="dialog-body">
+          <p>{{ t('defectClasses.confirmDelete') }} <span class="mono">{{ pendingDeleteClass.name }}</span>?</p>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn-ghost" @click="pendingDeleteClass = null">{{ t('common.cancel') }}</button>
+          <button class="btn-primary" @click="confirmDeleteClass">{{ t('common.delete') }}</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -312,6 +399,71 @@ function changeLanguage(lang) {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+.dc-list {
+  padding: 12px 24px 20px;
+}
+.dc-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+.dc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.dc-row:hover {
+  background: var(--color-surface-1);
+}
+.dc-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+.dc-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-hairline);
+}
+.dc-name {
+  letter-spacing: 0.16px;
+}
+.dc-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+}
+.dc-row:hover .dc-actions,
+.dc-actions:focus-within {
+  opacity: 1;
+}
+.dc-icon {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.dc-icon:hover {
+  color: var(--color-primary);
+}
+.dc-icon.danger:hover {
+  color: var(--color-error);
+}
 .btn-sm {
   padding: 6px 16px;
   background: transparent;
@@ -378,5 +530,60 @@ function changeLanguage(lang) {
   background: var(--color-primary);
   color: var(--color-on-primary);
   font-weight: 600;
+}
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.dialog {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  width: 420px;
+  max-width: 90vw;
+}
+.dialog-title {
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-hairline);
+  letter-spacing: 0.16px;
+}
+.dialog-body {
+  padding: 24px;
+  color: var(--color-ink);
+  font-size: 14px;
+}
+.dialog-body p {
+  margin: 0;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-hairline);
+}
+.dialog-actions .btn-ghost {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 14px;
+}
+.dialog-actions .btn-primary {
+  padding: 8px 16px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-size: 14px;
 }
 </style>

@@ -247,6 +247,25 @@ export default {
     confirmDelete: 'Are you sure you want to delete this camera?',
   },
 
+  defectClasses: {
+    title: 'Defect Classes',
+    desc: 'Which defects SAM 3 looks for. Toggle to enable for batches.',
+    add: 'Add class',
+    addTitle: 'Add Defect Class',
+    editTitle: 'Edit Defect Class',
+    name: 'Name',
+    namePlaceholder: 'e.g. orange peel',
+    category: 'Category',
+    coating: 'Coating',
+    welding: 'Welding',
+    color: 'Color',
+    on: 'on',
+    empty: 'No classes in this group yet.',
+    saved: 'Defect classes updated',
+    deleteTitle: 'Delete Defect Class',
+    confirmDelete: 'Delete defect class',
+  },
+
   common: {
     loading: 'Loading...',
     error: 'Error',

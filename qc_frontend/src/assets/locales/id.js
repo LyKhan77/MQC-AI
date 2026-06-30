@@ -257,6 +257,25 @@ export default {
     confirmDelete: 'Yakin ingin menghapus kamera ini?',
   },
 
+  defectClasses: {
+    title: 'Kelas Cacat',
+    desc: 'Cacat yang dicari SAM 3. Aktifkan untuk batch.',
+    add: 'Tambah kelas',
+    addTitle: 'Tambah Kelas Cacat',
+    editTitle: 'Edit Kelas Cacat',
+    name: 'Nama',
+    namePlaceholder: 'mis. orange peel',
+    category: 'Kategori',
+    coating: 'Coating',
+    welding: 'Welding',
+    color: 'Warna',
+    on: 'aktif',
+    empty: 'Belum ada kelas di grup ini.',
+    saved: 'Kelas cacat diperbarui',
+    deleteTitle: 'Hapus Kelas Cacat',
+    confirmDelete: 'Hapus kelas cacat',
+  },
+
   // Common
   common: {
     loading: 'Loading...',
