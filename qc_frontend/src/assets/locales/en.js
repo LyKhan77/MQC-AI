@@ -235,6 +235,8 @@ export default {
     modelConfig: 'Model Configuration',
     modelConfigDesc: 'AI inference model settings',
     confidenceThreshold: 'Confidence Threshold',
+    objectDetectionConfidence: 'Object Detection Confidence',
+    qcConfidence: 'QC Confidence',
     detectionModel: 'Detection Model',
     segmentationModel: 'Segmentation Model',
     defectStrategy: 'Defect Detection Strategy',

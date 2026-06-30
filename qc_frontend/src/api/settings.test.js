@@ -13,14 +13,16 @@ describe('settings api', () => {
       'fetch',
       ok({
         confidence_threshold: 0.7,
+        qc_confidence_threshold: 0.4,
         detection_model: 'YOLOv8n',
         segmentation_model: 'SAM3',
         defect_strategy: 'mock',
       }),
     )
     const s = await getSettings()
-    expect(s).toEqual({
+    expect(s).toMatchObject({
       confidenceThreshold: 0.7,
+      qcConfidenceThreshold: 0.4,
       detectionModel: 'YOLOv8n',
       segmentationModel: 'SAM3',
       defectStrategy: 'mock',
@@ -55,6 +57,21 @@ describe('settings api', () => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ qc_model: 'sam3.pt' }),
+    })
+  })
+
+  it('maps qc_confidence_threshold to qcConfidenceThreshold and back', async () => {
+    vi.stubGlobal('fetch', ok({ qc_confidence_threshold: 0.35 }))
+    const s = await getSettings()
+    expect(s.qcConfidenceThreshold).toBe(0.35)
+
+    const f = ok({ qc_confidence_threshold: 0.35 })
+    vi.stubGlobal('fetch', f)
+    await updateSettings({ qcConfidenceThreshold: '0.35' })
+    expect(f).toHaveBeenCalledWith('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qc_confidence_threshold: 0.35 }),
     })
   })
 })

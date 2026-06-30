@@ -25,7 +25,7 @@ watch(
   (open) => {
     if (!open) return
     refreshClasses()
-    confidence.value = Number(settings.value.confidenceThreshold ?? 0.5)
+    confidence.value = Number(settings.value.qcConfidenceThreshold ?? 0.5)
   },
   { immediate: true },
 )

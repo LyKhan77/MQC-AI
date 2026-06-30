@@ -88,6 +88,7 @@ async function removeCamera(cam) {
 async function saveSettings() {
   await update({
     confidenceThreshold: Number(settings.value.confidenceThreshold),
+    qcConfidenceThreshold: Number(settings.value.qcConfidenceThreshold),
     defectStrategy: settings.value.defectStrategy,
     activeModel: settings.value.activeModel,
     qcModel: settings.value.qcModel,
@@ -209,8 +210,12 @@ async function confirmDeleteClass() {
         </div>
         <div class="config-grid">
           <div class="form-row">
-            <label>{{ t('settings.confidenceThreshold') }}</label>
+            <label>{{ t('settings.objectDetectionConfidence') }}</label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.qcConfidence') }}</label>
+            <input type="number" min="0" max="1" step="0.05" v-model="settings.qcConfidenceThreshold" class="text-input" />
           </div>
           <div class="form-row">
             <label>{{ t('settings.defectStrategy') }}</label>

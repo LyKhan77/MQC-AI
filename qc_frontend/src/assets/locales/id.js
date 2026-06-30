@@ -245,6 +245,8 @@ export default {
     modelConfig: 'Konfigurasi Model',
     modelConfigDesc: 'Pengaturan model AI inference',
     confidenceThreshold: 'Confidence Threshold',
+    objectDetectionConfidence: 'Confidence Deteksi Objek',
+    qcConfidence: 'Confidence QC',
     detectionModel: 'Model Deteksi',
     segmentationModel: 'Model Segmentasi',
     defectStrategy: 'Strategi Deteksi Cacat',
