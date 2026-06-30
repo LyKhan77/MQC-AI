@@ -44,6 +44,7 @@ class SettingOut(BaseModel):
     segmentation_model: str
     defect_strategy: str
     active_model: str
+    qc_model: str
     input_mode_enabled: bool
 
 
@@ -53,6 +54,7 @@ class SettingUpdate(BaseModel):
     segmentation_model: str | None = None
     defect_strategy: str | None = None
     active_model: str | None = None
+    qc_model: str | None = None
     input_mode_enabled: bool | None = None
 
 
