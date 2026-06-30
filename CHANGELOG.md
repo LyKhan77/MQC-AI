@@ -11,6 +11,40 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-06-30 - SAM 3 Prompt Strategy
+
+### Summary
+
+Batch QC now has a real `sam3_prompt` defect strategy that uses Ultralytics SAM 3 text-concept prompts from enabled defect classes. Settings now keeps the live object-detection model and QC segmentation model separate via `active_model` and `qc_model`.
+
+### Added
+
+- `qc_server/app/services/inference/sam3.py` - lazy `SAM3SemanticPredictor` seam, `Sam3Strategy`, pure-Python Ramer-Douglas-Peucker polygon simplifier, mask polygon clamping, and `"sam3_prompt"` registration.
+- `qc_server/app/models.py`, `qc_server/app/main.py`, and `qc_server/app/schemas.py` - `Setting.qc_model` field, guarded startup migration, and settings API schema support.
+- `qc_server/tests/test_qc_model_setting.py`, `qc_server/tests/test_sam3_strategy.py`, and `qc_server/tests/test_pipeline_sam3.py` - unit coverage for settings persistence, no-ML SAM3 strategy behavior, polygon simplification, and pipeline `qc_model_path` plumbing.
+- `qc_frontend/src/views/Settings.vue` - **QC / Segmentation Model** dropdown using the existing `.pt` model list.
+
+### Changed
+
+- `qc_server/app/services/pipeline.py` now imports the SAM3 strategy registration, resolves `qc_model` against `settings.models_dir`, and passes `qc_model_path` into defect strategies.
+- `qc_server/requirements-ml.txt` now requires `ultralytics>=8.3.237,<9` for SAM 3 support.
+- `qc_frontend/src/api/settings.js` maps `qc_model` to/from `qcModel`.
+- `qc_frontend/src/assets/locales/en.js` and `qc_frontend/src/assets/locales/id.js` relabel the existing active model as the object-detection model and add QC model text.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| SAM3 defect inference | 2026-06-30 | `sam3_prompt` strategy with lazy SAM 3 predictor, per-enabled-class text prompts, confidence filtering, and polygon simplification | Batch QC can run real SAM 3 prompt segmentation when the strategy and QC model are configured. |
+| QC model setting | 2026-06-30 | `qc_model` DB field, migration, schemas, API mapping, and Settings dropdown | Live object detection keeps using `active_model`; batch QC segmentation uses separate `qc_model`. |
+| Pipeline plumbing | 2026-06-30 | Pipeline resolves `qc_model_path` and passes it to strategies | `mock` ignores the extra param; `sam3_prompt` fails loudly if no QC model is selected. |
+| Verification | 2026-06-30 | Backend full suite, frontend full suite, and production build | Backend: 99 passed, 2 warnings. Frontend: 39 passed. Build succeeded. |
+
+### Notes
+
+- Real-weight GPU smoke (Task 7) is deferred to the reviewer/local server with `sam3.pt` in `qc_server/models/`.
+- Unit tests monkeypatch the predictor seam; no `ultralytics` or `torch` import is required for laptop tests.
+
 ## [Unreleased] - 2026-06-30 - Defect Class Management
 
 ### Summary
