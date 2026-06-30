@@ -20,6 +20,11 @@ const editingId = ref(null)
 const showForm = ref(false)
 const form = ref({ name: '', type: 'rpi', source: '', location: '', status: 'offline' })
 const availableModels = ref([])
+const expandedGroups = ref({ coating: true, welding: true })
+function toggleGroup(key) {
+  expandedGroups.value[key] = !expandedGroups.value[key]
+}
+
 const showClassModal = ref(false)
 const editingClass = ref(null)
 const pendingDeleteClass = ref(null)
@@ -238,22 +243,27 @@ async function confirmDeleteClass() {
 
         <div class="dc-list">
           <template v-for="grp in classGroups" :key="grp.key">
-            <div class="dc-group-head">
-              <span>{{ t('defectClasses.' + grp.key) }}</span>
+            <button type="button" class="dc-group-head" @click="toggleGroup(grp.key)">
+              <span class="dc-group-label">
+                <span class="dc-chevron">{{ expandedGroups[grp.key] ? '▾' : '▸' }}</span>
+                {{ t('defectClasses.' + grp.key) }}
+              </span>
               <span class="mono">{{ grp.on }} / {{ grp.items.length }} {{ t('defectClasses.on') }}</span>
-            </div>
-            <p v-if="grp.items.length === 0" class="form-hint">{{ t('defectClasses.empty') }}</p>
-            <div v-for="c in grp.items" :key="c.id" class="dc-row">
-              <label class="dc-check">
-                <input type="checkbox" :checked="c.enabled" @change="toggle(c)" />
-                <span class="dc-swatch" :style="{ background: c.color }"></span>
-                <span class="dc-name">{{ c.name }}</span>
-              </label>
-              <div class="dc-actions">
-                <button class="dc-icon" :title="t('common.edit')" @click="openEditClass(c)">{{ t('common.edit') }}</button>
-                <button class="dc-icon danger" :title="t('common.delete')" @click="pendingDeleteClass = c">{{ t('common.delete') }}</button>
+            </button>
+            <template v-if="expandedGroups[grp.key]">
+              <p v-if="grp.items.length === 0" class="form-hint">{{ t('defectClasses.empty') }}</p>
+              <div v-for="c in grp.items" :key="c.id" class="dc-row">
+                <label class="dc-check">
+                  <input type="checkbox" :checked="c.enabled" @change="toggle(c)" />
+                  <span class="dc-swatch" :style="{ background: c.color }"></span>
+                  <span class="dc-name">{{ c.name }}</span>
+                </label>
+                <div class="dc-actions">
+                  <button class="dc-icon" :title="t('common.edit')" @click="openEditClass(c)">{{ t('common.edit') }}</button>
+                  <button class="dc-icon danger" :title="t('common.delete')" @click="pendingDeleteClass = c">{{ t('common.delete') }}</button>
+                </div>
               </div>
-            </div>
+            </template>
           </template>
         </div>
       </section>
@@ -406,13 +416,23 @@ async function confirmDeleteClass() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   margin: 16px 0 4px;
+  padding: 6px 8px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.32px;
   text-transform: uppercase;
   color: var(--color-ink-muted);
+  background: var(--color-surface-1);
+  border: none;
+  border-bottom: 1px solid var(--color-hairline);
+  cursor: pointer;
+  font-family: var(--font-sans);
 }
+.dc-group-head:hover { color: var(--color-ink); }
+.dc-group-label { display: flex; align-items: center; gap: 8px; }
+.dc-chevron { font-size: 10px; width: 10px; }
 .dc-row {
   display: flex;
   align-items: center;
