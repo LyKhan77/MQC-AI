@@ -286,6 +286,7 @@ function onPolygonClick(id) {
 
 async function deleteSelectedDefect() {
   if (!editMode.value || !selected.value || !selectedDefectId.value) return
+  if (!confirm(t('qc.confirmDeleteDefect'))) return
   const id = selectedDefectId.value
   await removeDefect(selected.value.id, id)
   log('DEFECT_DELETED', `Deleted defect: ${id}`)

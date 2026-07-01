@@ -87,6 +87,7 @@ export default {
     batchEmpty: 'No batch loaded.',
     pendingHint: 'Batch ready. Click Load Batch to run segmentation.',
     confirmDeleteImage: 'Delete this image and its file?',
+    confirmDeleteDefect: 'Delete this defect?',
     rerun: 'Re-run',
     reset: 'Reset',
     confirmReset: 'Clear results and reset this batch to raw?',

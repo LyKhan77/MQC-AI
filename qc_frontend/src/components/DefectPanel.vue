@@ -115,6 +115,7 @@ async function exportCrop() {
 
 async function deletePanelDefect(defect) {
   if (!selected.value) return
+  if (!confirm(t('qc.confirmDeleteDefect'))) return
   await removeDefect(selected.value.id, defect.id)
   log('DEFECT_DELETED', `Deleted defect: ${defect.id}`)
 }

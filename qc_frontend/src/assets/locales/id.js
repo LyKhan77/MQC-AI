@@ -93,6 +93,7 @@ export default {
     batchEmpty: 'Belum ada batch dimuat.',
     pendingHint: 'Batch siap. Klik Load Batch untuk menjalankan segmentasi.',
     confirmDeleteImage: 'Hapus gambar ini beserta filenya?',
+    confirmDeleteDefect: 'Hapus cacat ini?',
     rerun: 'Jalankan Ulang',
     reset: 'Reset',
     confirmReset: 'Hapus hasil dan kembalikan batch ini ke RAW?',
