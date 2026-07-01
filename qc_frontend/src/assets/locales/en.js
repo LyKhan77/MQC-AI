@@ -12,6 +12,9 @@ export default {
     reports: 'Reports',
     auditLog: 'Audit Log',
     settings: 'Settings',
+    inference: 'Inference',
+    qualityControl: 'Quality Control',
+    records: 'Records',
   },
 
   topbar: {
