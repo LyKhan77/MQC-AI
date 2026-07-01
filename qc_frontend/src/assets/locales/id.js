@@ -107,6 +107,8 @@ export default {
     noImageSelected: 'Tidak ada gambar terpilih.',
     exportCrop: 'Export Crop',
     exportFull: 'Export Full',
+    exportNoDefects: 'Tidak ada cacat untuk di-crop pada batch ini.',
+    exporting: 'Mengekspor...',
     reviewed: 'Sudah Review',
     markReviewed: 'Tandai Reviewed',
     markUnreviewed: 'Batal Review',
