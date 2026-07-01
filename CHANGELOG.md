@@ -11,6 +11,40 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - QC Studio Edit-Mode UX
+
+### Summary
+
+QC Studio edit mode now behaves more like a focused annotation tool: canvas controls float over the work area, defect selection is shared between the canvas and defect panel, cursors match the active interaction, and core actions have keyboard shortcuts.
+
+### Added
+
+- `qc_frontend/src/utils/cursor.js` and `cursor.test.js` - pure `cursorForState()` helper covering drawing, dragging, polygon hover, and default pan cursors.
+- `qc_frontend/src/composables/useInspection.js` - shared `selectedDefectId`, `selectDefect()`, and `clearDefectSelection()` state for canvas/panel selection.
+- `InspectionCanvas.vue` - edit-only left tool dock, top-right annotation/review/View|Edit cluster, bottom-right zoom cluster, drawing hint, and keyboard shortcuts for V/A/Delete/Esc/+/-/0.
+- `DefectPanel.vue` - click/keyboard row selection with active row styling and shared selection highlighting.
+
+### Changed
+
+- `InspectionCanvas.vue` replaces the crowded single toolbar with flat Carbon-style floating clusters and reduced-motion-safe dock entry motion.
+- Canvas polygons can be selected in both View and Edit modes; selected polygons render stronger than hover.
+- `DefectPanel.vue` active rows use full-border/background state instead of side-stripe accents.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` include new edit-tool labels, View/Edit labels, annotation state labels, and drawing hint copy.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| QC Studio floating controls | 2026-07-01 | Split the canvas controls into edit dock, top action cluster, and zoom cluster | Canvas work area is less crowded while retaining review, annotation, edit-mode, and zoom actions. |
+| Defect selection | 2026-07-01 | Shared `selectedDefectId` in `useInspection()` and row/polygon click handlers | Clicking a defect row highlights its polygon, and clicking a polygon highlights the row in View and Edit modes. |
+| Cursor/shortcut UX | 2026-07-01 | Tested `cursorForState()` plus V/A/Delete/Esc/+/-/0 shortcuts that ignore typing targets | Operators get predictable cursor feedback and fast keyboard access to common annotation actions. |
+| Verification | 2026-07-01 | Frontend focused red/green, full suite, and production build | Focused red: missing `cursor.js` module. Focused green: 4 passed. Full frontend: 64 passed. Build succeeded. |
+
+### Notes
+
+- Phase 2 (SAM click-to-segment with point/box prompts) remains next and can add tools to the new left dock.
+- Browser smoke is pending for reviewer: floating docks + pan-under, bidirectional selection both modes, cursor per tool, drawing hint, keyboard shortcuts, and Phase 1 add/delete/relabel/persist regression check.
+
 ## [Unreleased] - 2026-07-01 - QC Studio Manual Defect Editing
 
 ### Summary

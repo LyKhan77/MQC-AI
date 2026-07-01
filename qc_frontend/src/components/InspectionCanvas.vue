@@ -6,14 +6,18 @@ import { useDefectColor } from '../composables/useDefectColor.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { toImageCoords } from '../utils/canvasCoords.js'
+import { cursorForState } from '../utils/cursor.js'
 
 const {
   selected,
+  selectedDefectId,
   hoveredDefectId,
   toggleReviewed,
   isReviewed,
   editMode,
   toggleEditMode,
+  selectDefect,
+  clearDefectSelection,
   addDefect,
   removeDefect,
 } = useInspection()
@@ -32,10 +36,18 @@ const svgRef = ref(null)
 const drawing = ref(false)
 const pickingClass = ref(false)
 const drawingPoints = ref([])
-const selectedDefectId = ref(null)
 const drawMsg = ref('')
+const activeTool = ref('select')
+const overDefect = ref(false)
 
 const enabledClasses = computed(() => classes.value.filter((c) => c.enabled))
+const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
+const canvasCursor = computed(() => cursorForState({
+  drawing: drawing.value,
+  dragging: dragging.value,
+  editMode: editMode.value,
+  overDefect: overDefect.value,
+}))
 
 function pointsAttr(polygon) {
   return polygon.map((p) => p.join(',')).join(' ')
@@ -70,21 +82,38 @@ function resetZoom() {
   panY.value = 0
 }
 
+function zoomIn() {
+  zoom.value = Math.min(5, zoom.value + 0.2)
+}
+
+function zoomOut() {
+  zoom.value = Math.max(0.5, zoom.value - 0.2)
+}
+
 function startDrawing() {
-  selectedDefectId.value = null
+  if (!editMode.value) return
+  clearDefectSelection()
+  activeTool.value = 'draw'
   drawing.value = true
   pickingClass.value = false
   drawingPoints.value = []
   drawMsg.value = ''
 }
 
-function toggleMode() {
-  const leavingEdit = editMode.value
-  toggleEditMode()
-  if (leavingEdit) {
-    selectedDefectId.value = null
+function setSelectTool() {
+  activeTool.value = 'select'
+  cancelDrawing()
+}
+
+function setEditMode(next) {
+  if (editMode.value === next) return
+  if (!next) {
+    clearDefectSelection()
     cancelDrawing()
+  } else {
+    activeTool.value = 'select'
   }
+  toggleEditMode()
 }
 
 function cancelDrawing() {
@@ -92,6 +121,7 @@ function cancelDrawing() {
   pickingClass.value = false
   drawingPoints.value = []
   drawMsg.value = ''
+  activeTool.value = 'select'
 }
 
 function addPoint(e) {
@@ -123,8 +153,8 @@ async function chooseClass(cls) {
 }
 
 function onPolygonClick(id) {
-  if (!editMode.value) return
-  selectedDefectId.value = id
+  if (drawing.value) return
+  selectDefect(id)
 }
 
 async function deleteSelectedDefect() {
@@ -132,18 +162,44 @@ async function deleteSelectedDefect() {
   const id = selectedDefectId.value
   await removeDefect(selected.value.id, id)
   log('DEFECT_DELETED', `Deleted defect: ${id}`)
-  selectedDefectId.value = null
+  clearDefectSelection()
+}
+
+function isTypingTarget(target) {
+  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(target?.tagName)
 }
 
 function onKeydown(e) {
-  if (e.key === 'Escape' && drawing.value) cancelDrawing()
-  if (e.key === 'Delete' && editMode.value && selectedDefectId.value) deleteSelectedDefect()
+  if (isTypingTarget(e.target)) return
+  const key = e.key.toLowerCase()
+
+  if (key === 'v') {
+    e.preventDefault()
+    setSelectTool()
+  } else if (key === 'a' && editMode.value) {
+    e.preventDefault()
+    startDrawing()
+  } else if (e.key === 'Delete' && editMode.value && selectedDefectId.value) {
+    e.preventDefault()
+    deleteSelectedDefect()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    if (drawing.value) cancelDrawing()
+    else clearDefectSelection()
+  } else if (e.key === '+' || e.key === '=') {
+    e.preventDefault()
+    zoomIn()
+  } else if (e.key === '-') {
+    e.preventDefault()
+    zoomOut()
+  } else if (e.key === '0') {
+    e.preventDefault()
+    resetZoom()
+  }
 }
 
-const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
-
 watch(() => selected.value?.id, () => {
-  selectedDefectId.value = null
+  clearDefectSelection()
   cancelDrawing()
 })
 
@@ -153,34 +209,42 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <section class="canvas-wrapper">
-    <div v-if="selected" class="canvas-toolbar">
-      <button class="tool-btn" @click="zoom = Math.max(0.5, zoom - 0.2)" :title="t('qc.zoomOut')">-</button>
-      <span class="zoom-display mono">{{ Math.round(zoom * 100) }}%</span>
-      <button class="tool-btn" @click="zoom = Math.min(5, zoom + 0.2)" :title="t('qc.zoomIn')">+</button>
-      <button class="tool-btn" @click="resetZoom" :title="t('qc.zoomReset')">{{ t('qc.zoomReset') }}</button>
-      <span class="tool-sep"></span>
-      <button class="tool-btn" :class="{ active: showAnnotation }" @click="showAnnotation = !showAnnotation" :title="t('qc.toggleAnnotation')">
-        {{ showAnnotation ? t('qc.toggleAnnotation') : 'OFF' }}
-      </button>
-      <span class="tool-sep"></span>
-      <button class="tool-btn" @click="toggleReviewed(selected.id)" :class="{ reviewed: isReviewed(selected.id) }">
-        {{ isReviewed(selected.id) ? '&#10003; ' + t('qc.markUnreviewed') : t('qc.markReviewed') }}
-      </button>
-      <span class="tool-sep"></span>
-      <button class="tool-btn" :class="{ active: editMode }" @click="toggleMode">
-        {{ editMode ? t('qc.editMode') : t('qc.viewOnly') }}
-      </button>
-      <template v-if="editMode">
-        <button class="tool-btn" :class="{ active: drawing }" @click="startDrawing">{{ t('qc.addDefect') }}</button>
-        <button v-if="drawing" class="tool-btn" @click="finishDrawing">{{ t('qc.finishDrawing') }}</button>
-        <button v-if="drawing" class="tool-btn" @click="cancelDrawing">{{ t('common.cancel') }}</button>
-        <button v-if="selectedDefectId" class="tool-btn danger" @click="deleteSelectedDefect">{{ t('qc.deleteDefect') }}</button>
+    <div v-if="selected && editMode" class="floating-cluster tool-dock" :aria-label="t('qc.editTools')">
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'select' && !drawing }" :title="t('qc.toolSelect')" :aria-label="t('qc.toolSelect')" :aria-pressed="activeTool === 'select' && !drawing" @click="setSelectTool">V</button>
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'draw' }" :title="t('qc.toolAdd')" :aria-label="t('qc.toolAdd')" :aria-pressed="activeTool === 'draw'" @click="startDrawing">A</button>
+      <button class="tool-btn icon-btn danger" :disabled="!selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">Del</button>
+      <template v-if="drawing">
+        <button class="tool-btn dock-action" :title="t('qc.finishDrawing')" :aria-label="t('qc.finishDrawing')" @click="finishDrawing">{{ t('qc.finishDrawing') }}</button>
+        <button class="tool-btn dock-action" :title="t('common.cancel')" :aria-label="t('common.cancel')" @click="cancelDrawing">{{ t('common.cancel') }}</button>
       </template>
     </div>
-    <div v-if="selected && editMode && (drawMsg || pickingClass)" class="edit-strip">
-      <span v-if="drawMsg" class="edit-msg mono">{{ drawMsg }}</span>
-      <template v-if="pickingClass">
-        <span class="edit-label">{{ t('qc.pickClass') }}</span>
+
+    <div v-if="selected" class="floating-cluster top-tools">
+      <button class="tool-btn" :class="{ active: showAnnotation }" :aria-pressed="showAnnotation" :aria-label="t('qc.toggleAnnotation')" :title="t('qc.toggleAnnotation')" @click="showAnnotation = !showAnnotation">
+        {{ showAnnotation ? t('qc.annotationsOn') : t('qc.annotationsOff') }}
+      </button>
+      <button class="tool-btn" :class="{ reviewed: isReviewed(selected.id) }" :aria-label="isReviewed(selected.id) ? t('qc.markUnreviewed') : t('qc.markReviewed')" @click="toggleReviewed(selected.id)">
+        {{ isReviewed(selected.id) ? t('qc.markUnreviewed') : t('qc.markReviewed') }}
+      </button>
+      <div class="segmented" role="group" :aria-label="t('qc.mode')">
+        <button class="segment-btn" :class="{ active: !editMode }" :aria-pressed="!editMode" @click="setEditMode(false)">{{ t('qc.view') }}</button>
+        <button class="segment-btn" :class="{ active: editMode }" :aria-pressed="editMode" @click="setEditMode(true)">{{ t('qc.edit') }}</button>
+      </div>
+    </div>
+
+    <div v-if="selected" class="floating-cluster zoom-cluster">
+      <button class="tool-btn icon-btn" :title="t('qc.zoomOut')" :aria-label="t('qc.zoomOut')" @click="zoomOut">-</button>
+      <span class="zoom-display mono">{{ Math.round(zoom * 100) }}%</span>
+      <button class="tool-btn icon-btn" :title="t('qc.zoomIn')" :aria-label="t('qc.zoomIn')" @click="zoomIn">+</button>
+      <button class="tool-btn" :title="t('qc.zoomReset')" :aria-label="t('qc.zoomReset')" @click="resetZoom">{{ t('qc.zoomResetShort') }}</button>
+    </div>
+
+    <div v-if="selected && editMode && drawing && !pickingClass" class="draw-hint mono">
+      {{ drawMsg || t('qc.drawHint') }}
+    </div>
+
+    <div v-if="selected && editMode && pickingClass" class="floating-cluster class-picker">
+      <span class="edit-label">{{ t('qc.pickClass') }}</span>
         <button
           v-for="cls in enabledClasses"
           :key="cls.id"
@@ -190,7 +254,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <span class="swatch" :style="{ background: cls.color }"></span>
           {{ cls.name }}
         </button>
-      </template>
     </div>
 
     <div
@@ -201,7 +264,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       @mousemove="onMouseMove"
       @mouseup="onMouseUp"
       @mouseleave="onMouseUp"
-      :class="{ grabbing: dragging }"
+      :style="{ cursor: canvasCursor }"
     >
       <div class="image-frame" :style="{ transform: frameTransform }">
         <img :src="selected.url" :alt="selected.filename" class="insp-img" draggable="false" />
@@ -209,7 +272,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           v-if="showAnnotation"
           ref="svgRef"
           class="overlay"
-          :class="{ editing: editMode }"
           :viewBox="`0 0 ${selected.width} ${selected.height}`"
           preserveAspectRatio="none"
           @click="addPoint"
@@ -225,6 +287,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             :stroke-width="selectedDefectId === d.id ? 4 : 2"
             :data-defect-id="d.id"
             class="defect-poly"
+            :class="{ selected: selectedDefectId === d.id }"
+            @mouseenter="overDefect = true"
+            @mouseleave="overDefect = false"
+            @mousedown.stop
             @click.stop="onPolygonClick(d.id)"
           />
           <polyline
@@ -251,20 +317,65 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <style scoped>
 .canvas-wrapper {
+  position: relative;
   flex: 1;
   background: var(--color-surface-1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.canvas-toolbar {
+.floating-cluster {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
   background: var(--color-canvas);
-  border-bottom: 1px solid var(--color-hairline);
-  flex-shrink: 0;
+  border: 1px solid var(--color-hairline);
+  z-index: 2;
+  pointer-events: auto;
+}
+.tool-dock {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  flex-direction: column;
+  padding: 4px;
+  transform: translateY(-50%);
+  animation: dock-enter 160ms ease-out;
+}
+.top-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px;
+}
+.zoom-cluster {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 4px;
+}
+.class-picker {
+  position: absolute;
+  left: 64px;
+  top: 50%;
+  max-width: min(520px, calc(100% - 96px));
+  padding: 6px;
+  flex-wrap: wrap;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+.draw-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 6px 10px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-size: 12px;
+  letter-spacing: 0.16px;
 }
 .tool-btn {
   padding: 4px 10px;
@@ -275,10 +386,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-size: 12px;
   cursor: pointer;
   letter-spacing: 0.16px;
+  min-height: 28px;
 }
 .tool-btn:hover {
   background: var(--color-surface-1);
   color: var(--color-ink);
+}
+.tool-btn:focus-visible,
+.segment-btn:focus-visible,
+.class-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .tool-btn.active {
   background: var(--color-primary);
@@ -294,6 +412,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   color: var(--color-error);
   border-color: var(--color-error);
 }
+.tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.icon-btn {
+  width: 36px;
+  padding: 4px;
+}
+.dock-action {
+  width: 72px;
+}
 .zoom-display {
   font-size: 12px;
   color: var(--color-ink);
@@ -301,22 +430,30 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   text-align: center;
   letter-spacing: 0.16px;
 }
-.tool-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--color-hairline);
-  margin: 0 4px;
-}
-.edit-strip {
+.segmented {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: var(--color-surface-1);
-  border-bottom: 1px solid var(--color-hairline);
-  flex-wrap: wrap;
+  border: 1px solid var(--color-hairline);
 }
-.edit-msg,
+.segment-btn {
+  min-height: 28px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 0.16px;
+}
+.segment-btn:last-child {
+  border-right: 0;
+}
+.segment-btn.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
 .edit-label {
   font-size: 12px;
   color: var(--color-ink-muted);
@@ -346,11 +483,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
   user-select: none;
-}
-.canvas-scroll.grabbing {
-  cursor: grabbing;
 }
 .image-frame {
   position: relative;
@@ -369,9 +502,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-}
-.overlay.editing {
   pointer-events: auto;
 }
 .defect-poly {
@@ -379,6 +509,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   pointer-events: auto;
   cursor: pointer;
   transition: fill-opacity 0.12s ease;
+}
+.defect-poly.selected {
+  stroke-linejoin: round;
 }
 .draft-poly {
   fill: none;
@@ -403,5 +536,24 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .mono {
   font-family: var(--font-mono);
+}
+@keyframes dock-enter {
+  from {
+    opacity: 0;
+    transform: translate(-8px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-dock {
+    animation: none;
+  }
+  .image-frame,
+  .defect-poly {
+    transition: none;
+  }
 }
 </style>

@@ -20,6 +20,7 @@ const REVIEWER = 'inspector@gspemail.com'
 
 const batch = ref(null)
 const selectedId = ref(null)
+const selectedDefectId = ref(null)
 const hoveredDefectId = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -64,6 +65,7 @@ async function prepareBatch(batchId) {
     error.value = 'No batch selected'
     batch.value = null
     selectedId.value = null
+    clearDefectSelection()
     needsRun.value = false
     return
   }
@@ -75,6 +77,7 @@ async function prepareBatch(batchId) {
       needsRun.value = true
       batch.value = await getBatchResult(batchId)
       selectedId.value = images.value[0]?.id ?? null
+      clearDefectSelection()
       return
     }
   } catch {
@@ -105,6 +108,7 @@ async function loadBatch(batchId) {
     error.value = 'No batch selected'
     batch.value = null
     selectedId.value = null
+    clearDefectSelection()
     return
   }
   loading.value = true
@@ -115,6 +119,7 @@ async function loadBatch(batchId) {
     await pollBatchUntilDone(batchId, { onProgress: (p) => { progress.value = p } })
     batch.value = await getBatchResult(batchId)
     selectedId.value = images.value[0]?.id ?? null
+    clearDefectSelection()
     lastAllReviewed.value = images.value.length > 0 && reviewedCount.value === images.value.length
     // Reconcile on open: a batch already fully reviewed should read as "reviewed".
     if (lastAllReviewed.value) {
@@ -124,6 +129,7 @@ async function loadBatch(batchId) {
     error.value = e.message || 'Failed to load batch'
     batch.value = null
     selectedId.value = null
+    clearDefectSelection()
   } finally {
     loading.value = false
   }
@@ -131,6 +137,15 @@ async function loadBatch(batchId) {
 
 function selectImage(id) {
   selectedId.value = id
+  clearDefectSelection()
+}
+
+function selectDefect(id) {
+  selectedDefectId.value = id
+}
+
+function clearDefectSelection() {
+  selectedDefectId.value = null
 }
 
 function toggleEditMode() {
@@ -187,6 +202,7 @@ async function removeDefect(imageId, defectId) {
   if (!imageId || !defectId || !currentBatchId.value) return
   await deleteDefect(currentBatchId.value, imageId, defectId)
   hoveredDefectId.value = null
+  if (selectedDefectId.value === defectId) clearDefectSelection()
   replaceImage(imageId, (img) => {
     const defects = img.defects.filter((d) => d.id !== defectId)
     return { ...img, defects, status: defects.length ? 'defect' : 'clean' }
@@ -204,6 +220,7 @@ async function removeImage(imageId) {
   }
   if (selectedId.value === imageId) {
     selectedId.value = images.value[0]?.id ?? null
+    clearDefectSelection()
   }
 }
 
@@ -257,6 +274,7 @@ export function useInspection() {
     images,
     selected,
     selectedId,
+    selectedDefectId,
     hoveredDefectId,
     loading,
     error,
@@ -270,6 +288,8 @@ export function useInspection() {
     runAndLoad,
     loadBatch,
     toggleEditMode,
+    selectDefect,
+    clearDefectSelection,
     addDefect,
     updateDefect,
     removeDefect,
