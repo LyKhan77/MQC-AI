@@ -4,6 +4,7 @@ import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useDefectColor } from '../composables/useDefectColor.js'
+import { useDefectClasses } from '../composables/useDefectClasses.js'
 import JSZip from 'jszip'
 import {
   renderAnnotated,
@@ -16,10 +17,23 @@ import {
   loadImage,
 } from '../utils/export.js'
 
-const { selected, hoveredDefectId, images, batch, selectImage, selectedId, toggleReviewed, isReviewed } = useInspection()
+const {
+  selected,
+  hoveredDefectId,
+  images,
+  batch,
+  selectImage,
+  selectedId,
+  toggleReviewed,
+  isReviewed,
+  editMode,
+  updateDefect,
+  removeDefect,
+} = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 const { colorFor } = useDefectColor()
+const { classes } = useDefectClasses()
 
 const CROP_PAD = 40
 
@@ -28,6 +42,7 @@ const exportMsg = ref('')
 
 const coating = computed(() => selected.value?.defects.filter((d) => d.category === 'coating') ?? [])
 const welding = computed(() => selected.value?.defects.filter((d) => d.category === 'welding') ?? [])
+const enabledClasses = computed(() => classes.value.filter((c) => c.enabled))
 
 function pct(c) {
   return `${Math.round(c * 100)}%`
@@ -96,6 +111,20 @@ async function exportCrop() {
   }
 }
 
+async function deletePanelDefect(defect) {
+  if (!selected.value) return
+  await removeDefect(selected.value.id, defect.id)
+  log('DEFECT_DELETED', `Deleted defect: ${defect.id}`)
+}
+
+async function relabelDefect(defect, classId) {
+  if (!selected.value) return
+  const cls = enabledClasses.value.find((c) => c.id === classId)
+  if (!cls) return
+  await updateDefect(selected.value.id, defect.id, { type: cls.name, category: cls.category })
+  log('DEFECT_RELABELED', `Relabeled defect: ${defect.id} -> ${cls.name}`)
+}
+
 function onKeydown(e) {
   if (!images.value.length) return
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
@@ -142,6 +171,18 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           >
             <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
+            <select
+              v-if="editMode"
+              class="class-select"
+              :aria-label="t('qc.relabel')"
+              @change="relabelDefect(d, $event.target.value)"
+            >
+              <option value="">{{ t('qc.relabel') }}</option>
+              <option v-for="cls in enabledClasses" :key="cls.id" :value="cls.id">
+                {{ cls.name }}
+              </option>
+            </select>
+            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" @click="deletePanelDefect(d)">x</button>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
         </ul>
@@ -161,6 +202,18 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           >
             <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
+            <select
+              v-if="editMode"
+              class="class-select"
+              :aria-label="t('qc.relabel')"
+              @change="relabelDefect(d, $event.target.value)"
+            >
+              <option value="">{{ t('qc.relabel') }}</option>
+              <option v-for="cls in enabledClasses" :key="cls.id" :value="cls.id">
+                {{ cls.name }}
+              </option>
+            </select>
+            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" @click="deletePanelDefect(d)">x</button>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
         </ul>
@@ -265,6 +318,28 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-size: 12px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
+}
+.class-select {
+  min-width: 84px;
+  max-width: 120px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 4px;
+}
+.row-delete {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-hairline);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.row-delete:hover {
+  border-color: var(--color-error);
 }
 .none {
   color: var(--color-ink-subtle);

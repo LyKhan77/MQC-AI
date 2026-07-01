@@ -109,6 +109,41 @@ describe('batches api', () => {
     })
   })
 
+  it('createDefect posts to the nested defect endpoint', async () => {
+    const f = fetchSequence([{ status: 201, body: { id: 'd1' } }])
+    vi.stubGlobal('fetch', f)
+    const { createDefect } = await import('./batches.js')
+    await createDefect('b1', 'i1', { type: 'Scratch', category: 'coating', polygon: [[1, 2]] })
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/images/i1/defects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'Scratch', category: 'coating', polygon: [[1, 2]] }),
+    })
+  })
+
+  it('updateDefect patches the nested defect endpoint', async () => {
+    const f = fetchSequence([{ status: 200, body: { id: 'd1' } }])
+    vi.stubGlobal('fetch', f)
+    const { updateDefect } = await import('./batches.js')
+    await updateDefect('b1', 'i1', 'd1', { type: 'Porosity' })
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/images/i1/defects/d1', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'Porosity' }),
+    })
+  })
+
+  it('deleteDefect deletes the nested defect endpoint', async () => {
+    const f = fetchSequence([{ status: 200, body: { deleted: 'd1' } }])
+    vi.stubGlobal('fetch', f)
+    const { deleteDefect } = await import('./batches.js')
+    await deleteDefect('b1', 'i1', 'd1')
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/images/i1/defects/d1', {
+      method: 'DELETE',
+      headers: {},
+    })
+  })
+
   it('resetBatch posts to reset endpoint', async () => {
     const f = fetchSequence([{ status: 200, body: { batch_id: 'b1', status: 'pending' } }])
     vi.stubGlobal('fetch', f)

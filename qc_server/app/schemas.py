@@ -120,6 +120,19 @@ class DefectOut(BaseModel):
     polygon: list
 
 
+class DefectCreate(BaseModel):
+    type: str
+    category: str
+    polygon: list
+    confidence: float = 1.0
+
+
+class DefectPatch(BaseModel):
+    type: str | None = None
+    category: str | None = None
+    polygon: list | None = None
+
+
 class ImageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

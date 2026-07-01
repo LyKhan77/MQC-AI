@@ -16,6 +16,9 @@ from ..schemas import (
     BatchRunRequest,
     BatchStatusOut,
     BatchSummary,
+    DefectCreate,
+    DefectOut,
+    DefectPatch,
     ImageOut,
     ImagePatch,
 )
@@ -25,6 +28,34 @@ from ..util import gen_id, now_iso
 from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/batches", tags=["batches"])
+
+
+def _batch_image(db: Session, batch_id: str, image_id: str) -> Image:
+    image = db.get(Image, image_id)
+    if not image or image.batch_id != batch_id:
+        raise HTTPException(404, "image not found")
+    return image
+
+
+def _defect_for_image(db: Session, image_id: str, defect_id: str) -> Defect:
+    defect = db.get(Defect, defect_id)
+    if not defect or defect.image_id != image_id:
+        raise HTTPException(404, "defect not found")
+    return defect
+
+
+def _recompute_defects(db: Session, batch_id: str, image: Image):
+    db.flush()
+    image_count = db.query(func.count(Defect.id)).filter(Defect.image_id == image.id).scalar() or 0
+    image.status = "defect" if image_count else "clean"
+    batch = db.get(Batch, batch_id)
+    batch.defect_count = (
+        db.query(func.count(Defect.id))
+        .join(Image, Defect.image_id == Image.id)
+        .filter(Image.batch_id == batch_id)
+        .scalar()
+        or 0
+    )
 
 
 @router.post("", response_model=BatchCreateResponse, status_code=201)
@@ -174,6 +205,51 @@ def patch_image(batch_id: str, image_id: str, payload: ImagePatch,
     db.commit()
     db.refresh(image)
     return ImageOut.model_validate(image)
+
+
+@router.post("/{batch_id}/images/{image_id}/defects", response_model=DefectOut,
+             status_code=201)
+def create_defect(batch_id: str, image_id: str, payload: DefectCreate,
+                  db: Session = Depends(get_db)):
+    image = _batch_image(db, batch_id, image_id)
+    defect = Defect(
+        id=gen_id("d"),
+        image_id=image.id,
+        type=payload.type,
+        category=payload.category,
+        confidence=1.0,
+        polygon=payload.polygon,
+    )
+    db.add(defect)
+    _recompute_defects(db, batch_id, image)
+    db.commit()
+    db.refresh(defect)
+    return DefectOut.model_validate(defect)
+
+
+@router.patch("/{batch_id}/images/{image_id}/defects/{defect_id}",
+              response_model=DefectOut)
+def patch_defect(batch_id: str, image_id: str, defect_id: str, payload: DefectPatch,
+                 db: Session = Depends(get_db)):
+    image = _batch_image(db, batch_id, image_id)
+    defect = _defect_for_image(db, image.id, defect_id)
+    for key, value in payload.model_dump(exclude_none=True).items():
+        setattr(defect, key, value)
+    _recompute_defects(db, batch_id, image)
+    db.commit()
+    db.refresh(defect)
+    return DefectOut.model_validate(defect)
+
+
+@router.delete("/{batch_id}/images/{image_id}/defects/{defect_id}")
+def delete_defect(batch_id: str, image_id: str, defect_id: str,
+                  db: Session = Depends(get_db)):
+    image = _batch_image(db, batch_id, image_id)
+    defect = _defect_for_image(db, image.id, defect_id)
+    db.delete(defect)
+    _recompute_defects(db, batch_id, image)
+    db.commit()
+    return {"deleted": defect_id}
 
 
 @router.delete("/{batch_id}/images/{image_id}")

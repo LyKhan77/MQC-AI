@@ -52,6 +52,18 @@ export function deleteImage(batchId, imageId) {
   return apiDelete(`/batches/${batchId}/images/${imageId}`)
 }
 
+export function createDefect(batchId, imageId, payload) {
+  return apiPost(`/batches/${batchId}/images/${imageId}/defects`, payload)
+}
+
+export function updateDefect(batchId, imageId, defectId, patch) {
+  return apiPatch(`/batches/${batchId}/images/${imageId}/defects/${defectId}`, patch)
+}
+
+export function deleteDefect(batchId, imageId, defectId) {
+  return apiDelete(`/batches/${batchId}/images/${imageId}/defects/${defectId}`)
+}
+
 export function resetBatch(batchId) {
   return apiPost(`/batches/${batchId}/reset`, {})
 }

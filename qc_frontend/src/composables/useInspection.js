@@ -7,10 +7,14 @@ import {
   patchImageReviewed,
   patchBatch,
   deleteImage,
+  createDefect,
+  updateDefect as patchDefect,
+  deleteDefect,
   resetBatch,
 } from '../api/batches.js'
 
 const STORAGE_KEY = 'mqc-reviewed'
+const EDIT_STORAGE_KEY = 'mqc-edit-mode'
 
 const REVIEWER = 'inspector@gspemail.com'
 
@@ -24,6 +28,7 @@ const currentBatchId = ref(null)
 const progress = ref({ done: 0, total: 0 })
 const lastAllReviewed = ref(false)
 const needsRun = ref(false)
+const editMode = ref(localStorage.getItem(EDIT_STORAGE_KEY) === 'true')
 
 function loadReviewed() {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -128,6 +133,19 @@ function selectImage(id) {
   selectedId.value = id
 }
 
+function toggleEditMode() {
+  editMode.value = !editMode.value
+  localStorage.setItem(EDIT_STORAGE_KEY, String(editMode.value))
+}
+
+function replaceImage(imageId, patcher) {
+  if (!batch.value) return
+  batch.value = {
+    ...batch.value,
+    images: images.value.map((img) => (img.id === imageId ? patcher(img) : img)),
+  }
+}
+
 function toggleReviewed(id) {
   if (!id) return
   const nowReviewed = !reviewed.value.has(id)
@@ -142,6 +160,37 @@ function toggleReviewed(id) {
     patchImageReviewed(currentBatchId.value, id, nowReviewed).catch(() => {})
     syncBatchStatus()
   }
+}
+
+async function addDefect(imageId, payload) {
+  if (!imageId || !currentBatchId.value) return null
+  const created = await createDefect(currentBatchId.value, imageId, payload)
+  replaceImage(imageId, (img) => ({
+    ...img,
+    status: 'defect',
+    defects: [...img.defects, created],
+  }))
+  return created
+}
+
+async function updateDefect(imageId, defectId, patch) {
+  if (!imageId || !defectId || !currentBatchId.value) return null
+  const updated = await patchDefect(currentBatchId.value, imageId, defectId, patch)
+  replaceImage(imageId, (img) => ({
+    ...img,
+    defects: img.defects.map((d) => (d.id === defectId ? updated : d)),
+  }))
+  return updated
+}
+
+async function removeDefect(imageId, defectId) {
+  if (!imageId || !defectId || !currentBatchId.value) return
+  await deleteDefect(currentBatchId.value, imageId, defectId)
+  hoveredDefectId.value = null
+  replaceImage(imageId, (img) => {
+    const defects = img.defects.filter((d) => d.id !== defectId)
+    return { ...img, defects, status: defects.length ? 'defect' : 'clean' }
+  })
 }
 
 async function removeImage(imageId) {
@@ -216,9 +265,14 @@ export function useInspection() {
     currentBatchId,
     progress,
     needsRun,
+    editMode,
     prepareBatch,
     runAndLoad,
     loadBatch,
+    toggleEditMode,
+    addDefect,
+    updateDefect,
+    removeDefect,
     removeImage,
     resetAndReload,
     selectImage,
