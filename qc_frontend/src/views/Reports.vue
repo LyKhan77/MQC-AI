@@ -5,6 +5,7 @@ import { useBatchHistory } from '../composables/useBatchHistory.js'
 import { useInspection } from '../composables/useInspection.js'
 import { useDefectColor } from '../composables/useDefectColor.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
+import { defectCropBox, fitDimensions, loadImage, renderAnnotated, renderDefectCrop } from '../utils/export.js'
 
 const { t } = useI18n()
 const { batches, refresh } = useBatchHistory()
@@ -40,86 +41,148 @@ async function selectBatch(id) {
 async function generatePDF() {
   if (!batch.value) return
   generating.value = true
-  await new Promise((r) => setTimeout(r, 1500))
+  try {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF()
 
-  const { jsPDF } = await import('jspdf')
-  const doc = new jsPDF()
+    const margin = 20
+    const right = 190
+    const bottom = 277
+    const usableWidth = 170
+    const cropPad = 40
+    const cropColWidth = 40
+    const cropMaxHeight = 26
+    const cropGap = 5
+    const captionHeight = 5
+    const imageEls = new Map()
+    let y = margin
 
-  const margin = 20
-  let y = margin
-
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.text(t('reports.reportTitle'), margin, y)
-  y += 10
-
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.setDrawColor(200)
-  doc.line(margin, y, 190, y)
-  y += 10
-
-  doc.setFontSize(10)
-  doc.text(`${t('batches.columnName')}: ${batch.value.batch_name}`, margin, y)
-  y += 6
-  doc.text(`${t('reports.date')}: ${new Date().toLocaleString('id-ID')}`, margin, y)
-  y += 6
-  if (selectedBatch.value) {
-    doc.text(`${t('batches.columnCamera')}: ${selectedBatch.value.cameraName}`, margin, y)
-    y += 6
-    doc.text(`${t('settings.detectionModel')}: ${selectedBatch.value.modelInfo.detection}`, margin, y)
-    y += 6
-  }
-
-  y += 6
-  doc.setFont('helvetica', 'bold')
-  doc.text(t('reports.summary'), margin, y)
-  y += 8
-  doc.setFont('helvetica', 'normal')
-
-  if (summary.value) {
-    doc.text(`${t('reports.totalImages')}: ${summary.value.total}`, margin, y)
-    y += 6
-    doc.text(`${t('reports.clean')}: ${summary.value.clean}`, margin, y)
-    y += 6
-    doc.text(`${t('reports.defective')}: ${summary.value.defective}`, margin, y)
-    y += 6
-    doc.text(`${t('reports.defectRate')}: ${summary.value.rate}%`, margin, y)
-    y += 10
-  }
-
-  doc.setFont('helvetica', 'bold')
-  doc.text(t('reports.defectDetails'), margin, y)
-  y += 8
-  doc.setFont('helvetica', 'normal')
-
-  for (const img of batch.value.images) {
-    for (const d of img.defects) {
-      const line = `${img.filename}  |  ${d.type}  |  ${Math.round(d.confidence * 100)}%  |  ${d.category}`
-      if (y > 270) {
+    function ensureSpace(height) {
+      if (y + height > bottom) {
         doc.addPage()
         y = margin
       }
-      doc.text(line, margin, y)
-      y += 5
     }
+
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text(t('reports.reportTitle'), margin, y)
+    y += 10
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setDrawColor(200)
+    doc.line(margin, y, right, y)
+    y += 10
+
+    doc.text(`${t('batches.columnName')}: ${batch.value.batch_name}`, margin, y)
+    y += 6
+    doc.text(`${t('reports.date')}: ${new Date().toLocaleString('id-ID')}`, margin, y)
+    y += 6
+    if (selectedBatch.value) {
+      doc.text(`${t('batches.columnCamera')}: ${selectedBatch.value.cameraName}`, margin, y)
+      y += 6
+      doc.text(`${t('settings.detectionModel')}: ${selectedBatch.value.modelInfo.detection}`, margin, y)
+      y += 6
+    }
+
+    y += 6
+    doc.setFont('helvetica', 'bold')
+    doc.text(t('reports.summary'), margin, y)
+    y += 8
+    doc.setFont('helvetica', 'normal')
+
+    if (summary.value) {
+      doc.text(`${t('reports.totalImages')}: ${summary.value.total}`, margin, y)
+      y += 6
+      doc.text(`${t('reports.clean')}: ${summary.value.clean}`, margin, y)
+      y += 6
+      doc.text(`${t('reports.defective')}: ${summary.value.defective}`, margin, y)
+      y += 6
+      doc.text(`${t('reports.defectRate')}: ${summary.value.rate}%`, margin, y)
+      y += 10
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.text(t('reports.defectDetails'), margin, y)
+    y += 8
+    doc.setFont('helvetica', 'normal')
+
+    const imagesWithDefects = batch.value.images.filter((img) => img.defects.length > 0)
+    if (!imagesWithDefects.length) {
+      ensureSpace(8)
+      doc.text(t('qc.noDefects'), margin, y)
+      y += 8
+    }
+
+    for (const img of imagesWithDefects) {
+      let imgEl = imageEls.get(img.id)
+      if (!imgEl) {
+        try {
+          imgEl = await loadImage(img.url)
+          imageEls.set(img.id, imgEl)
+        } catch (e) {
+          console.warn('Report image skipped:', img.url, e)
+          continue
+        }
+      }
+
+      const annotated = renderAnnotated(imgEl, img, colorFor)
+      ensureSpace(12)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${img.filename}  (${img.defects.length})`, margin, y, { maxWidth: usableWidth })
+      y += 7
+      doc.setFont('helvetica', 'normal')
+
+      let x = margin
+      let rowHeight = 0
+      for (const d of img.defects) {
+        const box = defectCropBox(d.polygon, cropPad, img.width, img.height)
+        if (box.w <= 0 || box.h <= 0) continue
+        const { w, h } = fitDimensions(box.w, box.h, cropColWidth, cropMaxHeight)
+
+        if (x !== margin && x + cropColWidth > right) {
+          y += rowHeight + captionHeight + cropGap
+          x = margin
+          rowHeight = 0
+        }
+        if (y + h + captionHeight > bottom) {
+          doc.addPage()
+          y = margin
+          x = margin
+          rowHeight = 0
+        }
+
+        const cropCanvas = renderDefectCrop(annotated, box)
+        doc.addImage(cropCanvas, 'PNG', x, y, w, h)
+        doc.setFontSize(8)
+        doc.text(`${d.type} ${Math.round(d.confidence * 100)}%`, x, y + h + 4, { maxWidth: cropColWidth })
+        doc.setFontSize(10)
+        rowHeight = Math.max(rowHeight, h)
+        x += cropColWidth + cropGap
+      }
+
+      y += rowHeight ? rowHeight + captionHeight + 7 : 2
+      ensureSpace(4)
+      doc.line(margin, y, right, y)
+      y += 8
+    }
+
+    y += 7
+    ensureSpace(20)
+    doc.text(`${t('reports.reviewedBy')}: ____________________`, margin, y)
+    doc.text(`${t('reports.approvedBy')}: ____________________`, margin + 80, y)
+    y += 10
+    doc.text(`[  ] ${t('reports.pass')}     [  ] ${t('reports.fail')}`, margin, y)
+
+    const filename = `${batch.value.batch_name}_report.pdf`
+    doc.save(filename)
+    log('REPORT_GENERATED', `Generated PDF report: ${filename}`)
+  } catch (e) {
+    console.error('Report generation failed:', e)
+  } finally {
+    generating.value = false
   }
-
-  y += 15
-  if (y > 250) {
-    doc.addPage()
-    y = margin
-  }
-  doc.text(`${t('reports.reviewedBy')}: ____________________`, margin, y)
-  doc.text(`${t('reports.approvedBy')}: ____________________`, margin + 80, y)
-  y += 10
-  doc.text(`[  ] ${t('reports.pass')}     [  ] ${t('reports.fail')}`, margin, y)
-
-  const filename = `${batch.value.batch_name}_report.pdf`
-  doc.save(filename)
-
-  log('REPORT_GENERATED', `Generated PDF report: ${filename}`)
-  generating.value = false
 }
 </script>
 

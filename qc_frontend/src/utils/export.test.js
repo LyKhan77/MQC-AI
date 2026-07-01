@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripExt, fullFilename, cropFilename, defectCropBox } from './export.js'
+import { stripExt, fullFilename, cropFilename, defectCropBox, fitDimensions } from './export.js'
 
 describe('stripExt', () => {
   it('removes the last extension', () => {
@@ -45,5 +45,26 @@ describe('defectCropBox', () => {
     const nearEdge = [[80, 80], [95, 80], [95, 95], [80, 95]]
     const b = defectCropBox(nearEdge, 20, 100, 100)
     expect(b).toEqual({ x: 60, y: 60, w: 40, h: 40 })
+  })
+})
+
+describe('fitDimensions', () => {
+  it('fits landscape boxes by width', () => {
+    expect(fitDimensions(800, 400, 40, 40)).toEqual({ w: 40, h: 20 })
+  })
+
+  it('fits portrait boxes by height', () => {
+    expect(fitDimensions(400, 800, 40, 40)).toEqual({ w: 20, h: 40 })
+  })
+
+  it('leaves already-small boxes unchanged', () => {
+    expect(fitDimensions(20, 10, 40, 40)).toEqual({ w: 20, h: 10 })
+  })
+
+  it('preserves aspect ratio when both axes exceed the maximum', () => {
+    const fitted = fitDimensions(600, 300, 50, 20)
+    expect(fitted.w).toBe(40)
+    expect(fitted.h).toBe(20)
+    expect(fitted.w / fitted.h).toBe(2)
   })
 })

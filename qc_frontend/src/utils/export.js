@@ -22,6 +22,22 @@ export function defectCropBox(polygon, pad, maxW, maxH) {
   return { x, y, w: x2 - x, h: y2 - y }
 }
 
+export function fitDimensions(srcW, srcH, maxW, maxH) {
+  if (srcW <= maxW && srcH <= maxH) return { w: srcW, h: srcH }
+  const scale = Math.min(maxW / srcW, maxH / srcH)
+  return { w: srcW * scale, h: srcH * scale }
+}
+
+export function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const im = new Image()
+    im.crossOrigin = 'anonymous'
+    im.onload = () => resolve(im)
+    im.onerror = reject
+    im.src = url
+  })
+}
+
 export function renderAnnotated(imgEl, image, colorFor) {
   const canvas = document.createElement('canvas')
   canvas.width = image.width
