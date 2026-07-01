@@ -72,7 +72,7 @@ Full specs: [`docs/PRD.md`](./docs/PRD.md) | [`docs/workflow.md`](./docs/workflo
 
 - **Sidebar navigation shell** (collapsible) with 7 pages; Media Detection is always visible. `GSPE | MQC-AI` wordmark that centers `GSPE` when collapsed.
 - **Live Monitor**: API-backed camera selector (RaspyCam/RTSP/USB), explicit Start Camera raw preview, per-run Auto/Manual mode, Auto server-annotated MJPEG detection feed with bounding-box/count overlay and presence-cycle best-frame lossless padded PNG crop per object, Manual one-shot Capture, polled live object count/FPS, real online/offline camera status, and Send to QC crop approval gate with batch name + auto-timestamp.
-- **QC Studio**: 3-column layout with pending raw image list/canvas before segmentation, batch sidebar (filter/search/sort/skeleton loading), per-image delete with confirmation, Re-run and Reset controls for finished batches, inspection canvas (zoom/pan/annotation toggle), configured defect-class annotation colors, and defect panel (keyboard navigation, review workflow).
+- **QC Studio**: 3-column layout with pending raw image list/canvas before segmentation, batch sidebar (filter/search/sort/skeleton loading), per-image delete with confirmation, Re-run and Reset controls for finished batches, inspection canvas (zoom/pan/annotation toggle), configured defect-class annotation colors, and defect panel (keyboard navigation, review workflow, whole-batch Export Full/Crop PNG/ZIP with `DefectClass.color`).
 - **Batch History**: searchable/filterable table of all processed batches, click to reopen in QC Studio, delete with confirmation.
 - **Reports**: PDF audit report generator (batch summary, defect table, signature/approval fields) via jsPDF.
 - **Audit Log**: auto-logged activity trail (all user actions across the app).
@@ -166,8 +166,8 @@ MQC-AI/
 │       │   ├── Settings.vue         # Camera CRUD + object/QC model config + defect classes + preferences
 │       │   └── __tests__/           # Vue component tests
 │       └── utils/
-│           ├── defect.js            # Defect type -> CSS variable color mapping
-│           ├── export.js            # Canvas render + crop/full export (dynamic color)
+│           ├── defect.js            # polygonBBox helper (color comes from useDefectColor)
+│           ├── export.js            # Canvas render + whole-batch crop/full export (injected colorFor)
 │           └── mockData.js          # Seed data (3 cameras, 5 batches, 15 logs)
 ├── qc_server/                # FastAPI backend (M0-M3 done, mock + sam3_prompt strategies)
 │   ├── requirements.txt
@@ -281,10 +281,9 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 
 ### Defect Colors
 
-- Defined as CSS variables (`--defect-scratch`, `--defect-porosity`, etc.) in `style.css`.
-- `utils/defect.js` maps type string to CSS variable name.
-- `utils/export.js` resolves via `getComputedStyle` for canvas rendering.
-- **Will become dynamic** from SAM3 backend response in the future.
+- Source of truth: `DefectClass.color` (configured in Settings), resolved via `useDefectColor().colorFor(type)`.
+- Canvas rendering (`InspectionCanvas.vue`), panel swatches/report tags (`DefectPanel.vue`, `Reports.vue`), and PNG export (`utils/export.js` `renderAnnotated(imgEl, image, colorFor)`) all take the same `colorFor` resolver, so on-screen and exported colors always match.
+- `utils/defect.js` only provides `polygonBBox`; there is no separate CSS-variable color map.
 
 ### File Naming
 

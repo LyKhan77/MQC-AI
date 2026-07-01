@@ -1,15 +1,29 @@
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useDefectColor } from '../composables/useDefectColor.js'
-import { renderAnnotated, downloadCanvas, defectsBBox } from '../utils/export.js'
+import JSZip from 'jszip'
+import {
+  renderAnnotated,
+  renderDefectCrop,
+  canvasToBlob,
+  downloadBlob,
+  fullFilename,
+  cropFilename,
+  defectCropBox,
+} from '../utils/export.js'
 
-const { selected, hoveredDefectId, images, selectImage, selectedId, toggleReviewed, isReviewed } = useInspection()
+const { selected, hoveredDefectId, images, batch, selectImage, selectedId, toggleReviewed, isReviewed } = useInspection()
 const { t } = useI18n()
 const { log } = useAuditLog()
 const { colorFor } = useDefectColor()
+
+const CROP_PAD = 40
+
+const exporting = ref(false)
+const exportMsg = ref('')
 
 const coating = computed(() => selected.value?.defects.filter((d) => d.category === 'coating') ?? [])
 const welding = computed(() => selected.value?.defects.filter((d) => d.category === 'welding') ?? [])
@@ -28,33 +42,66 @@ function loadImageEl(url) {
   })
 }
 
+async function zipAndDownload(files, zipName) {
+  if (files.length === 1) {
+    downloadBlob(files[0].blob, files[0].name)
+    return
+  }
+  const zip = new JSZip()
+  for (const f of files) zip.file(f.name, f.blob)
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  downloadBlob(zipBlob, zipName)
+}
+
 async function exportFull() {
-  if (!selected.value) return
+  if (!images.value.length) return
+  exporting.value = true
   try {
-    const im = await loadImageEl(selected.value.url)
-    const canvas = renderAnnotated(im, selected.value)
-    downloadCanvas(canvas, `${selected.value.filename}_full.png`)
-    log('EXPORT_FULL', `Exported full: ${selected.value.filename}`)
+    const files = []
+    for (const img of images.value) {
+      const im = await loadImageEl(img.url)
+      const canvas = renderAnnotated(im, img, colorFor)
+      const blob = await canvasToBlob(canvas)
+      files.push({ name: fullFilename(img.filename), blob })
+    }
+    if (!files.length) return
+    await zipAndDownload(files, `${batch.value.batch_name}_full.zip`)
+    log('EXPORT_FULL', `Exported full: ${files.length} image(s)`)
   } catch (e) {
     console.error('Export failed:', e)
+  } finally {
+    exporting.value = false
   }
 }
 
 async function exportCrop() {
-  if (!selected.value) return
+  exporting.value = true
   try {
-    const img = selected.value
-    const im = await loadImageEl(img.url)
-    const full = renderAnnotated(im, img)
-    const b = defectsBBox(img.defects, 40, img.width, img.height)
-    const crop = document.createElement('canvas')
-    crop.width = b.w
-    crop.height = b.h
-    crop.getContext('2d').drawImage(full, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h)
-    downloadCanvas(crop, `${img.filename}_crop.png`)
-    log('EXPORT_CROP', `Exported crop: ${img.filename}`)
+    const files = []
+    for (const img of images.value) {
+      if (!img.defects.length) continue
+      const im = await loadImageEl(img.url)
+      const annotated = renderAnnotated(im, img, colorFor)
+      const typeCounters = {}
+      for (const d of img.defects) {
+        const idx = (typeCounters[d.type] = (typeCounters[d.type] ?? 0) + 1)
+        const box = defectCropBox(d.polygon, CROP_PAD, img.width, img.height)
+        const cropCanvas = renderDefectCrop(annotated, box)
+        const blob = await canvasToBlob(cropCanvas)
+        files.push({ name: cropFilename(img.filename, d.type, idx), blob })
+      }
+    }
+    if (!files.length) {
+      exportMsg.value = t('qc.exportNoDefects')
+      setTimeout(() => { exportMsg.value = '' }, 3000)
+      return
+    }
+    await zipAndDownload(files, `${batch.value.batch_name}_crops.zip`)
+    log('EXPORT_CROP', `Exported crop: ${files.length} defect(s)`)
   } catch (e) {
     console.error('Export failed:', e)
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -132,8 +179,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <p v-else class="none mono panel-body">{{ t('qc.noImageSelected') }}</p>
 
     <footer v-if="selected" class="panel-actions">
-      <button class="btn-primary" @click="exportCrop">{{ t('qc.exportCrop') }}</button>
-      <button class="btn-secondary" @click="exportFull">{{ t('qc.exportFull') }}</button>
+      <p v-if="exportMsg" class="export-msg mono">{{ exportMsg }}</p>
+      <div class="panel-actions-row">
+        <button class="btn-primary" :disabled="exporting" @click="exportCrop">
+          {{ exporting ? t('qc.exporting') : t('qc.exportCrop') }}
+        </button>
+        <button class="btn-secondary" :disabled="exporting" @click="exportFull">
+          {{ exporting ? t('qc.exporting') : t('qc.exportFull') }}
+        </button>
+      </div>
     </footer>
   </aside>
 </template>
@@ -229,8 +283,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .panel-actions {
   padding: 12px 16px;
   border-top: 1px solid var(--color-hairline);
+}
+.panel-actions-row {
   display: flex;
   gap: 8px;
+}
+.export-msg {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--color-ink-subtle);
+  letter-spacing: 0.16px;
 }
 .btn-primary {
   flex: 1;
@@ -261,6 +323,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .btn-secondary:hover {
   background: var(--color-surface-1);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .mono {
   font-family: var(--font-mono);

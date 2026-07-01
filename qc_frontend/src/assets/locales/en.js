@@ -101,6 +101,8 @@ export default {
     noImageSelected: 'No image selected.',
     exportCrop: 'Export Crop',
     exportFull: 'Export Full',
+    exportNoDefects: 'No defects to crop in this batch.',
+    exporting: 'Exporting...',
     reviewed: 'Reviewed',
     markReviewed: 'Mark Reviewed',
     markUnreviewed: 'Unmark Review',

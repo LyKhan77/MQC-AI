@@ -11,6 +11,43 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - QC Studio Batch Export (Crop + Full)
+
+### Summary
+
+QC Studio's DefectPanel export buttons now operate on the whole loaded batch and use the same `DefectClass.color` source as the on-screen canvas (`useDefectColor().colorFor`), replacing a dead CSS-variable color lookup that always rendered grey.
+
+### Added
+
+- `qc_frontend` dependency: `jszip` for client-side ZIP packaging of multi-file exports.
+- `qc_frontend/src/utils/export.js` - `stripExt`, `fullFilename`, `cropFilename`, `defectCropBox`, `renderDefectCrop`, `canvasToBlob`, `downloadBlob` pure/canvas helpers.
+- `qc_frontend/src/utils/export.test.js` - unit coverage for the new pure helpers (naming + bbox padding/clamping).
+
+### Changed
+
+- `qc_frontend/src/utils/export.js` `renderAnnotated(imgEl, image, colorFor)` now takes a color resolver instead of resolving a dead `--defect-{type}` CSS variable; `DefectPanel.vue` passes `useDefectColor().colorFor`.
+- `qc_frontend/src/components/DefectPanel.vue` `exportFull()`/`exportCrop()` now iterate every image (and every defect) in the loaded batch instead of only the selected image; more than one output file packages into a `jszip` archive (`{batchName}_full.zip` / `{batchName}_crops.zip`), exactly one output downloads as a single PNG.
+- `qc_frontend/src/views/Reports.vue` defect tag colors now source from `useDefectColor().colorFor` instead of the removed `utils/defect.js` `defectColor`.
+
+### Removed
+
+- `qc_frontend/src/utils/export.js` `resolveColor` (dead CSS-var lookup) and `defectsBBox` (superseded by per-defect `defectCropBox`).
+- `qc_frontend/src/utils/defect.js` `COLOR_MAP` and `defectColor` (dead CSS-var lookup; the `DefectClass.color`/`useDefectColor()` path is now the only color source).
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Batch export colors | 2026-07-01 | `renderAnnotated` takes an injected `colorFor` resolver | Export Full/Crop annotation colors match the on-screen canvas and Settings-configured `DefectClass.color`. |
+| Whole-batch export | 2026-07-01 | Export Full/Crop iterate every image/defect in the loaded batch, ZIP via `jszip` when >1 file | Operators export the entire batch in one action instead of only the selected image. |
+| Reports color source | 2026-07-01 | `Reports.vue` defect tags use `useDefectColor()` | Report preview colors also stop reading the dead CSS variable. |
+| Verification | 2026-07-01 | Frontend full suite and production build | Frontend: 47 passed. Build succeeded. |
+
+### Notes
+
+- Deviation from plan: the plan stated `utils/defect.js` `defectColor`/`COLOR_MAP` had no importers, but `Reports.vue` did import and use `defectColor` for its defect tag colors. Updated that call site to `useDefectColor().colorFor` (same fix as the export color bug) instead of leaving a broken import, per the plan's own contingency note ("Reports/PDF may use them").
+- Browser smoke is pending for reviewer: Export Full (multi-image ZIP + single-image PNG), Export Crop (multi-defect ZIP + single-defect PNG + no-defects message), and colors matching Settings on a real batch with a running `qc_server` + browser.
+
 ## [Unreleased] - 2026-06-30 - QC Workflow Raw Images, Delete, Confidence, Colors, Re-run
 
 ### Summary
