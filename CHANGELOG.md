@@ -11,6 +11,38 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - Media Detection Multi-Image Upload
+
+### Summary
+
+Media Detection image mode now stages multiple images. Test mode runs object detection once per image and Process to QC sends all uploaded images through one backend crop session, one crop-review dialog, and one QC batch.
+
+### Added
+
+- `qc_server/app/routers/detect.py` - `POST /api/detect/image/process` now accepts multipart `files` and appends crops from every valid uploaded image into one media crop session.
+- `qc_frontend/src/api/detect.js` - `processImages(files)` posts each image under the `files` field while keeping `processImage(file)` as a one-file wrapper.
+- `qc_frontend/src/views/MediaDetection.vue` - multi-image staged upload list with per-row remove, clear all, add more, per-image Test result cards, and combined Process-to-QC review.
+- Backend and frontend tests for multi-image process sessions, single-image list compatibility, invalid-image rejection, staged list behavior, video single-file behavior, and per-image Test detection.
+
+### Changed
+
+- Media Detection image upload input is `multiple`; video upload remains single-file.
+- Image Process-to-QC now collects crops across all selected images before review and approval.
+- New locale strings in both `en.js` and `id.js` for add-more, clear-all, and selected-count UI.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Media Detection image staging | 2026-07-01 | `selectedFiles` list, add more, clear all, per-row remove, preview URL cleanup | Operators can stage multiple images in image mode while video mode still keeps one file. |
+| Image Test flow | 2026-07-01 | Test mode loops `detectImage()` per staged image and renders one result card per image | Multi-image test runs are visible as separate annotated results. |
+| Image Process-to-QC flow | 2026-07-01 | `processImages()` posts multipart `files`; backend creates one crop session and finalizes once | Crops from all uploaded images enter one review dialog and one submitted QC batch. |
+| Verification | 2026-07-01 | Backend full suite, frontend full suite, and production build | Backend: 110 passed, 2 warnings. Frontend: 50 passed. Build succeeded. |
+
+### Notes
+
+- Browser/GPU smoke is pending for reviewer: drop 3 images, run Test and Process flows with a configured model, approve crops, verify one QC batch, and confirm video mode still accepts one file.
+
 ## [Unreleased] - 2026-07-01 - QC Studio Batch Export (Crop + Full)
 
 ### Summary

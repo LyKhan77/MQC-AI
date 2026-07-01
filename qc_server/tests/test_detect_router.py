@@ -83,11 +83,82 @@ def test_image_process_returns_crops(client, tmp_path, monkeypatch):
     img = np.zeros((80, 80, 3), dtype=np.uint8)
     ok, buf = cv2.imencode(".jpg", img)
     assert ok
-    files = {"file": ("a.jpg", io.BytesIO(buf.tobytes()), "image/jpeg")}
+    files = [("files", ("a.jpg", io.BytesIO(buf.tobytes()), "image/jpeg"))]
     body = client.post("/api/detect/image/process", files=files).json()
     assert body["count"] == 1
     assert len(body["crop_urls"]) == 1
     assert body["key"]
+
+
+def test_image_process_accepts_multiple_images_in_one_session(client, tmp_path, monkeypatch):
+    import io
+    import app.services.crop_session as cs
+    import app.routers.detect as detect_router
+
+    monkeypatch.setattr(cs.settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr(detect_router, "resolve_model_path", lambda s: "m.pt")
+    monkeypatch.setattr(
+        detect_router,
+        "detect",
+        lambda frame, conf, mp: [
+            Detection(5, 5, 40, 40, "o", 0.9),
+            Detection(10, 10, 30, 30, "o", 0.8),
+        ],
+    )
+    img = np.zeros((80, 80, 3), dtype=np.uint8)
+    ok, buf = cv2.imencode(".jpg", img)
+    assert ok
+    body = client.post(
+        "/api/detect/image/process",
+        files=[
+            ("files", ("a.jpg", io.BytesIO(buf.tobytes()), "image/jpeg")),
+            ("files", ("b.jpg", io.BytesIO(buf.tobytes()), "image/jpeg")),
+        ],
+    ).json()
+    assert body["count"] == 4
+    assert len(body["crop_urls"]) == 4
+    assert len({url.split("/")[-1] for url in body["crop_urls"]}) == 4
+    assert body["key"]
+
+
+def test_image_process_accepts_one_image_in_files_list(client, tmp_path, monkeypatch):
+    import io
+    import app.services.crop_session as cs
+    import app.routers.detect as detect_router
+
+    monkeypatch.setattr(cs.settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr(detect_router, "resolve_model_path", lambda s: "m.pt")
+    monkeypatch.setattr(
+        detect_router,
+        "detect",
+        lambda frame, conf, mp: [Detection(5, 5, 40, 40, "o", 0.9)],
+    )
+    img = np.zeros((80, 80, 3), dtype=np.uint8)
+    ok, buf = cv2.imencode(".jpg", img)
+    assert ok
+    body = client.post(
+        "/api/detect/image/process",
+        files=[("files", ("a.jpg", io.BytesIO(buf.tobytes()), "image/jpeg"))],
+    ).json()
+    assert body["count"] == 1
+    assert len(body["crop_urls"]) == 1
+    assert body["key"]
+
+
+def test_image_process_rejects_when_all_images_invalid(client, tmp_path, monkeypatch):
+    import io
+    import app.services.crop_session as cs
+    import app.routers.detect as detect_router
+
+    monkeypatch.setattr(cs.settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr(detect_router, "resolve_model_path", lambda s: "m.pt")
+    monkeypatch.setattr(detect_router, "detect", lambda frame, conf, mp: [])
+    resp = client.post(
+        "/api/detect/image/process",
+        files=[("files", ("bad.jpg", io.BytesIO(b"not image"), "image/jpeg"))],
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "no valid images"
 
 
 def test_crop_session_finalize_and_approve(client, tmp_path, monkeypatch):

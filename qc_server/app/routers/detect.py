@@ -89,20 +89,26 @@ def video_stream(video_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/image/process")
-async def process_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def process_image(files: list[UploadFile] = File(...), db: Session = Depends(get_db)):
     setting = get_or_create_setting(db)
     model_path = resolve_model_path(setting)
     if not model_path:
         raise HTTPException(409, "model not configured")
-    raw = await file.read()
-    frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
-    if frame is None:
-        raise HTTPException(400, "invalid image")
 
     key = gen_id("media")
     session = reset_session(key)
-    detections = detect(frame, setting.confidence_threshold, model_path)
-    session.add_captured(frame, detections, 1.0)
+    valid_count = 0
+    for file in files:
+        raw = await file.read()
+        frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            continue
+        detections = detect(frame, setting.confidence_threshold, model_path)
+        session.add_captured(frame, detections, 1.0)
+        valid_count += 1
+    if valid_count == 0:
+        raise HTTPException(400, "no valid images")
+
     result = session.finalize()
     urls = [f"/api/detect/crops/{key}/{result['session_ts']}/{f}" for f in result["files"]]
     return {"key": key, "count": result["count"], "crop_urls": urls}

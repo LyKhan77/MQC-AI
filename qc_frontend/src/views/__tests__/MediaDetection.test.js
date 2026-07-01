@@ -5,7 +5,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import MediaDetection from '../MediaDetection.vue'
 import {
   detectImage,
-  processImage,
+  processImages,
   approveDetectCrops,
 } from '../../api/detect.js'
 import { submitBatch } from '../../api/batches.js'
@@ -31,7 +31,7 @@ vi.mock('../../api/detect.js', () => ({
   detectImage: vi.fn(),
   uploadVideo: vi.fn(),
   videoStreamUrl: vi.fn((id) => `/api/detect/video/${id}/stream`),
-  processImage: vi.fn(),
+  processImages: vi.fn(),
   extractVideo: vi.fn(),
   videoExtractStatus: vi.fn(),
   listDetectCrops: vi.fn(),
@@ -42,8 +42,8 @@ vi.mock('../../api/batches.js', () => ({
   submitBatch: vi.fn(),
 }))
 
-function imageFile() {
-  return new File(['x'], 'a.jpg', { type: 'image/jpeg' })
+function imageFile(name = 'a.jpg') {
+  return new File(['x'], name, { type: 'image/jpeg' })
 }
 
 function videoFile() {
@@ -57,7 +57,7 @@ describe('MediaDetection', () => {
     globalThis.URL.revokeObjectURL = vi.fn()
     mockSettings.settings.value = { activeModel: 'm.pt', confidenceThreshold: 0.25 }
     detectImage.mockResolvedValue({ image: 'abc', count: 1, detections: [] })
-    processImage.mockResolvedValue({
+    processImages.mockResolvedValue({
       key: 'media_1',
       count: 2,
       crop_urls: ['/crop/1.jpg', '/crop/2.jpg'],
@@ -66,35 +66,71 @@ describe('MediaDetection', () => {
     submitBatch.mockResolvedValue({ batch_id: 'batch-1' })
   })
 
-  it('stages a file without processing it', () => {
+  it('stages multiple image files without processing them', () => {
     const wrapper = mount(MediaDetection)
 
-    wrapper.vm.stageFile(imageFile())
+    wrapper.vm.stageFiles([imageFile('a.jpg'), imageFile('b.jpg'), imageFile('c.jpg')])
 
     expect(detectImage).not.toHaveBeenCalled()
-    expect(processImage).not.toHaveBeenCalled()
-    expect(wrapper.vm.selectedFile).toBeTruthy()
+    expect(processImages).not.toHaveBeenCalled()
+    expect(wrapper.vm.selectedFiles).toHaveLength(3)
   })
 
   it('rejects an invalid file type', () => {
     const wrapper = mount(MediaDetection)
 
     wrapper.vm.mode = 'image'
-    wrapper.vm.stageFile(videoFile())
+    wrapper.vm.stageFiles([videoFile()])
 
-    expect(wrapper.vm.selectedFile).toBeNull()
+    expect(wrapper.vm.selectedFiles).toHaveLength(0)
     expect(wrapper.vm.error).toBe('media.invalidImage')
+  })
+
+  it('removes one staged image', () => {
+    const wrapper = mount(MediaDetection)
+
+    wrapper.vm.stageFiles([imageFile('a.jpg'), imageFile('b.jpg'), imageFile('c.jpg')])
+    wrapper.vm.removeFile(1)
+
+    expect(wrapper.vm.selectedFiles.map((item) => item.name)).toEqual(['a.jpg', 'c.jpg'])
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('video mode keeps one staged file', () => {
+    const wrapper = mount(MediaDetection)
+
+    wrapper.vm.switchMode('video')
+    wrapper.vm.stageFiles([videoFile()])
+    wrapper.vm.stageFiles([new File(['x'], 'b.mp4', { type: 'video/mp4' })])
+
+    expect(wrapper.vm.selectedFiles).toHaveLength(1)
+    expect(wrapper.vm.selectedFiles[0].name).toBe('b.mp4')
+  })
+
+  it('test image run detects every staged image', async () => {
+    const wrapper = mount(MediaDetection)
+
+    wrapper.vm.stageFiles([imageFile('a.jpg'), imageFile('b.jpg')])
+    await wrapper.vm.run()
+    await flushPromises()
+
+    expect(detectImage).toHaveBeenCalledTimes(2)
+    expect(wrapper.vm.imageResults).toHaveLength(2)
+    expect(wrapper.vm.progress).toEqual({ done: 2, total: 2 })
   })
 
   it('process image run opens the crop review dialog', async () => {
     const wrapper = mount(MediaDetection)
 
     wrapper.vm.purpose = 'process'
-    wrapper.vm.stageFile(imageFile())
+    wrapper.vm.stageFiles([imageFile('a.jpg'), imageFile('b.jpg')])
     await wrapper.vm.run()
     await flushPromises()
 
-    expect(processImage).toHaveBeenCalled()
+    expect(processImages).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'a.jpg' }),
+      expect.objectContaining({ name: 'b.jpg' }),
+    ])
     expect(wrapper.vm.reviewCrops).toHaveLength(2)
     expect(wrapper.vm.showReview).toBe(true)
   })
@@ -119,10 +155,10 @@ describe('MediaDetection', () => {
     mockSettings.settings.value = { activeModel: '', confidenceThreshold: 0.25 }
     const wrapper = mount(MediaDetection)
 
-    wrapper.vm.stageFile(imageFile())
+    wrapper.vm.stageFiles([imageFile()])
     await wrapper.vm.run()
 
     expect(detectImage).not.toHaveBeenCalled()
-    expect(processImage).not.toHaveBeenCalled()
+    expect(processImages).not.toHaveBeenCalled()
   })
 })

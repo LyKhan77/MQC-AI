@@ -18,13 +18,15 @@ export async function uploadVideo(file) {
 
 export const videoStreamUrl = (id) => `${BASE}/detect/video/${id}/stream`
 
-export async function processImage(file) {
+export async function processImages(files) {
   const fd = new FormData()
-  fd.append('file', file)
+  for (const file of files) fd.append('files', file)
   const res = await fetch(`${BASE}/detect/image/process`, { method: 'POST', body: fd })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
+
+export const processImage = (file) => processImages([file])
 
 export async function extractVideo(videoId) {
   const res = await fetch(`${BASE}/detect/video/${videoId}/extract`, { method: 'POST' })

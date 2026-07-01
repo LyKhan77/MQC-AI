@@ -5,7 +5,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useSettings } from '../composables/useSettings.js'
 import {
   detectImage, uploadVideo, videoStreamUrl,
-  processImage, extractVideo, videoExtractStatus, listDetectCrops, approveDetectCrops,
+  processImages, extractVideo, videoExtractStatus, listDetectCrops, approveDetectCrops,
 } from '../api/detect.js'
 import { submitBatch } from '../api/batches.js'
 import CropReviewDialog from '../components/CropReviewDialog.vue'
@@ -17,15 +17,12 @@ const { settings } = useSettings()
 const purpose = ref('test')
 const mode = ref('image')
 
-const selectedFile = ref(null)
-const fileName = ref('')
-const fileSize = ref(0)
-const previewUrl = ref('')
+const selectedFiles = ref([])
 const dragOver = ref(false)
 
 const busy = ref(false)
 const error = ref('')
-const imageResult = ref(null)
+const imageResults = ref([])
 const videoUrl = ref('')
 const progress = ref({ done: 0, total: 0 })
 
@@ -35,6 +32,7 @@ const sessionKey = ref('')
 
 const accept = computed(() => (mode.value === 'image' ? 'image/*' : 'video/*'))
 const hasModel = computed(() => !!settings.value.activeModel)
+const hasSelection = computed(() => selectedFiles.value.length > 0)
 const progressPct = computed(() =>
   progress.value.total ? Math.round((progress.value.done / progress.value.total) * 100) : 0,
 )
@@ -46,51 +44,76 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function clearFile() {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  selectedFile.value = null
-  fileName.value = ''
-  fileSize.value = 0
-  previewUrl.value = ''
+function revokeFile(item) {
+  if (item.previewUrl) URL.revokeObjectURL(item.previewUrl)
+}
+
+function clearFiles() {
+  selectedFiles.value.forEach(revokeFile)
+  selectedFiles.value = []
+}
+
+function removeFile(index) {
+  const [removed] = selectedFiles.value.splice(index, 1)
+  if (removed) revokeFile(removed)
 }
 
 function clearResults() {
   error.value = ''
-  imageResult.value = null
+  imageResults.value = []
   videoUrl.value = ''
   progress.value = { done: 0, total: 0 }
 }
 
-function stageFile(file) {
-  if (!file) return
+function stageFiles(fileList) {
+  const files = Array.from(fileList || [])
+  if (!files.length) return
   const wantImage = mode.value === 'image'
-  const isImage = file.type.startsWith('image/')
-  const isVideo = file.type.startsWith('video/')
-  if ((wantImage && !isImage) || (!wantImage && !isVideo)) {
+  const next = []
+  let invalid = false
+  for (const file of files) {
+    const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/')
+    if ((wantImage && !isImage) || (!wantImage && !isVideo)) {
+      invalid = true
+      continue
+    }
+    next.push({
+      file,
+      name: file.name,
+      size: file.size,
+      previewUrl: isImage ? URL.createObjectURL(file) : '',
+    })
+    if (!wantImage) break
+  }
+  if (!next.length) {
     error.value = wantImage ? t('media.invalidImage') : t('media.invalidVideo')
     return
   }
-  clearFile()
+  if (invalid) error.value = wantImage ? t('media.invalidImage') : t('media.invalidVideo')
+  else error.value = ''
   clearResults()
-  selectedFile.value = file
-  fileName.value = file.name
-  fileSize.value = file.size
-  if (isImage) previewUrl.value = URL.createObjectURL(file)
+  if (wantImage) selectedFiles.value.push(...next)
+  else {
+    clearFiles()
+    selectedFiles.value = next
+  }
 }
 
 function onBrowse(e) {
-  stageFile(e.target.files?.[0])
+  stageFiles(e.target.files)
+  e.target.value = ''
 }
 
 function onDrop(e) {
   dragOver.value = false
-  stageFile(e.dataTransfer?.files?.[0])
+  stageFiles(e.dataTransfer?.files)
 }
 
 function switchMode(next) {
   if (mode.value === next) return
   mode.value = next
-  clearFile()
+  clearFiles()
   clearResults()
 }
 
@@ -101,21 +124,26 @@ function switchPurpose(next) {
 }
 
 async function run() {
-  const file = selectedFile.value
-  if (!file || !hasModel.value) return
+  const files = selectedFiles.value
+  if (!files.length || !hasModel.value) return
   busy.value = true
   clearResults()
   try {
     if (purpose.value === 'test') {
-      if (mode.value === 'image') imageResult.value = await detectImage(file)
-      else videoUrl.value = videoStreamUrl((await uploadVideo(file)).video_id)
+      if (mode.value === 'image') {
+        progress.value = { done: 0, total: files.length }
+        for (const item of files) {
+          imageResults.value.push({ name: item.name, result: await detectImage(item.file) })
+          progress.value = { done: imageResults.value.length, total: files.length }
+        }
+      } else videoUrl.value = videoStreamUrl((await uploadVideo(files[0].file)).video_id)
     } else if (mode.value === 'image') {
-      const res = await processImage(file)
+      const res = await processImages(files.map((item) => item.file))
       sessionKey.value = res.key
       reviewCrops.value = res.crop_urls
       showReview.value = true
     } else {
-      const { video_id } = await uploadVideo(file)
+      const { video_id } = await uploadVideo(files[0].file)
       sessionKey.value = video_id
       await extractVideo(video_id)
       await pollExtract(video_id)
@@ -157,7 +185,7 @@ function confClass(c) {
 }
 
 onUnmounted(() => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  clearFiles()
 })
 </script>
 
@@ -185,7 +213,7 @@ onUnmounted(() => {
     </p>
 
     <label
-      v-if="!selectedFile"
+      v-if="!hasSelection"
       :class="['dropzone', { over: dragOver, disabled: !hasModel }]"
       @dragover.prevent="dragOver = true"
       @dragleave.prevent="dragOver = false"
@@ -194,19 +222,33 @@ onUnmounted(() => {
       <svg class="dz-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4v16M9 13l7-7 7 7M6 26h20" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       <span class="dz-title">{{ t('media.dropTitle') }} <span class="dz-browse">{{ t('media.browse') }}</span></span>
       <span class="dz-hint">{{ mode === 'image' ? t('media.hintImage') : t('media.hintVideo') }}</span>
-      <input type="file" :accept="accept" class="dz-input" :disabled="!hasModel" @change="onBrowse" />
+      <input type="file" :accept="accept" :multiple="mode === 'image'" class="dz-input" :disabled="!hasModel" @change="onBrowse" />
     </label>
 
     <div v-else class="staged">
-      <div class="staged-thumb">
-        <img v-if="previewUrl" :src="previewUrl" alt="preview" />
-        <svg v-else viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24v20H4z M12 12l8 4-8 4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <div class="staged-head">
+        <span class="mono">{{ selectedFiles.length }} {{ t('media.selectedCount') }}</span>
+        <div class="staged-actions">
+          <label v-if="mode === 'image'" class="btn-secondary add-more">
+            {{ t('media.addMore') }}
+            <input type="file" :accept="accept" multiple class="dz-input" :disabled="!hasModel" @change="onBrowse" />
+          </label>
+          <button class="btn-secondary" type="button" @click="clearFiles">{{ t('media.clearAll') }}</button>
+        </div>
       </div>
-      <div class="staged-meta">
-        <span class="staged-name">{{ fileName }}</span>
-        <span class="staged-size mono">{{ formatSize(fileSize) }}</span>
+      <div class="staged-list">
+        <div v-for="(item, index) in selectedFiles" :key="`${item.name}-${item.size}-${index}`" class="staged-row">
+          <div class="staged-thumb">
+            <img v-if="item.previewUrl" :src="item.previewUrl" alt="preview" />
+            <svg v-else viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6h24v20H4z M12 12l8 4-8 4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <div class="staged-meta">
+            <span class="staged-name">{{ item.name }}</span>
+            <span class="staged-size mono">{{ formatSize(item.size) }}</span>
+          </div>
+          <button class="staged-remove" :aria-label="t('media.remove')" @click="removeFile(index)">&times;</button>
+        </div>
       </div>
-      <button class="staged-remove" :aria-label="t('media.remove')" @click="clearFile">&times;</button>
       <button class="btn-primary" :disabled="busy || !hasModel" @click="run">
         {{ busy ? t('media.running') : t('media.run') }}
       </button>
@@ -225,18 +267,18 @@ onUnmounted(() => {
 
     <p v-if="error" class="error-msg">{{ error }}</p>
 
-    <div v-if="imageResult" class="result">
+    <div v-for="item in imageResults" :key="item.name" class="result">
       <div class="result-canvas">
-        <img :src="`data:image/jpeg;base64,${imageResult.image}`" alt="annotated" />
+        <img :src="`data:image/jpeg;base64,${item.result.image}`" alt="annotated" />
       </div>
       <div class="result-list">
         <div class="result-list-head">
-          <span>{{ t('media.detections') }}</span>
-          <span class="mono">{{ imageResult.count }}</span>
+          <span>{{ item.name }}</span>
+          <span class="mono">{{ item.result.count }}</span>
         </div>
-        <p v-if="imageResult.count === 0" class="empty-detections">{{ t('media.noDetections') }}</p>
+        <p v-if="item.result.count === 0" class="empty-detections">{{ t('media.noDetections') }}</p>
         <ul v-else>
-          <li v-for="(d, i) in imageResult.detections" :key="i">
+          <li v-for="(d, i) in item.result.detections" :key="i">
             <span class="det-label">{{ d.label }}</span>
             <span class="conf-bar"><span :class="['conf-fill', confClass(d.confidence)]" :style="{ width: (d.confidence * 100) + '%' }"></span></span>
             <span class="det-pct mono">{{ (d.confidence * 100).toFixed(0) }}%</span>
@@ -289,7 +331,12 @@ onUnmounted(() => {
 .dz-hint { font-size: 12px; color: var(--color-ink-subtle); }
 .dz-input { display: none; }
 
-.staged { display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--color-hairline); }
+.staged { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
+.staged-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-ink-muted); font-size: 12px; }
+.staged-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.add-more { position: relative; overflow: hidden; cursor: pointer; }
+.staged-list { display: flex; flex-direction: column; border-top: 1px solid var(--color-hairline); }
+.staged-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--color-hairline); }
 .staged-thumb { width: 56px; height: 56px; flex: none; background: var(--color-surface-1); display: flex; align-items: center; justify-content: center; }
 .staged-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .staged-thumb svg { width: 24px; height: 24px; color: var(--color-ink-subtle); }
