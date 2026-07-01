@@ -25,7 +25,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
     → [QC Studio: pending RAW image list/canvas + optional image delete]
     → [qc_server: async defect segmentation (mock or SAM3 prompt), polling]
     → [QC Studio: Review defects (zoom/pan) + mark reviewed + optional re-run/reset]
-    → [Export: Crop/Full PNG + PDF Audit Report]
+    → [Export: Crop/Full PNG + PDF Audit Report with annotated defect crops]
     → [Audit Log: auto-trails all actions]
 ```
 
@@ -77,7 +77,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 | `/qc` | **QC Studio** | 3-column inspection: pending raw image list/canvas, per-image delete, re-run/reset controls, batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status, delete with confirmation |
 | `/media-detection` | **Media Detection** | Always-visible production upload page with drag/drop staging, multiple-image image mode, explicit Run trigger, Test preview, and Process-to-QC crop export for images/videos |
-| `/reports` | **Reports** | PDF audit report generator with summary, defect table, approval fields |
+| `/reports` | **Reports** | PDF audit report generator with summary, grouped annotated defect crops, approval fields |
 | `/audit` | **Audit Log** | Auto-logged activity trail, filterable by action type |
 | `/settings` | **Settings** | Camera CRUD, object-detection model switcher, QC/segmentation model switcher, separate object/QC confidence, defect strategy, grouped defect-class enable/add/edit/delete/color, language/theme preferences |
 
@@ -100,6 +100,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **SAM 3 prompt QC strategy**: `sam3_prompt` uses enabled defect-class names as SAM 3 text prompts and writes confidence-filtered polygons for QC Studio
 - **Defect class management**: Settings groups coating/welding defect classes with on/total counts, enable toggles, add/edit/delete, API-backed persistence, and auto-generated IDs for new classes
 - **Dynamic defect colors**: QC polygons and DefectPanel swatches use the configured `DefectClass.color` values from Settings
+- **Audit report PDF crops**: Reports PDFs keep text as vector jsPDF text and embed grouped annotated defect crops using the same class colors as QC Studio/export
 
 ### Commands
 

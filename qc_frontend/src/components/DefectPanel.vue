@@ -13,6 +13,7 @@ import {
   fullFilename,
   cropFilename,
   defectCropBox,
+  loadImage,
 } from '../utils/export.js'
 
 const { selected, hoveredDefectId, images, batch, selectImage, selectedId, toggleReviewed, isReviewed } = useInspection()
@@ -32,16 +33,6 @@ function pct(c) {
   return `${Math.round(c * 100)}%`
 }
 
-function loadImageEl(url) {
-  return new Promise((resolve, reject) => {
-    const im = new Image()
-    im.crossOrigin = 'anonymous'
-    im.onload = () => resolve(im)
-    im.onerror = reject
-    im.src = url
-  })
-}
-
 async function zipAndDownload(files, zipName) {
   if (files.length === 1) {
     downloadBlob(files[0].blob, files[0].name)
@@ -59,7 +50,7 @@ async function exportFull() {
   try {
     const files = []
     for (const img of images.value) {
-      const im = await loadImageEl(img.url)
+      const im = await loadImage(img.url)
       const canvas = renderAnnotated(im, img, colorFor)
       const blob = await canvasToBlob(canvas)
       files.push({ name: fullFilename(img.filename), blob })
@@ -80,7 +71,7 @@ async function exportCrop() {
     const files = []
     for (const img of images.value) {
       if (!img.defects.length) continue
-      const im = await loadImageEl(img.url)
+      const im = await loadImage(img.url)
       const annotated = renderAnnotated(im, img, colorFor)
       const typeCounters = {}
       for (const d of img.defects) {
