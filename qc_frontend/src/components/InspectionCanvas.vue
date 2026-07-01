@@ -5,7 +5,8 @@ import { useI18n } from '../composables/useI18n.js'
 import { useDefectColor } from '../composables/useDefectColor.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
-import { toImageCoords } from '../utils/canvasCoords.js'
+import { segmentDefect } from '../api/batches.js'
+import { normalizeBox, toImageCoords } from '../utils/canvasCoords.js'
 import { cursorForState } from '../utils/cursor.js'
 
 const {
@@ -20,6 +21,7 @@ const {
   clearDefectSelection,
   addDefect,
   removeDefect,
+  currentBatchId,
 } = useInspection()
 const { t } = useI18n()
 const { colorFor } = useDefectColor()
@@ -39,15 +41,30 @@ const drawingPoints = ref([])
 const drawMsg = ref('')
 const activeTool = ref('select')
 const overDefect = ref(false)
+const segmenting = ref(false)
+const samBoxStart = ref(null)
+const samBoxCurrent = ref(null)
+const pendingSource = ref('')
 
 const enabledClasses = computed(() => classes.value.filter((c) => c.enabled))
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
+const samActive = computed(() => activeTool.value === 'sam-point' || activeTool.value === 'sam-box')
 const canvasCursor = computed(() => cursorForState({
-  drawing: drawing.value,
+  drawing: drawing.value || samActive.value,
   dragging: dragging.value,
   editMode: editMode.value,
   overDefect: overDefect.value,
 }))
+const samBoxRect = computed(() => {
+  if (!samBoxStart.value || !samBoxCurrent.value) return null
+  const [x1, y1, x2, y2] = normalizeBox(
+    samBoxStart.value.x,
+    samBoxStart.value.y,
+    samBoxCurrent.value.x,
+    samBoxCurrent.value.y,
+  )
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 }
+})
 
 function pointsAttr(polygon) {
   return polygon.map((p) => p.join(',')).join(' ')
@@ -60,19 +77,37 @@ function onWheel(e) {
 }
 
 function onMouseDown(e) {
-  if (drawing.value) return
+  if (drawing.value || segmenting.value) return
   if (e.button !== 0) return
+  if (activeTool.value === 'sam-box') {
+    startSamBox(e)
+    return
+  }
+  if (activeTool.value === 'sam-point') return
   dragging.value = true
   dragStart.value = { x: e.clientX, y: e.clientY, panX: panX.value, panY: panY.value }
 }
 
 function onMouseMove(e) {
+  if (samBoxStart.value && selected.value && svgRef.value) {
+    samBoxCurrent.value = toImageCoords(
+      e.clientX,
+      e.clientY,
+      svgRef.value.getBoundingClientRect(),
+      selected.value.width,
+      selected.value.height,
+    )
+    return
+  }
   if (!dragging.value) return
   panX.value = dragStart.value.panX + (e.clientX - dragStart.value.x)
   panY.value = dragStart.value.panY + (e.clientY - dragStart.value.y)
 }
 
-function onMouseUp() {
+async function onMouseUp() {
+  if (samBoxStart.value) {
+    await finishSamBox()
+  }
   dragging.value = false
 }
 
@@ -91,18 +126,28 @@ function zoomOut() {
 }
 
 function startDrawing() {
-  if (!editMode.value) return
+  if (!editMode.value || segmenting.value) return
   clearDefectSelection()
   activeTool.value = 'draw'
   drawing.value = true
   pickingClass.value = false
   drawingPoints.value = []
   drawMsg.value = ''
+  samBoxStart.value = null
+  samBoxCurrent.value = null
+  pendingSource.value = ''
 }
 
 function setSelectTool() {
   activeTool.value = 'select'
   cancelDrawing()
+}
+
+function setSamTool(tool) {
+  if (!editMode.value || segmenting.value) return
+  clearDefectSelection()
+  cancelDrawing()
+  activeTool.value = tool
 }
 
 function setEditMode(next) {
@@ -121,12 +166,29 @@ function cancelDrawing() {
   pickingClass.value = false
   drawingPoints.value = []
   drawMsg.value = ''
+  samBoxStart.value = null
+  samBoxCurrent.value = null
+  pendingSource.value = ''
   activeTool.value = 'select'
+}
+
+function imagePointFromEvent(e) {
+  return toImageCoords(e.clientX, e.clientY, svgRef.value.getBoundingClientRect(), selected.value.width, selected.value.height)
+}
+
+async function handleOverlayClick(e) {
+  if (activeTool.value === 'sam-point') {
+    if (!selected.value || !currentBatchId.value || !svgRef.value || segmenting.value) return
+    const p = imagePointFromEvent(e)
+    await requestSegment({ point: [p.x, p.y] }, 'SAM point')
+    return
+  }
+  addPoint(e)
 }
 
 function addPoint(e) {
   if (!drawing.value || pickingClass.value || !selected.value || !svgRef.value) return
-  const p = toImageCoords(e.clientX, e.clientY, svgRef.value.getBoundingClientRect(), selected.value.width, selected.value.height)
+  const p = imagePointFromEvent(e)
   drawingPoints.value = [...drawingPoints.value, [p.x, p.y]]
   drawMsg.value = ''
 }
@@ -140,6 +202,44 @@ function finishDrawing() {
   pickingClass.value = true
 }
 
+async function requestSegment(payload, source) {
+  segmenting.value = true
+  drawMsg.value = ''
+  try {
+    const res = await segmentDefect(currentBatchId.value, selected.value.id, payload)
+    if (!res.polygon?.length) {
+      drawMsg.value = t('qc.samEmpty')
+      return
+    }
+    drawingPoints.value = res.polygon
+    pickingClass.value = true
+    drawing.value = false
+    pendingSource.value = source
+  } catch (e) {
+    drawMsg.value = e.message || t('qc.samEmpty')
+  } finally {
+    segmenting.value = false
+  }
+}
+
+function startSamBox(e) {
+  if (!selected.value || !svgRef.value || pickingClass.value) return
+  const p = imagePointFromEvent(e)
+  samBoxStart.value = p
+  samBoxCurrent.value = p
+}
+
+async function finishSamBox() {
+  const start = samBoxStart.value
+  const end = samBoxCurrent.value
+  samBoxStart.value = null
+  samBoxCurrent.value = null
+  if (!start || !end || !selected.value || !currentBatchId.value) return
+  const box = normalizeBox(start.x, start.y, end.x, end.y)
+  if (box[0] === box[2] || box[1] === box[3]) return
+  await requestSegment({ box }, 'SAM box')
+}
+
 async function chooseClass(cls) {
   if (!selected.value) return
   await addDefect(selected.value.id, {
@@ -148,7 +248,7 @@ async function chooseClass(cls) {
     polygon: drawingPoints.value,
     confidence: 1.0,
   })
-  log('DEFECT_ADDED', `Added defect: ${cls.name}`)
+  log('DEFECT_ADDED', `${pendingSource.value || 'Manual'}: ${cls.name}`)
   cancelDrawing()
 }
 
@@ -210,9 +310,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 <template>
   <section class="canvas-wrapper">
     <div v-if="selected && editMode" class="floating-cluster tool-dock" :aria-label="t('qc.editTools')">
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'select' && !drawing }" :title="t('qc.toolSelect')" :aria-label="t('qc.toolSelect')" :aria-pressed="activeTool === 'select' && !drawing" @click="setSelectTool">V</button>
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'draw' }" :title="t('qc.toolAdd')" :aria-label="t('qc.toolAdd')" :aria-pressed="activeTool === 'draw'" @click="startDrawing">A</button>
-      <button class="tool-btn icon-btn danger" :disabled="!selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">Del</button>
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'select' && !drawing }" :disabled="segmenting" :title="t('qc.toolSelect')" :aria-label="t('qc.toolSelect')" :aria-pressed="activeTool === 'select' && !drawing" @click="setSelectTool">V</button>
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'draw' }" :disabled="segmenting" :title="t('qc.toolAdd')" :aria-label="t('qc.toolAdd')" :aria-pressed="activeTool === 'draw'" @click="startDrawing">A</button>
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'sam-point' }" :disabled="segmenting" :title="t('qc.toolSamPoint')" :aria-label="t('qc.toolSamPoint')" :aria-pressed="activeTool === 'sam-point'" @click="setSamTool('sam-point')">Pt</button>
+      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'sam-box' }" :disabled="segmenting" :title="t('qc.toolSamBox')" :aria-label="t('qc.toolSamBox')" :aria-pressed="activeTool === 'sam-box'" @click="setSamTool('sam-box')">Bx</button>
+      <button class="tool-btn icon-btn danger" :disabled="segmenting || !selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">Del</button>
       <template v-if="drawing">
         <button class="tool-btn dock-action" :title="t('qc.finishDrawing')" :aria-label="t('qc.finishDrawing')" @click="finishDrawing">{{ t('qc.finishDrawing') }}</button>
         <button class="tool-btn dock-action" :title="t('common.cancel')" :aria-label="t('common.cancel')" @click="cancelDrawing">{{ t('common.cancel') }}</button>
@@ -239,8 +341,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <button class="tool-btn" :title="t('qc.zoomReset')" :aria-label="t('qc.zoomReset')" @click="resetZoom">{{ t('qc.zoomResetShort') }}</button>
     </div>
 
-    <div v-if="selected && editMode && drawing && !pickingClass" class="draw-hint mono">
-      {{ drawMsg || t('qc.drawHint') }}
+    <div v-if="selected && editMode && !pickingClass && (drawing || samActive || segmenting || drawMsg)" class="draw-hint mono">
+      {{ segmenting ? t('qc.segmenting') : drawMsg || (activeTool === 'sam-point' ? t('qc.samHintPoint') : activeTool === 'sam-box' ? t('qc.samHintBox') : t('qc.drawHint')) }}
     </div>
 
     <div v-if="selected && editMode && pickingClass" class="floating-cluster class-picker">
@@ -274,7 +376,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           class="overlay"
           :viewBox="`0 0 ${selected.width} ${selected.height}`"
           preserveAspectRatio="none"
-          @click="addPoint"
+          @click="handleOverlayClick"
           @dblclick.stop="finishDrawing"
         >
           <polygon
@@ -287,7 +389,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             :stroke-width="selectedDefectId === d.id ? 4 : 2"
             :data-defect-id="d.id"
             class="defect-poly"
-            :class="{ selected: selectedDefectId === d.id }"
+            :class="{ selected: selectedDefectId === d.id, 'sam-ignored': samActive }"
             @mouseenter="overDefect = true"
             @mouseleave="overDefect = false"
             @mousedown.stop
@@ -297,6 +399,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             v-if="drawingPoints.length"
             :points="pointsAttr(drawingPoints)"
             class="draft-poly"
+          />
+          <rect
+            v-if="samBoxRect"
+            :x="samBoxRect.x"
+            :y="samBoxRect.y"
+            :width="samBoxRect.width"
+            :height="samBoxRect.height"
+            class="sam-box-preview"
           />
           <circle
             v-for="(p, idx) in drawingPoints"
@@ -513,6 +623,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .defect-poly.selected {
   stroke-linejoin: round;
 }
+.defect-poly.sam-ignored {
+  pointer-events: none;
+}
 .draft-poly {
   fill: none;
   stroke: var(--color-primary);
@@ -523,6 +636,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   fill: var(--color-primary);
   stroke: var(--color-canvas);
   stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.sam-box-preview {
+  fill: transparent;
+  stroke: var(--color-primary);
+  stroke-dasharray: 6 4;
+  stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
 .empty-state {

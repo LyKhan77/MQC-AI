@@ -121,6 +121,19 @@ describe('batches api', () => {
     })
   })
 
+  it('segmentDefect posts point or box prompts to the segment endpoint', async () => {
+    const f = fetchSequence([{ status: 200, body: { polygon: [[1, 2], [3, 4], [5, 6]] } }])
+    vi.stubGlobal('fetch', f)
+    const { segmentDefect } = await import('./batches.js')
+    const res = await segmentDefect('b1', 'i1', { point: [10, 20] })
+    expect(f).toHaveBeenCalledWith('/api/batches/b1/images/i1/segment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ point: [10, 20] }),
+    })
+    expect(res.polygon).toEqual([[1, 2], [3, 4], [5, 6]])
+  })
+
   it('updateDefect patches the nested defect endpoint', async () => {
     const f = fetchSequence([{ status: 200, body: { id: 'd1' } }])
     vi.stubGlobal('fetch', f)
