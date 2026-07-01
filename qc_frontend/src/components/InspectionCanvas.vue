@@ -45,6 +45,7 @@ const segmenting = ref(false)
 const samBoxStart = ref(null)
 const samBoxCurrent = ref(null)
 const pendingSource = ref('')
+const segmentRun = ref(0)
 
 const enabledClasses = computed(() => classes.value.filter((c) => c.enabled))
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
@@ -139,8 +140,11 @@ function startDrawing() {
 }
 
 function setSelectTool() {
-  activeTool.value = 'select'
-  cancelDrawing()
+  if (drawing.value || pickingClass.value || samActive.value || samBoxStart.value || samBoxCurrent.value || segmenting.value) {
+    cancelActive()
+  } else {
+    activeTool.value = 'select'
+  }
 }
 
 function setSamTool(tool) {
@@ -154,7 +158,7 @@ function setEditMode(next) {
   if (editMode.value === next) return
   if (!next) {
     clearDefectSelection()
-    cancelDrawing()
+    cancelActive()
   } else {
     activeTool.value = 'select'
   }
@@ -170,6 +174,25 @@ function cancelDrawing() {
   samBoxCurrent.value = null
   pendingSource.value = ''
   activeTool.value = 'select'
+}
+
+function cancelActive() {
+  if (segmenting.value) {
+    segmentRun.value += 1
+    segmenting.value = false
+  }
+  if (pickingClass.value) {
+    cancelDrawing()
+  } else if (drawing.value) {
+    cancelDrawing()
+  } else if (samActive.value || samBoxStart.value || samBoxCurrent.value) {
+    samBoxStart.value = null
+    samBoxCurrent.value = null
+    activeTool.value = 'select'
+    drawMsg.value = ''
+  } else {
+    clearDefectSelection()
+  }
 }
 
 function imagePointFromEvent(e) {
@@ -203,10 +226,13 @@ function finishDrawing() {
 }
 
 async function requestSegment(payload, source) {
+  const run = segmentRun.value + 1
+  segmentRun.value = run
   segmenting.value = true
   drawMsg.value = ''
   try {
     const res = await segmentDefect(currentBatchId.value, selected.value.id, payload)
+    if (run !== segmentRun.value) return
     if (!res.polygon?.length) {
       drawMsg.value = t('qc.samEmpty')
       return
@@ -216,9 +242,10 @@ async function requestSegment(payload, source) {
     drawing.value = false
     pendingSource.value = source
   } catch (e) {
+    if (run !== segmentRun.value) return
     drawMsg.value = e.message || t('qc.samEmpty')
   } finally {
-    segmenting.value = false
+    if (run === segmentRun.value) segmenting.value = false
   }
 }
 
@@ -284,8 +311,7 @@ function onKeydown(e) {
     deleteSelectedDefect()
   } else if (e.key === 'Escape') {
     e.preventDefault()
-    if (drawing.value) cancelDrawing()
-    else clearDefectSelection()
+    cancelActive()
   } else if (e.key === '+' || e.key === '=') {
     e.preventDefault()
     zoomIn()
@@ -300,7 +326,7 @@ function onKeydown(e) {
 
 watch(() => selected.value?.id, () => {
   clearDefectSelection()
-  cancelDrawing()
+  cancelActive()
 })
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
@@ -310,14 +336,43 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 <template>
   <section class="canvas-wrapper">
     <div v-if="selected && editMode" class="floating-cluster tool-dock" :aria-label="t('qc.editTools')">
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'select' && !drawing }" :disabled="segmenting" :title="t('qc.toolSelect')" :aria-label="t('qc.toolSelect')" :aria-pressed="activeTool === 'select' && !drawing" @click="setSelectTool">V</button>
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'draw' }" :disabled="segmenting" :title="t('qc.toolAdd')" :aria-label="t('qc.toolAdd')" :aria-pressed="activeTool === 'draw'" @click="startDrawing">A</button>
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'sam-point' }" :disabled="segmenting" :title="t('qc.toolSamPoint')" :aria-label="t('qc.toolSamPoint')" :aria-pressed="activeTool === 'sam-point'" @click="setSamTool('sam-point')">Pt</button>
-      <button class="tool-btn icon-btn" :class="{ active: activeTool === 'sam-box' }" :disabled="segmenting" :title="t('qc.toolSamBox')" :aria-label="t('qc.toolSamBox')" :aria-pressed="activeTool === 'sam-box'" @click="setSamTool('sam-box')">Bx</button>
-      <button class="tool-btn icon-btn danger" :disabled="segmenting || !selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">Del</button>
-      <template v-if="drawing">
-        <button class="tool-btn dock-action" :title="t('qc.finishDrawing')" :aria-label="t('qc.finishDrawing')" @click="finishDrawing">{{ t('qc.finishDrawing') }}</button>
-        <button class="tool-btn dock-action" :title="t('common.cancel')" :aria-label="t('common.cancel')" @click="cancelDrawing">{{ t('common.cancel') }}</button>
+      <button class="tool-btn dock-tool" :class="{ active: activeTool === 'select' && !drawing }" :disabled="segmenting" :title="t('qc.toolSelect')" :aria-label="t('qc.toolSelect')" :aria-pressed="activeTool === 'select' && !drawing" @click="setSelectTool">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 4l12 8-5 2-2 5-5-15z" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolSelect') }}</span>
+      </button>
+      <button class="tool-btn dock-tool" :class="{ active: activeTool === 'draw' }" :disabled="segmenting" :title="t('qc.toolAdd')" :aria-label="t('qc.toolAdd')" :aria-pressed="activeTool === 'draw'" @click="startDrawing">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 15l3-8 7 3 2 8-8 1-4-4z" />
+          <path d="M9 7l5-3 2 6" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolAdd') }}</span>
+      </button>
+      <button class="tool-btn dock-tool" :class="{ active: activeTool === 'sam-point' }" :disabled="segmenting" :title="t('qc.toolSamPoint')" :aria-label="t('qc.toolSamPoint')" :aria-pressed="activeTool === 'sam-point'" @click="setSamTool('sam-point')">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" />
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+          <path class="sam-spark" d="M18 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolSamPoint') }}</span>
+      </button>
+      <button class="tool-btn dock-tool" :class="{ active: activeTool === 'sam-box' }" :disabled="segmenting" :title="t('qc.toolSamBox')" :aria-label="t('qc.toolSamBox')" :aria-pressed="activeTool === 'sam-box'" @click="setSamTool('sam-box')">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 6h14v12H5z" stroke-dasharray="3 2" />
+          <path class="sam-spark" d="M18 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolSamBox') }}</span>
+      </button>
+      <button class="tool-btn dock-tool danger" :disabled="segmenting || !selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7h14M10 11v6M14 11v6M8 7l1 12h6l1-12M10 7V5h4v2" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolDelete') }}</span>
+      </button>
+      <template v-if="drawing || samActive || pickingClass">
+        <button v-if="drawing" class="tool-btn dock-action" :title="t('qc.finishDrawing')" :aria-label="t('qc.finishDrawing')" @click="finishDrawing">{{ t('qc.finishDrawing') }}</button>
+        <button class="tool-btn dock-action" :title="t('common.cancel')" :aria-label="t('common.cancel')" @click="cancelActive">{{ t('common.cancel') }}</button>
       </template>
     </div>
 
@@ -356,6 +411,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <span class="swatch" :style="{ background: cls.color }"></span>
           {{ cls.name }}
         </button>
+        <button class="tool-btn class-cancel" :title="t('common.cancel')" :aria-label="t('common.cancel')" @click="cancelActive">{{ t('common.cancel') }}</button>
     </div>
 
     <div
@@ -488,6 +544,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   letter-spacing: 0.16px;
 }
 .tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 4px 10px;
   background: transparent;
   border: 1px solid var(--color-hairline);
@@ -530,8 +590,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   width: 36px;
   padding: 4px;
 }
+.dock-tool {
+  width: 128px;
+  justify-content: flex-start;
+}
+.tool-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sam-spark {
+  stroke: var(--color-primary);
+}
+.tool-btn.active .sam-spark {
+  stroke: var(--color-on-primary);
+}
+.tool-label {
+  color: inherit;
+  white-space: nowrap;
+}
 .dock-action {
-  width: 72px;
+  width: 128px;
 }
 .zoom-display {
   font-size: 12px;
@@ -582,6 +666,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .class-chip:hover {
   border-color: var(--color-primary);
+}
+.class-cancel {
+  min-height: 26px;
 }
 .swatch {
   width: 10px;
