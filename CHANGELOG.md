@@ -11,6 +11,41 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - QC Studio SAM Click-to-Segment
+
+### Summary
+
+QC Studio edit mode now supports SAM-assisted point and box annotation. Inspectors can click a defect or drag a box, receive a simplified SAM polygon, choose an enabled defect class, and save it through the existing manual defect endpoint.
+
+### Added
+
+- `qc_server/app/services/inference/sam_interactive.py` - lazy Ultralytics `SAM` loader cached by model path, highest-confidence mask selection, and `simplify_polygon()` reuse for point/box prompts.
+- `POST /api/batches/{batch_id}/images/{image_id}/segment` - validates exactly one point or box prompt, resolves `qc_model`, checks image ownership, and returns `{ polygon }`.
+- `qc_server/tests/test_segment.py` - mocked-SAM endpoint coverage for point, box, prompt validation, missing model, and ownership 404s.
+- `qc_frontend/src/api/batches.js` - `segmentDefect()` API helper with unit coverage.
+- `InspectionCanvas.vue` - edit dock SAM point and SAM box tools, segmenting hint, box preview rectangle, empty-result message, and class-picker reuse.
+- `qc_frontend/src/utils/canvasCoords.js` - tested `normalizeBox()` helper for box drag directions.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - SAM tool labels, hints, loading state, and empty-result copy.
+
+### Changed
+
+- QC Studio suspends pan while SAM tools are active and uses the existing pending-polygon class picker plus Phase-1 `addDefect()` flow after SAM returns a polygon.
+- SAM-added defects log through the existing `DEFECT_ADDED` audit action after the inspector picks a class.
+- Manual polygon draw remains the fallback annotation path.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Interactive SAM backend | 2026-07-01 | Lazy SAM service plus per-image segment endpoint for point/box prompts | Laptop tests run without Ultralytics imports; configured `qc_model` drives real SAM on the GPU server. |
+| QC Studio assisted annotation | 2026-07-01 | SAM point and SAM box tools feed returned polygons into the existing class-picker/save flow | Inspectors can create AI-assisted defects in Edit mode while manual draw/delete/relabel still work. |
+| Verification | 2026-07-01 | Backend full suite, frontend full suite, and production build | Backend: 117 passed, 2 warnings. Frontend: 66 passed. Build succeeded. |
+
+### Notes
+
+- Real SAM segmentation smoke is deferred to the reviewer on the GPU server: point quality/latency, box quality/latency, empty background response, and Phase-1 edit regression checks.
+- No new dependency was added; SAM remains in `qc_server/requirements-ml.txt`.
+
 ## [Unreleased] - 2026-07-01 - QC Studio Edit-Mode UX
 
 ### Summary
