@@ -11,6 +11,35 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - Audit Report PDF Defect Crops
+
+### Summary
+
+Reports PDF generation now embeds annotated per-defect crop images grouped by inspected image while keeping all report text as jsPDF vector text.
+
+### Added
+
+- `qc_frontend/src/utils/export.js` - shared `loadImage(url)` image loader and pure `fitDimensions(srcW, srcH, maxW, maxH)` aspect-ratio helper.
+- `qc_frontend/src/utils/export.test.js` - unit coverage for `fitDimensions` width clamp, height clamp, unchanged small boxes, and aspect-ratio preservation.
+- `qc_frontend/src/views/Reports.vue` - visual Defect Details PDF section with filename headers, defect counts, annotated crop PNG embeds, captions, wrapping rows, page breaks, and clean-batch fallback.
+
+### Changed
+
+- `qc_frontend/src/views/Reports.vue` removes the artificial PDF generation delay and reuses `renderAnnotated`, `defectCropBox`, `renderDefectCrop`, and `useDefectColor().colorFor` so report crops match Export Crop colors.
+- `qc_frontend/src/components/DefectPanel.vue` now imports the shared `loadImage()` helper instead of keeping a duplicate local image loader.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Reports PDF defect details | 2026-07-01 | Grouped-by-image annotated defect crops embedded with `doc.addImage()` while text stays `doc.text()` vector output | Audit PDFs show visual crop evidence per defect without rasterizing the full report. |
+| Export utilities | 2026-07-01 | Shared image loader and tested aspect-ratio fit helper | Reports and DefectPanel reuse one image-loading path; crop print sizing is unit-tested. |
+| Verification | 2026-07-01 | Frontend focused red/green, full suite, and production build | Focused red: 4 expected `fitDimensions is not a function` failures; focused green: 12 passed. Full frontend: 54 passed. Build succeeded. |
+
+### Notes
+
+- Browser smoke is pending for reviewer: generate a PDF for a batch with defects and verify crops grouped by image, class-color annotations, captions, vector/crisp text, multi-page pagination, signature block, and clean-batch PDF behavior.
+
 ## [Unreleased] - 2026-07-01 - Media Detection Multi-Image Upload
 
 ### Summary
