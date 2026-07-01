@@ -19,6 +19,7 @@ import {
 
 const {
   selected,
+  selectedDefectId,
   hoveredDefectId,
   images,
   batch,
@@ -27,6 +28,7 @@ const {
   toggleReviewed,
   isReviewed,
   editMode,
+  selectDefect,
   updateDefect,
   removeDefect,
 } = useInspection()
@@ -125,9 +127,13 @@ async function relabelDefect(defect, classId) {
   log('DEFECT_RELABELED', `Relabeled defect: ${defect.id} -> ${cls.name}`)
 }
 
+function selectPanelDefect(defect) {
+  selectDefect(defect.id)
+}
+
 function onKeydown(e) {
   if (!images.value.length) return
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return
 
   if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
     e.preventDefault()
@@ -165,9 +171,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             v-for="d in coating"
             :key="d.id"
             class="defect-row"
-            :class="{ hot: hoveredDefectId === d.id }"
+            :class="{ hot: hoveredDefectId === d.id, active: selectedDefectId === d.id }"
+            role="button"
+            tabindex="0"
             @mouseenter="hoveredDefectId = d.id"
             @mouseleave="hoveredDefectId = null"
+            @click="selectPanelDefect(d)"
+            @keydown.enter.prevent="selectPanelDefect(d)"
+            @keydown.space.prevent="selectPanelDefect(d)"
           >
             <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
@@ -175,6 +186,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               v-if="editMode"
               class="class-select"
               :aria-label="t('qc.relabel')"
+              @click.stop
               @change="relabelDefect(d, $event.target.value)"
             >
               <option value="">{{ t('qc.relabel') }}</option>
@@ -182,7 +194,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
                 {{ cls.name }}
               </option>
             </select>
-            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" @click="deletePanelDefect(d)">x</button>
+            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" :aria-label="t('qc.deleteDefect')" @click.stop="deletePanelDefect(d)">x</button>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
         </ul>
@@ -196,9 +208,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             v-for="d in welding"
             :key="d.id"
             class="defect-row"
-            :class="{ hot: hoveredDefectId === d.id }"
+            :class="{ hot: hoveredDefectId === d.id, active: selectedDefectId === d.id }"
+            role="button"
+            tabindex="0"
             @mouseenter="hoveredDefectId = d.id"
             @mouseleave="hoveredDefectId = null"
+            @click="selectPanelDefect(d)"
+            @keydown.enter.prevent="selectPanelDefect(d)"
+            @keydown.space.prevent="selectPanelDefect(d)"
           >
             <span class="swatch" :style="{ background: colorFor(d.type) }"></span>
             <span class="type">{{ d.type }}</span>
@@ -206,6 +223,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               v-if="editMode"
               class="class-select"
               :aria-label="t('qc.relabel')"
+              @click.stop
               @change="relabelDefect(d, $event.target.value)"
             >
               <option value="">{{ t('qc.relabel') }}</option>
@@ -213,7 +231,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
                 {{ cls.name }}
               </option>
             </select>
-            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" @click="deletePanelDefect(d)">x</button>
+            <button v-if="editMode" class="row-delete" :title="t('qc.deleteDefect')" :aria-label="t('qc.deleteDefect')" @click.stop="deletePanelDefect(d)">x</button>
             <span class="conf mono">{{ pct(d.confidence) }}</span>
           </li>
         </ul>
@@ -296,11 +314,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  border: 1px solid transparent;
   cursor: pointer;
 }
 .defect-row:hover,
 .defect-row.hot {
   background: var(--color-surface-1);
+}
+.defect-row.active {
+  background: var(--color-surface-1);
+  border-color: var(--color-primary);
+}
+.defect-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .swatch {
   width: 12px;
@@ -328,6 +355,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-family: var(--font-sans);
   font-size: 12px;
   padding: 4px;
+}
+.class-select:focus-visible,
+.row-delete:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .row-delete {
   width: 24px;
