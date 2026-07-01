@@ -88,8 +88,10 @@ async function removeCamera(cam) {
 async function saveSettings() {
   await update({
     confidenceThreshold: Number(settings.value.confidenceThreshold),
+    qcConfidenceThreshold: Number(settings.value.qcConfidenceThreshold),
     defectStrategy: settings.value.defectStrategy,
     activeModel: settings.value.activeModel,
+    qcModel: settings.value.qcModel,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
   showToast(t('settings.saved'))
@@ -208,8 +210,12 @@ async function confirmDeleteClass() {
         </div>
         <div class="config-grid">
           <div class="form-row">
-            <label>{{ t('settings.confidenceThreshold') }}</label>
+            <label>{{ t('settings.objectDetectionConfidence') }}</label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.qcConfidence') }}</label>
+            <input type="number" min="0" max="1" step="0.05" v-model="settings.qcConfidenceThreshold" class="text-input" />
           </div>
           <div class="form-row">
             <label>{{ t('settings.defectStrategy') }}</label>
@@ -221,6 +227,14 @@ async function confirmDeleteClass() {
           <div class="form-row">
             <label>{{ t('settings.activeModel') }}</label>
             <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
+              <option value="">{{ t('settings.noModelSelected') }}</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.qcModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.qcModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
             </select>

@@ -1,7 +1,13 @@
 <script setup>
+import { onMounted } from 'vue'
 import BatchSidebar from '../components/BatchSidebar.vue'
 import InspectionCanvas from '../components/InspectionCanvas.vue'
 import DefectPanel from '../components/DefectPanel.vue'
+import { useDefectClasses } from '../composables/useDefectClasses.js'
+
+const { refresh } = useDefectClasses()
+
+onMounted(() => refresh())
 </script>
 
 <template>

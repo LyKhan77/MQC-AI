@@ -1,4 +1,11 @@
 # Server-only ML dependencies (install on the GPU server, not the laptop).
 # Install a CUDA-matched torch FIRST per https://pytorch.org, then:
-ultralytics==8.*
+ultralytics>=8.3.237,<9
 supervision==0.25.*
+
+# SAM 3 text-concept (PCS) extras. Ultralytics AutoUpdates these on the FIRST
+# sam3_prompt inference; pre-installing avoids network installs mid-batch.
+ftfy
+regex
+timm
+clip @ git+https://github.com/ultralytics/CLIP.git

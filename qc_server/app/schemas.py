@@ -44,6 +44,8 @@ class SettingOut(BaseModel):
     segmentation_model: str
     defect_strategy: str
     active_model: str
+    qc_model: str
+    qc_confidence_threshold: float
     input_mode_enabled: bool
 
 
@@ -53,6 +55,8 @@ class SettingUpdate(BaseModel):
     segmentation_model: str | None = None
     defect_strategy: str | None = None
     active_model: str | None = None
+    qc_model: str | None = None
+    qc_confidence_threshold: float | None = None
     input_mode_enabled: bool | None = None
 
 
@@ -75,6 +79,10 @@ class BatchCreate(BaseModel):
     batch_name: str
     source_path: str
     camera_id: str | None = None
+
+
+class BatchRunRequest(BaseModel):
+    confidence_threshold: float | None = None
 
 
 class BatchCreateResponse(BaseModel):

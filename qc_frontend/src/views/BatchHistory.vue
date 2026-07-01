@@ -69,6 +69,7 @@ const statusClass = (s) => `status-${s}`
       <input v-model="search" class="text-input" :placeholder="t('batches.searchPlaceholder')" />
       <select v-model="statusFilter" class="text-input">
         <option value="">{{ t('batches.filterAll') }}</option>
+        <option value="pending">{{ t('batches.filterPending') }}</option>
         <option value="reviewed">{{ t('batches.filterReviewed') }}</option>
         <option value="done">{{ t('batches.filterDone') }}</option>
         <option value="processing">{{ t('batches.filterProcessing') }}</option>

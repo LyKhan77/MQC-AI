@@ -12,6 +12,12 @@ export function getBatchStatus(batchId) {
   return apiGet(`/batches/${batchId}/status`)
 }
 
+export function runBatch(batchId, { confidenceThreshold } = {}) {
+  return apiPost(`/batches/${batchId}/run`, {
+    confidence_threshold: confidenceThreshold ?? null,
+  })
+}
+
 export function getBatchResult(batchId) {
   return apiGet(`/batches/${batchId}`)
 }
@@ -40,6 +46,14 @@ export async function listBatches() {
 
 export function patchImageReviewed(batchId, imageId, reviewed) {
   return apiPatch(`/batches/${batchId}/images/${imageId}`, { reviewed })
+}
+
+export function deleteImage(batchId, imageId) {
+  return apiDelete(`/batches/${batchId}/images/${imageId}`)
+}
+
+export function resetBatch(batchId) {
+  return apiPost(`/batches/${batchId}/reset`, {})
 }
 
 export function patchBatch(batchId, { status, reviewer }) {

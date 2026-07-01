@@ -3,6 +3,7 @@ import { getSettings, updateSettings } from '../api/settings.js'
 
 const settings = ref({
   confidenceThreshold: 0.5,
+  qcConfidenceThreshold: 0.5,
   detectionModel: 'YOLOv8n',
   segmentationModel: 'SAM3',
   defectStrategy: 'mock',
