@@ -14,6 +14,9 @@ export default {
     reports: 'Reports',
     auditLog: 'Audit Log',
     settings: 'Settings',
+    inference: 'Inferensi',
+    qualityControl: 'Kontrol Kualitas',
+    records: 'Catatan',
   },
 
   // Top bar
