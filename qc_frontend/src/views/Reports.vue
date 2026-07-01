@@ -3,13 +3,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useBatchHistory } from '../composables/useBatchHistory.js'
 import { useInspection } from '../composables/useInspection.js'
-import { defectColor } from '../utils/defect.js'
+import { useDefectColor } from '../composables/useDefectColor.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 
 const { t } = useI18n()
 const { batches, refresh } = useBatchHistory()
 const { batch, loadBatch } = useInspection()
 const { log } = useAuditLog()
+const { colorFor } = useDefectColor()
 
 const selectedBatchId = ref('')
 const generating = ref(false)
@@ -163,8 +164,8 @@ async function generatePDF() {
             <div v-for="img in batch.images" :key="img.id" class="defect-img-row">
               <span class="mono filename">{{ img.filename }}</span>
               <div class="defect-tags">
-                <span v-for="d in img.defects" :key="d.id" class="defect-tag" :style="{ borderColor: defectColor(d.type) }">
-                  <span class="dot" :style="{ background: defectColor(d.type) }"></span>
+                <span v-for="d in img.defects" :key="d.id" class="defect-tag" :style="{ borderColor: colorFor(d.type) }">
+                  <span class="dot" :style="{ background: colorFor(d.type) }"></span>
                   {{ d.type }} ({{ Math.round(d.confidence * 100) }}%)
                 </span>
                 <span v-if="!img.defects.length" class="clean-tag">{{ t('qc.noDefects') }}</span>

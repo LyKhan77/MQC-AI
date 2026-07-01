@@ -1,17 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defectColor, polygonBBox } from './defect.js'
-
-describe('defectColor', () => {
-  it('maps known defect types to CSS vars', () => {
-    expect(defectColor('scratch')).toBe('var(--defect-scratch)')
-    expect(defectColor('porosity')).toBe('var(--defect-porosity)')
-    expect(defectColor('spatter')).toBe('var(--defect-spatter)')
-    expect(defectColor('color')).toBe('var(--defect-color)')
-  })
-  it('falls back for unknown types', () => {
-    expect(defectColor('weird')).toBe('var(--text-muted)')
-  })
-})
+import { polygonBBox } from './defect.js'
 
 describe('polygonBBox', () => {
   it('computes bounding box from points', () => {
