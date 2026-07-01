@@ -11,6 +11,42 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - QC Studio Manual Defect Editing
+
+### Summary
+
+QC Studio now has a default view-only mode plus an opt-in edit mode for human-in-the-loop defect correction. Inspectors can draw manual defect polygons, delete false positives, and relabel defect classes without a schema migration or ML changes.
+
+### Added
+
+- `qc_server/app/routers/batches.py` - nested defect CRUD endpoints: `POST/PATCH/DELETE /api/batches/{batch_id}/images/{image_id}/defects[/{defect_id}]`.
+- `qc_server/app/schemas.py` - `DefectCreate` and `DefectPatch` request schemas.
+- `qc_server/tests/test_batches.py` - backend CRUD coverage for create/patch/delete status/count recompute and ownership 404s.
+- `qc_frontend/src/utils/canvasCoords.js` and `canvasCoords.test.js` - pure `toImageCoords()` helper for SVG pointer-to-image coordinate mapping.
+- `qc_frontend/src/api/batches.js` - `createDefect`, `updateDefect`, and `deleteDefect` API helpers with wrapper tests.
+- QC Studio edit-mode controls in `InspectionCanvas.vue` and `DefectPanel.vue`, backed by `useInspection()` local state updates and audit actions.
+
+### Changed
+
+- `qc_frontend/src/composables/useInspection.js` now persists edit mode in `localStorage` key `mqc-edit-mode` and exposes add/update/remove defect methods.
+- `InspectionCanvas.vue` supports polygon drawing with pan suspended while drawing, class picking from enabled defect classes, Esc cancel, click-to-select, and Delete/delete-button removal.
+- `DefectPanel.vue` shows delete and relabel controls only in edit mode; view-only mode remains read-only.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` include edit-mode labels and `DEFECT_ADDED` / `DEFECT_DELETED` / `DEFECT_RELABELED` audit labels.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend defect editing API | 2026-07-01 | Nested create/update/delete defect endpoints with image ownership checks and status/count recompute | Manual corrections persist in SQLite and update image status plus batch defect counts without changing reviewed state. |
+| QC Studio edit mode | 2026-07-01 | View-only default plus persisted edit mode, draw-to-add, delete, and relabel UI | Inspectors can correct SAM/mock results directly in QC Studio while normal review/export stays unchanged by default. |
+| Coordinate mapping | 2026-07-01 | Tested `toImageCoords()` using SVG rect math for zoom/pan-safe pointer mapping | Drawn polygon points are stored in image pixel coordinates. |
+| Verification | 2026-07-01 | Backend full suite, frontend full suite, and production build | Backend: 112 passed, 2 warnings. Frontend: 60 passed. Build succeeded. |
+
+### Notes
+
+- Phase 2 (SAM click-to-segment with point/box prompts) remains planned for a separate later branch.
+- Browser smoke is pending for reviewer: view-only default, toggle Edit, draw/add defect and pick class, delete, relabel, persistence after reload, and edit-mode persistence in localStorage.
+
 ## [Unreleased] - 2026-07-01 - Audit Report PDF Defect Crops
 
 ### Summary

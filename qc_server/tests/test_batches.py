@@ -116,6 +116,89 @@ def test_patch_image_reviewed(client, tmp_path):
     assert patched["reviewed"] is True
 
 
+def test_create_patch_delete_defect_updates_image_and_batch_counts(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit(client, folder, "Edit")
+    image = client.get(f"/api/batches/{batch_id}").json()["images"][0]
+
+    created = client.post(
+        f"/api/batches/{batch_id}/images/{image['id']}/defects",
+        json={
+            "type": "Porosity",
+            "category": "welding",
+            "polygon": [[1, 2], [10, 2], [10, 9]],
+        },
+    )
+    assert created.status_code == 201
+    defect = created.json()
+    assert defect["type"] == "Porosity"
+    assert defect["confidence"] == 1.0
+
+    result = client.get(f"/api/batches/{batch_id}").json()
+    edited = next(i for i in result["images"] if i["id"] == image["id"])
+    assert edited["status"] == "defect"
+    assert len(edited["defects"]) == 1
+    row = next(b for b in client.get("/api/batches").json() if b["id"] == batch_id)
+    assert row["defect_count"] == 1
+
+    patched = client.patch(
+        f"/api/batches/{batch_id}/images/{image['id']}/defects/{defect['id']}",
+        json={
+            "type": "Scratch",
+            "category": "coating",
+            "polygon": [[3, 4], [12, 4], [12, 11]],
+        },
+    )
+    assert patched.status_code == 200
+    assert patched.json()["type"] == "Scratch"
+    assert patched.json()["category"] == "coating"
+    assert patched.json()["polygon"] == [[3, 4], [12, 4], [12, 11]]
+
+    deleted = client.delete(
+        f"/api/batches/{batch_id}/images/{image['id']}/defects/{defect['id']}"
+    )
+    assert deleted.status_code == 200
+    assert deleted.json() == {"deleted": defect["id"]}
+    result = client.get(f"/api/batches/{batch_id}").json()
+    edited = next(i for i in result["images"] if i["id"] == image["id"])
+    assert edited["status"] == "clean"
+    assert edited["defects"] == []
+    row = next(b for b in client.get("/api/batches").json() if b["id"] == batch_id)
+    assert row["defect_count"] == 0
+
+
+def test_defect_mutation_ownership_404s(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit(client, folder, "Edit 404")
+    image = client.get(f"/api/batches/{batch_id}").json()["images"][0]
+    defect = client.post(
+        f"/api/batches/{batch_id}/images/{image['id']}/defects",
+        json={
+            "type": "Porosity",
+            "category": "welding",
+            "polygon": [[1, 2], [10, 2], [10, 9]],
+        },
+    ).json()
+
+    payload = {"type": "Scratch", "category": "coating", "polygon": [[1, 1], [2, 1], [2, 2]]}
+    assert client.post("/api/batches/nope/images/nope/defects", json=payload).status_code == 404
+    assert client.patch(
+        f"/api/batches/nope/images/{image['id']}/defects/{defect['id']}",
+        json={"type": "Scratch"},
+    ).status_code == 404
+    assert client.patch(
+        f"/api/batches/{batch_id}/images/nope/defects/{defect['id']}",
+        json={"type": "Scratch"},
+    ).status_code == 404
+    assert client.patch(
+        f"/api/batches/{batch_id}/images/{image['id']}/defects/nope",
+        json={"type": "Scratch"},
+    ).status_code == 404
+    assert client.delete(
+        f"/api/batches/{batch_id}/images/nope/defects/{defect['id']}"
+    ).status_code == 404
+
+
 def test_delete_image_removes_row_and_file(client, tmp_path):
     folder = _make_crops(str(tmp_path / "crops"))
     batch_id = _submit(client, folder, "Del")
