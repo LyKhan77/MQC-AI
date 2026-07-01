@@ -21,6 +21,8 @@ from ..schemas import (
     DefectPatch,
     ImageOut,
     ImagePatch,
+    SegmentRequest,
+    SegmentResponse,
 )
 from ..services import job_queue
 from ..services.pipeline import prepare_images, run_batch
@@ -250,6 +252,36 @@ def delete_defect(batch_id: str, image_id: str, defect_id: str,
     _recompute_defects(db, batch_id, image)
     db.commit()
     return {"deleted": defect_id}
+
+
+@router.post("/{batch_id}/images/{image_id}/segment", response_model=SegmentResponse)
+def segment_image(batch_id: str, image_id: str, payload: SegmentRequest,
+                  db: Session = Depends(get_db)):
+    image = _batch_image(db, batch_id, image_id)
+    has_point = payload.point is not None
+    has_box = payload.box is not None
+    if has_point == has_box:
+        raise HTTPException(400, "provide point or box")
+    if has_point and len(payload.point) != 2:
+        raise HTTPException(400, "point must be [x,y]")
+    if has_box and len(payload.box) != 4:
+        raise HTTPException(400, "box must be [x1,y1,x2,y2]")
+
+    setting = get_or_create_setting(db)
+    if not setting.qc_model:
+        raise HTTPException(409, "model not configured")
+    model_path = os.path.join(app_settings.models_dir, setting.qc_model)
+    batch = db.get(Batch, batch_id)
+    image_path = os.path.join(batch.source_path, image.filename)
+    from ..services.inference import sam_interactive
+
+    try:
+        polygon = sam_interactive.segment(
+            image_path, image.width, image.height, payload.point, payload.box, model_path
+        )
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    return SegmentResponse(polygon=polygon)
 
 
 @router.delete("/{batch_id}/images/{image_id}")

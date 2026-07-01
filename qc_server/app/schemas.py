@@ -133,6 +133,15 @@ class DefectPatch(BaseModel):
     polygon: list | None = None
 
 
+class SegmentRequest(BaseModel):
+    point: list[float] | None = None
+    box: list[float] | None = None
+
+
+class SegmentResponse(BaseModel):
+    polygon: list
+
+
 class ImageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

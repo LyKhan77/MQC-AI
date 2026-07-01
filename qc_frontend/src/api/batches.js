@@ -56,6 +56,10 @@ export function createDefect(batchId, imageId, payload) {
   return apiPost(`/batches/${batchId}/images/${imageId}/defects`, payload)
 }
 
+export function segmentDefect(batchId, imageId, payload) {
+  return apiPost(`/batches/${batchId}/images/${imageId}/segment`, payload)
+}
+
 export function updateDefect(batchId, imageId, defectId, patch) {
   return apiPatch(`/batches/${batchId}/images/${imageId}/defects/${defectId}`, patch)
 }
