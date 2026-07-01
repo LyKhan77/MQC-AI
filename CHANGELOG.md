@@ -11,6 +11,34 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-01 - QC Studio Edit Dock Cancel and Labels
+
+### Summary
+
+QC Studio edit mode now has an icon-and-label tool dock plus a universal Cancel/Esc path for manual draw, SAM point/box, in-progress SAM boxes, and pending class selection.
+
+### Added
+
+- `qc_frontend/src/components/__tests__/InspectionCanvas.test.js` - component coverage for visible dock labels, SAM Cancel visibility, Esc reset, class-picker Cancel, and ignored stale SAM responses after Cancel.
+
+### Changed
+
+- `qc_frontend/src/components/InspectionCanvas.vue` - replaced text glyph dock controls with inline SVG icon + label buttons for Select, Draw, SAM point, SAM box, and Delete; SAM icons share a sparkle accent.
+- `qc_frontend/src/components/InspectionCanvas.vue` - added `cancelActive()` and routed Esc/dock/class-picker Cancel through it so drawing, SAM tools, class picking, and in-flight SAM requests exit cleanly.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - shortened edit dock labels to `Draw` / `Gambar` and `Delete` / `Hapus`.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| QC Studio edit dock | 2026-07-01 | Inline SVG icons with visible labels for edit-mode tools | Inspectors can identify Select, Draw, SAM point, SAM box, and Delete without relying on glyph abbreviations. |
+| QC Studio cancellation | 2026-07-01 | Universal `cancelActive()` plus stale SAM response guard | Esc or Cancel exits manual draw, SAM point/box, SAM box drag, pending class selection, and cancelled SAM requests without saving stale polygons. |
+| Verification | 2026-07-01 | Focused component tests, full frontend suite, and production build | Focused red: 3 expected failures against glyph-only/cancel-limited dock. Focused green: 4 passed. Full frontend: 70 passed. Build succeeded. |
+
+### Notes
+
+- Browser smoke is pending for reviewer: Esc/Cancel from manual draw, SAM point, SAM box, SAM box drag, and class picker; dock legibility; SAM sparkle recognition; and Phase 1/2 edit regression checks.
+
 ## [Unreleased] - 2026-07-01 - QC Studio SAM Click-to-Segment
 
 ### Summary
