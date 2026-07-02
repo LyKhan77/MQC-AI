@@ -27,10 +27,10 @@ const nav = [
   {
     key: 'quantity',
     labelKey: 'nav.quantity',
-    icon: 'M4 7h16M4 12h16M4 17h10 M7 4v3 M12 4v3 M17 4v3',
+    icon: 'M6 4v16M14 4v16M4 9h16M4 15h16',
     children: [
-      { name: 'quantity', icon: 'M4 7h16M4 12h16M4 17h10', labelKey: 'nav.quantityDetection' },
-      { name: 'quantity-history', icon: 'M3 5h18M3 12h18M3 19h12', labelKey: 'nav.quantityHistory' },
+      { name: 'quantity', icon: 'M4 5h6v6H4z M14 5h6v6h-6z M4 15h6v6H4z', labelKey: 'nav.quantityDetection' },
+      { name: 'quantity-history', icon: 'M12 8v4l3 2 M21 12a9 9 0 1 1-9-9', labelKey: 'nav.quantityHistory' },
     ],
   },
   {

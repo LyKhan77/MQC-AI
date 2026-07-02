@@ -212,8 +212,24 @@ async function confirmDeleteClass() {
         </div>
         <div class="config-grid">
           <div class="form-row">
+            <label>{{ t('settings.activeModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
+              <option value="">{{ t('settings.noModelSelected') }}</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
+          </div>
+          <div class="form-row">
             <label>{{ t('settings.objectDetectionConfidence') }}</label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.qcModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.qcModel" class="text-input">
+              <option value="">{{ t('settings.noModelSelected') }}</option>
+              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-row">
             <label>{{ t('settings.qcConfidence') }}</label>
@@ -227,16 +243,8 @@ async function confirmDeleteClass() {
             </select>
           </div>
           <div class="form-row">
-            <label>{{ t('settings.activeModel') }}</label>
-            <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
-              <option value="">{{ t('settings.noModelSelected') }}</option>
-              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
-            </select>
-            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
-          </div>
-          <div class="form-row">
-            <label>{{ t('settings.qcModel') }}</label>
-            <select v-if="availableModels.length" v-model="settings.qcModel" class="text-input">
+            <label>{{ t('settings.quantityModel') }}</label>
+            <select v-if="availableModels.length" v-model="settings.quantityModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
             </select>
@@ -245,14 +253,6 @@ async function confirmDeleteClass() {
           <div class="form-row">
             <label>{{ t('settings.quantityConfidence') }}</label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityConfidenceThreshold" class="text-input" />
-          </div>
-          <div class="form-row">
-            <label>{{ t('settings.quantityModel') }}</label>
-            <select v-if="availableModels.length" v-model="settings.quantityModel" class="text-input">
-              <option value="">{{ t('settings.noModelSelected') }}</option>
-              <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
-            </select>
-            <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>
