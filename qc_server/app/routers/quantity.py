@@ -71,7 +71,29 @@ def serve_quantity_crop(p1: str, p2: str, filename: str):
 
 @router.post("/checks", response_model=QuantityCheckOut, status_code=201)
 def create_check(payload: QuantityCheckIn, db: Session = Depends(get_db)):
-    check = QuantityCheck(id=gen_id("qty"), created_at=now_iso(), **payload.model_dump())
+    check_id = gen_id("qty")
+    data = payload.model_dump()
+    inputs = data.pop("inputs", []) or []
+    q_base = os.path.join(app_settings.data_dir, "quantity")
+    persisted = []
+    for idx, inp in enumerate(inputs):
+        crop_key = inp.pop("crop_key", None)
+        files = inp.get("crops", []) or []
+        if crop_key and files:
+            dest = os.path.join(q_base, check_id, str(idx))
+            os.makedirs(dest, exist_ok=True)
+            src_dir = os.path.join(q_base, "_tmp", crop_key)
+            urls = []
+            for f in files:
+                name = os.path.basename(f)
+                src = os.path.join(src_dir, name)
+                if os.path.isfile(src):
+                    shutil.move(src, os.path.join(dest, name))
+                    urls.append(f"/api/quantity/crops/{check_id}/{idx}/{name}")
+            shutil.rmtree(src_dir, ignore_errors=True)
+            inp["crops"] = urls
+        persisted.append(inp)
+    check = QuantityCheck(id=check_id, created_at=now_iso(), inputs=persisted, **data)
     db.add(check)
     db.commit()
     db.refresh(check)
@@ -98,4 +120,5 @@ def delete_check(check_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "not found")
     db.delete(check)
     db.commit()
+    shutil.rmtree(os.path.join(app_settings.data_dir, "quantity", check_id), ignore_errors=True)
     return {"deleted": check_id}
