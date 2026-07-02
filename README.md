@@ -10,7 +10,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
 
 | Component | Status | Description |
 |---|---|---|
-| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 7 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Auto presence-cycle crop results, shared Send-to-QC crop approval gate, pending raw QC images, image delete, QC Studio view/edit defect correction with icon-labeled floating edit tools, universal Cancel/Esc, SAM point/box assisted annotation, and linked row/polygon selection, re-run/reset controls, Settings object/QC model and confidence split, Settings defect-class management/colors, production Media Detection Test/Process upload page with multi-image image mode |
+| `qc_frontend/` | **Active** | Vue 3 dashboard dengan 7 halaman, Carbon Design System, i18n bilingual, live `qc_server` API integration, Auto/Manual Live Monitor, annotated MJPEG detection feed/count/FPS, Auto presence-cycle crop results, shared Send-to-QC crop approval gate, pending raw QC images, image delete, QC Studio view/edit defect correction with icon-labeled floating edit tools, universal Cancel/Esc, SAM point/box assisted annotation, selected-defect vertex reshape, and linked row/polygon selection, re-run/reset controls, Settings object/QC model and confidence split, Settings defect-class management/colors, production Media Detection Test/Process upload page with multi-image image mode |
 | `qc_server/` | **Active (M0-M3 + streaming slices 1-3 + Auto/Manual redesign + Auto presence-cycle crop + Media Detection crop-to-QC + raw pending batches + manual defect CRUD + interactive SAM + re-run/reset + defect-class management + SAM3 prompt)** | FastAPI + SQLite backend untuk async batch **defect** segmentation, raw image rows at submit, image row/file delete, nested manual defect CRUD, SAM point/box segmentation endpoint, batch re-run/reset, comprehensive idempotent defect-class seed/API, `mock` and real `sam3_prompt` defect strategies, CRUD metadata APIs, RTSP/USB camera streaming, annotated MJPEG detection/counting/FPS, one-shot capture, Auto presence-cycle best-frame lossless PNG crops with padding, per-camera/media crop sessions, crop approval endpoints, sample image/video test endpoints, multi-image media crop-to-QC endpoints, real camera status monitor |
 | `edge_app/` | Planned (after server) | Jetson Nano + TensorRT/`supervision` untuk **deteksi & penghitungan objek produk** + count-approval gate + live streaming |
 
@@ -24,7 +24,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
     OR [Media Detection] Stage upload(s) -> Run Test preview / Process uploaded media to crop review
     → [QC Studio: pending RAW image list/canvas + optional image delete]
     → [qc_server: async defect segmentation (mock or SAM3 prompt), polling]
-    → [QC Studio: View-only review/export OR Edit mode floating tools + row/polygon selection + SAM point/box or manual add/delete/relabel + zoom/pan + mark reviewed + optional re-run/reset]
+    → [QC Studio: View-only review/export OR Edit mode floating tools + row/polygon selection + SAM point/box or manual add/delete/reshape/relabel + zoom/pan + mark reviewed + optional re-run/reset]
     → [Export: Crop/Full PNG + PDF Audit Report with annotated defect crops]
     → [Audit Log: auto-trails all actions]
 ```
@@ -47,7 +47,9 @@ Detail: [`docs/workflow.md`](./docs/workflow.md) | [`docs/PRD.md`](./docs/PRD.md
 >
 > **QC Studio Manual Defect Editing:** QC Studio defaults to view-only mode for browsing, review, and export. Inspectors can opt into persisted **Edit mode** (`localStorage` key `mqc-edit-mode`) to draw manual defect polygons, choose an enabled defect class, delete false positives, or relabel defects. The backend stores these through nested `POST/PATCH/DELETE /api/batches/{id}/images/{image_id}/defects[/{defect_id}]`, recomputing image status and batch defect counts without changing `image.reviewed`. Manual draw remains the fallback annotation path.
 
-> **QC Studio Edit-Mode UX:** Edit mode now uses floating canvas controls: a left icon-labeled Select/Draw/SAM point/SAM box/Delete dock, a top-right annotation/review/View|Edit cluster, and a bottom-right zoom cluster. Universal Cancel/Esc exits manual drawing, SAM tools, SAM box drags, and pending class selection. Defect row and polygon selection are bidirectional in View and Edit modes, selected polygons/rows get stronger active styling, cursors reflect draw/SAM/pan/select state, and V/A/Delete/Esc/+/-/0 shortcuts cover common actions while ignoring form fields.
+> **QC Studio Edit-Mode UX:** Edit mode now uses floating canvas controls: a left icon-labeled Select/Draw/SAM point/SAM box/Reshape/Delete dock, a top-right annotation/review/View|Edit cluster, and a bottom-right zoom cluster. Universal Cancel/Esc exits manual drawing, SAM tools, SAM box drags, reshape drags, and pending class selection. Defect row and polygon selection are bidirectional in View and Edit modes, selected polygons/rows get stronger active styling, cursors reflect draw/SAM/reshape/pan/select state, and V/A/Delete/Esc/+/-/0 shortcuts cover common actions while ignoring form fields.
+>
+> **QC Studio Vertex Reshape:** Edit mode includes a Reshape tool for selected defects. It renders SVG handles on every polygon vertex, updates the boundary live while dragging, ignores press-without-move nudges, reverts the active vertex on Esc, and persists only `{ polygon }` through the existing defect PATCH endpoint.
 >
 > **QC Studio SAM Click-to-Segment:** Edit mode includes SAM point and SAM box tools. `POST /api/batches/{id}/images/{image_id}/segment` runs the configured `qc_model` with a point or `bboxes=` prompt, chooses the highest-confidence mask, simplifies it, and returns a polygon. The frontend feeds that polygon into the existing class picker and saves through the same manual defect POST endpoint. Real point/box quality and latency smoke are deferred to the GPU reviewer.
 >
@@ -80,7 +82,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 | Route | Page | Description |
 |---|---|---|
 | `/live` | **Live Monitor** | Camera selector (RaspyCam/RTSP/USB), Start Camera raw preview, Auto annotated MJPEG detection with presence-cycle best-frame crop, Manual capture, live object count/FPS, real online/offline status, Send to QC crop approval dialog |
-| `/qc` | **QC Studio** | 3-column inspection: pending raw image list/canvas, per-image delete, view-only default, persisted edit mode with icon-labeled floating Select/Draw/SAM point/SAM box/Delete tools and universal Cancel/Esc, bidirectional row/polygon selection, cursor-aware draw/SAM/select/pan states, SAM-assisted or manual polygon add/delete/relabel, re-run/reset controls, batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
+| `/qc` | **QC Studio** | 3-column inspection: pending raw image list/canvas, per-image delete, view-only default, persisted edit mode with icon-labeled floating Select/Draw/SAM point/SAM box/Reshape/Delete tools and universal Cancel/Esc, bidirectional row/polygon selection, cursor-aware draw/SAM/reshape/select/pan states, SAM-assisted or manual polygon add/delete/reshape/relabel, re-run/reset controls, batch sidebar (filter/search) + canvas (zoom/pan) + defect panel (keyboard nav, review workflow) |
 | `/batches` | **Batch History** | Searchable table of all processed batches, filter by status, delete with confirmation |
 | `/media-detection` | **Media Detection** | Always-visible production upload page with drag/drop staging, multiple-image image mode, explicit Run trigger, Test preview, and Process-to-QC crop export for images/videos |
 | `/reports` | **Reports** | PDF audit report generator with summary, grouped annotated defect crops, approval fields |
@@ -95,7 +97,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 - **Batch History delete**: batches can be deleted from the dashboard after a confirmation modal via `DELETE /api/batches/{id}`
 - **Pending raw QC batches**: submitted batches pre-create raw image rows so QC Studio shows the image list and canvas before segmentation
 - **QC Studio image delete**: bad crops can be removed from a batch and from disk via per-image delete before/after loading
-- **QC Studio manual + SAM defect editing**: view-only by default; edit mode enables icon-labeled floating Select/Draw/SAM point/SAM box/Delete tools, universal Cancel/Esc, bidirectional row/polygon selection, SAM-assisted or manual polygon defects, false-positive delete, class relabel, and cursor/keyboard support with audit trail
+- **QC Studio manual + SAM defect editing**: view-only by default; edit mode enables icon-labeled floating Select/Draw/SAM point/SAM box/Reshape/Delete tools, universal Cancel/Esc, bidirectional row/polygon selection, SAM-assisted or manual polygon defects, vertex reshape, false-positive delete, class relabel, and cursor/keyboard support with audit trail
 - **QC Studio re-run/reset**: finished batches can be re-segmented or reset to pending/raw while clearing stale reviewed marks
 - **Review workflow**: mark/unmark reviewed per image, progress bar, keyboard navigation
 - **Zoom/Pan canvas**: mouse wheel zoom (50%-500%), drag to pan, annotation toggle
@@ -199,6 +201,7 @@ Rencana implementasi disimpan di `docs/superpowers/plans/` (gitignored):
 - `2026-07-01-qc-defect-editing.md` - QC Studio view/edit mode with manual defect add/delete/relabel
 - `2026-07-01-qc-edit-ux.md` - QC Studio floating edit tools, linked defect selection, cursor helper, drawing hint, and shortcuts
 - `2026-07-01-qc-sam-segment.md` - QC Studio SAM point/box assisted annotation backed by an interactive segment endpoint
+- `2026-07-02-qc-vertex-reshape.md` - QC Studio Reshape tool for dragging selected defect polygon vertices
 
 ---
 *Dokumen ini harus selalu diperbarui setiap kali ada penambahan fitur utama atau perubahan arsitektur. Lihat protocol di `AGENTS.md` > Documentation Maintenance.*

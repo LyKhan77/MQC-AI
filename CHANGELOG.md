@@ -11,6 +11,31 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - QC Studio Vertex Reshape Tool
+
+### Summary
+
+QC Studio Edit mode now includes a Reshape tool for fine-tuning existing defect boundaries by dragging individual polygon vertices. The change is frontend-only and reuses the existing defect PATCH path.
+
+### Added
+
+- `qc_frontend/src/components/InspectionCanvas.vue` - added a Reshape dock tool, draggable SVG vertex handles for the selected defect, live polygon working-copy updates during drag, Esc revert while dragging, movement-threshold guard against accidental nudges, and `DEFECT_RESHAPED` audit logging after a saved drag.
+- `qc_frontend/src/components/__tests__/InspectionCanvas.test.js` - added component coverage for the sixth dock tool, handle rendering, save-on-drop, no-op press guard, and Esc revert.
+- `qc_frontend/src/utils/cursor.js` and `cursor.test.js` - added `overHandle` / `reshaping` cursor states for grab/grabbing feedback.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added Reshape tool/hint strings and `DEFECT_RESHAPED` audit labels.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| QC Studio edit dock | 2026-07-02 | Reshape tool beside Select/Draw/SAM point/SAM box/Delete | Inspectors can select an existing defect and drag polygon vertices without adding/deleting points or changing label/confidence. |
+| Defect polygon persistence | 2026-07-02 | Frontend calls existing `updateDefect(imageId, defectId, { polygon })` on committed drop | Reshaped boundaries persist through the existing PATCH endpoint; no backend/schema/dependency change. |
+| Verification | 2026-07-02 | Focused red/green cursor and canvas tests, full frontend suite, production build | Cursor red: 1 expected failure; canvas red: 5 expected failures. Green: `npm run test` 76 passed; `npm run build` succeeded. |
+
+### Notes
+
+- Browser smoke checklist remains part of final handoff: handles appear, drag persists after reload, press-without-move does not save, Esc mid-drag reverts, grab/grabbing cursor feedback, and no regressions in Select/Draw/SAM point/SAM box/Delete/relabel/Cancel-Esc.
+
 ## [Unreleased] - 2026-07-02 - Config Storage Path Anchoring
 
 ### Summary
