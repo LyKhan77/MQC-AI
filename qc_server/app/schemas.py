@@ -64,6 +64,14 @@ class SettingUpdate(BaseModel):
     input_mode_enabled: bool | None = None
 
 
+class QuantityDetectOut(BaseModel):
+    total: int
+    per_class: dict
+    detections: list
+    width: int
+    height: int
+
+
 class AuditLogIn(BaseModel):
     user: str
     action: str

@@ -38,6 +38,14 @@ def resolve_model_path(setting):
     return path if os.path.isfile(path) else None
 
 
+def resolve_named_model_path(name):
+    name = name or ""
+    if not name:
+        return None
+    path = os.path.join(settings.models_dir, name)
+    return path if os.path.isfile(path) else None
+
+
 def get_model(model_path):
     global _model, _model_path
     if _model is None or _model_path != model_path:
