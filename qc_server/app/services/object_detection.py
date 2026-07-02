@@ -56,10 +56,13 @@ def get_model(model_path):
     return _model
 
 
-def detect(frame, conf_threshold, model_path):
+def detect(frame, conf_threshold, model_path, iou=None, agnostic_nms=False):
     # Smoke-verified on the GPU server. Unit tests avoid ML deps.
     model = get_model(model_path)
-    results = model(frame, conf=conf_threshold, verbose=False)[0]
+    kwargs = {"conf": conf_threshold, "verbose": False, "agnostic_nms": agnostic_nms}
+    if iou is not None:
+        kwargs["iou"] = iou
+    results = model(frame, **kwargs)[0]
     boxes = results.boxes
     if boxes is None:
         return []

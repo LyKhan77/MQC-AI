@@ -31,7 +31,13 @@ async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depe
     frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise HTTPException(400, "invalid image")
-    detections = detect(frame, setting.quantity_confidence_threshold, model_path)
+    detections = detect(
+        frame,
+        setting.quantity_confidence_threshold,
+        model_path,
+        iou=setting.quantity_nms_iou,
+        agnostic_nms=setting.quantity_agnostic_nms,
+    )
     h, w = frame.shape[:2]
     crop_key = gen_id("qtmp")
     tmp_dir = os.path.join(app_settings.data_dir, "quantity", "_tmp", crop_key)

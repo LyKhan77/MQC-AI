@@ -39,6 +39,8 @@ class Setting(Base):
     qc_confidence_threshold: Mapped[float] = mapped_column(Float, default=0.5)
     quantity_model: Mapped[str] = mapped_column(String, default="")
     quantity_confidence_threshold: Mapped[float] = mapped_column(Float, default=0.5)
+    quantity_nms_iou: Mapped[float] = mapped_column(Float, default=0.45)
+    quantity_agnostic_nms: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class AuditLog(Base):

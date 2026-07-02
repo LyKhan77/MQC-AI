@@ -48,6 +48,8 @@ class SettingOut(BaseModel):
     qc_confidence_threshold: float
     quantity_model: str
     quantity_confidence_threshold: float
+    quantity_nms_iou: float
+    quantity_agnostic_nms: bool
     input_mode_enabled: bool
 
 
@@ -61,6 +63,8 @@ class SettingUpdate(BaseModel):
     qc_confidence_threshold: float | None = None
     quantity_model: str | None = None
     quantity_confidence_threshold: float | None = None
+    quantity_nms_iou: float | None = None
+    quantity_agnostic_nms: bool | None = None
     input_mode_enabled: bool | None = None
 
 

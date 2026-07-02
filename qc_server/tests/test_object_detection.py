@@ -36,7 +36,7 @@ class _Model:
     def __init__(self):
         self.conf = None
 
-    def __call__(self, frame, conf, verbose):
+    def __call__(self, frame, conf, verbose, **kwargs):
         self.conf = conf
         return [_Result()]
 
@@ -49,3 +49,23 @@ def test_detect_passes_conf_and_parses_ultralytics_boxes(monkeypatch):
 
     assert model.conf == 0.1
     assert detections == [object_detection.Detection(1, 2, 10, 20, "pcb", 0.1234)]
+
+
+def test_detect_forwards_nms_params(monkeypatch):
+    captured = {}
+
+    class _Results:
+        boxes = None
+        names = {}
+
+    def fake_model(frame, **kwargs):
+        captured.update(kwargs)
+        return [_Results()]
+
+    monkeypatch.setattr(object_detection, "get_model", lambda _: fake_model)
+    out = object_detection.detect("frame", 0.5, "m.pt", iou=0.45, agnostic_nms=True)
+
+    assert out == []
+    assert captured["conf"] == 0.5
+    assert captured["iou"] == 0.45
+    assert captured["agnostic_nms"] is True

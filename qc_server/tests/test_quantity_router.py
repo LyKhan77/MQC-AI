@@ -17,17 +17,24 @@ def _quantity_router():
 
 def test_detect_image_returns_counts(client, monkeypatch):
     q = _quantity_router()
+    captured = {}
     monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
-    monkeypatch.setattr(
-        q, "detect",
-        lambda frame, conf, mp: [
+
+    def fake_detect(frame, conf, mp, **kwargs):
+        captured.update(kwargs)
+        return [
             Detection(0, 0, 5, 5, "bolt", 0.9),
             Detection(1, 1, 6, 6, "bolt", 0.8),
             Detection(2, 2, 7, 7, "nut", 0.7),
-        ],
-    )
+        ]
+
+    monkeypatch.setattr(q, "detect", fake_detect)
     # ensure a quantity model is set so the endpoint proceeds
-    client.put("/api/settings", json={"quantity_model": "m.pt"})
+    client.put("/api/settings", json={
+        "quantity_model": "m.pt",
+        "quantity_nms_iou": 0.4,
+        "quantity_agnostic_nms": False,
+    })
     resp = client.post("/api/quantity/detect/image",
                        files={"file": ("a.png", _png_bytes(), "image/png")})
     assert resp.status_code == 200
@@ -36,12 +43,17 @@ def test_detect_image_returns_counts(client, monkeypatch):
     assert body["per_class"] == {"bolt": 2, "nut": 1}
     assert len(body["detections"]) == 3
     assert body["width"] == 10 and body["height"] == 10
+    assert captured == {"iou": 0.4, "agnostic_nms": False}
 
 
 def test_detect_image_writes_crops_and_serves(client, monkeypatch):
     q = _quantity_router()
     monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
-    monkeypatch.setattr(q, "detect", lambda frame, conf, mp: [Detection(1, 1, 8, 8, "bolt", 0.9)])
+    monkeypatch.setattr(
+        q,
+        "detect",
+        lambda frame, conf, mp, **kwargs: [Detection(1, 1, 8, 8, "bolt", 0.9)],
+    )
     client.put("/api/settings", json={"quantity_model": "m.pt"})
     resp = client.post(
         "/api/quantity/detect/image",
