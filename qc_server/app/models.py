@@ -89,3 +89,22 @@ class Defect(Base):
     confidence: Mapped[float] = mapped_column(Float)
     polygon: Mapped[list] = mapped_column(JSON)
     image: Mapped["Image"] = relationship(back_populates="defects")
+
+
+class QuantityCheck(Base):
+    __tablename__ = "quantity_checks"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[str] = mapped_column(String)
+    source_type: Mapped[str] = mapped_column(String, default="image")
+    count_mode: Mapped[str] = mapped_column(String, default="static")
+    input_summary: Mapped[str] = mapped_column(String, default="")
+    model_used: Mapped[str] = mapped_column(String, default="")
+    confidence_used: Mapped[float] = mapped_column(Float, default=0.5)
+    total_count: Mapped[int] = mapped_column(Integer, default=0)
+    per_class_counts: Mapped[dict] = mapped_column(JSON, default=dict)
+    expected_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expected_per_class: Mapped[dict] = mapped_column(JSON, default=dict)
+    tolerance: Mapped[int] = mapped_column(Integer, default=0)
+    verdict: Mapped[str] = mapped_column(String, default="none")
+    reviewer: Mapped[str] = mapped_column(String, default="")
+    notes: Mapped[str] = mapped_column(String, default="")

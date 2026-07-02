@@ -179,3 +179,38 @@ class BatchPatch(BaseModel):
 
 class ImagePatch(BaseModel):
     reviewed: bool
+
+
+class QuantityCheckIn(BaseModel):
+    source_type: str = "image"
+    count_mode: str = "static"
+    input_summary: str = ""
+    model_used: str = ""
+    confidence_used: float = 0.5
+    total_count: int
+    per_class_counts: dict = {}
+    expected_total: int | None = None
+    expected_per_class: dict = {}
+    tolerance: int = 0
+    verdict: str = "none"
+    reviewer: str = ""
+    notes: str = ""
+
+
+class QuantityCheckOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    created_at: str
+    source_type: str
+    count_mode: str
+    input_summary: str
+    model_used: str
+    confidence_used: float
+    total_count: int
+    per_class_counts: dict
+    expected_total: int | None
+    expected_per_class: dict
+    tolerance: int
+    verdict: str
+    reviewer: str
+    notes: str
