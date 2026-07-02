@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { listQuantityChecks } from '../api/quantity.js'
+import { deleteQuantityCheck, listQuantityChecks } from '../api/quantity.js'
 
 const checks = ref([])
 
@@ -11,6 +11,11 @@ async function refresh() {
   }
 }
 
+async function remove(id) {
+  await deleteQuantityCheck(id)
+  checks.value = checks.value.filter((c) => c.id !== id)
+}
+
 export function useQuantityHistory() {
-  return { checks, refresh }
+  return { checks, refresh, remove }
 }

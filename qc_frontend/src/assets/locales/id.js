@@ -250,6 +250,11 @@ export default {
     colDate: 'Tanggal',
     colModel: 'Model',
     colVerdict: 'Status',
+    inspect: 'Periksa',
+    inspectTitle: 'Detail Pemeriksaan Kuantitas',
+    colImage: 'Gambar',
+    deleteTitle: 'Hapus Pemeriksaan',
+    confirmDelete: 'Hapus pemeriksaan',
     noChecks: 'Belum ada pemeriksaan tersimpan.',
   },
 

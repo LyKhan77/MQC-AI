@@ -243,6 +243,11 @@ export default {
     colDate: 'Date',
     colModel: 'Model',
     colVerdict: 'Verdict',
+    inspect: 'Inspect',
+    inspectTitle: 'Quantity Check Detail',
+    colImage: 'Image',
+    deleteTitle: 'Delete Check',
+    confirmDelete: 'Delete check',
     noChecks: 'No saved checks.',
   },
 
