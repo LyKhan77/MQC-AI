@@ -46,6 +46,8 @@ class SettingOut(BaseModel):
     active_model: str
     qc_model: str
     qc_confidence_threshold: float
+    quantity_model: str
+    quantity_confidence_threshold: float
     input_mode_enabled: bool
 
 
@@ -57,6 +59,8 @@ class SettingUpdate(BaseModel):
     active_model: str | None = None
     qc_model: str | None = None
     qc_confidence_threshold: float | None = None
+    quantity_model: str | None = None
+    quantity_confidence_threshold: float | None = None
     input_mode_enabled: bool | None = None
 
 

@@ -37,6 +37,8 @@ class Setting(Base):
     input_mode_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     qc_model: Mapped[str] = mapped_column(String, default="")
     qc_confidence_threshold: Mapped[float] = mapped_column(Float, default=0.5)
+    quantity_model: Mapped[str] = mapped_column(String, default="")
+    quantity_confidence_threshold: Mapped[float] = mapped_column(Float, default=0.5)
 
 
 class AuditLog(Base):
