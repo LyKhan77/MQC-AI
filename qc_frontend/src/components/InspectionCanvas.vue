@@ -64,6 +64,19 @@ const selectedDefect = computed(() =>
 const reshapeActive = computed(() =>
   editMode.value && activeTool.value === 'reshape' && !!selectedDefectId.value && !!reshapePoints.value,
 )
+// Handles are drawn in image-pixel space, so a fixed radius would scale with zoom
+// and dwarf small defects. Convert a target on-screen size back to image units
+// using the live overlay scale so handles stay constant (and small) at any zoom.
+const HANDLE_SCREEN_RADIUS = 4 // visible handle radius, in on-screen px
+const layoutTick = ref(0)
+const handleRadius = computed(() => {
+  void zoom.value
+  void layoutTick.value
+  const rect = svgRef.value?.getBoundingClientRect()
+  if (!rect || !rect.width || !selected.value?.width) return HANDLE_SCREEN_RADIUS
+  return HANDLE_SCREEN_RADIUS * (selected.value.width / rect.width)
+})
+const hitRadius = computed(() => handleRadius.value * 2.2)
 const canvasCursor = computed(() => cursorForState({
   drawing: drawing.value || samActive.value,
   dragging: dragging.value,
@@ -425,8 +438,19 @@ watch(
   },
 )
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+function onResize() {
+  layoutTick.value += 1
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', onResize)
+  layoutTick.value += 1
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', onResize)
+})
 </script>
 
 <template>
@@ -582,7 +606,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               :key="`reshape-hit-${idx}`"
               :cx="p[0]"
               :cy="p[1]"
-              r="10"
+              :r="hitRadius"
               class="reshape-hit"
               @mousedown.stop="startReshapeDrag(idx, $event)"
               @click.stop
@@ -594,7 +618,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               :key="`reshape-handle-${idx}`"
               :cx="p[0]"
               :cy="p[1]"
-              r="5"
+              :r="handleRadius"
               class="reshape-handle"
               :class="{ active: reshapeDragIndex === idx }"
             />
