@@ -81,6 +81,83 @@ function formatDate(iso) {
 </template>
 
 <style scoped>
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.text-input {
+  padding: 8px 12px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  border-bottom: 2px solid var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  letter-spacing: 0.16px;
+}
+.text-input:focus {
+  border-bottom-color: var(--color-primary);
+}
+.btn-sm {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 4px;
+  letter-spacing: 0.16px;
+}
+.btn-sm:hover {
+  background: var(--color-surface-1);
+}
+.table-wrap {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.data-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+}
+.data-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-hairline);
+  color: var(--color-ink);
+}
+.data-table tbody tr:hover {
+  background: var(--color-surface-1);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+}
+.empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--color-ink-subtle);
+  font-size: 14px;
+}
 .verdict-pass { background: var(--color-success); color: var(--color-on-primary); }
 .verdict-fail { background: var(--color-error); color: var(--color-on-primary); }
 .mono { font-family: var(--font-mono); }
