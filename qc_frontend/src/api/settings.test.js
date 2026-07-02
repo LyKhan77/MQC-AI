@@ -74,4 +74,15 @@ describe('settings api', () => {
       body: JSON.stringify({ qc_confidence_threshold: 0.35 }),
     })
   })
+
+  it('maps quantity model + confidence both directions', async () => {
+    const f = ok({ quantity_model: 'count.pt', quantity_confidence_threshold: 0.6 })
+    vi.stubGlobal('fetch', f)
+    await updateSettings({ quantityModel: 'count.pt', quantityConfidenceThreshold: '0.6' })
+    expect(f).toHaveBeenCalledWith('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity_model: 'count.pt', quantity_confidence_threshold: 0.6 }),
+    })
+  })
 })

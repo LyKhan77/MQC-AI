@@ -9,6 +9,8 @@ const settings = ref({
   defectStrategy: 'mock',
   activeModel: '',
   inputModeEnabled: true,
+  quantityModel: '',
+  quantityConfidenceThreshold: 0.5,
 })
 
 async function refresh() {
