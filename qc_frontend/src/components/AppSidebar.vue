@@ -25,6 +25,15 @@ const nav = [
     ],
   },
   {
+    key: 'quantity',
+    labelKey: 'nav.quantity',
+    icon: 'M4 7h16M4 12h16M4 17h10 M7 4v3 M12 4v3 M17 4v3',
+    children: [
+      { name: 'quantity', icon: 'M4 7h16M4 12h16M4 17h10', labelKey: 'nav.quantityDetection' },
+      { name: 'quantity-history', icon: 'M3 5h18M3 12h18M3 19h12', labelKey: 'nav.quantityHistory' },
+    ],
+  },
+  {
     key: 'quality',
     labelKey: 'nav.qualityControl',
     icon: 'M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7z M9 12l2 2 4-4',

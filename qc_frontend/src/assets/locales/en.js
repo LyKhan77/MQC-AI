@@ -15,6 +15,9 @@ export default {
     inference: 'Inference',
     qualityControl: 'Quality Control',
     records: 'Records',
+    quantity: 'Quantity',
+    quantityDetection: 'Quantity Detection',
+    quantityHistory: 'Quantity History',
   },
 
   topbar: {
@@ -205,6 +208,26 @@ export default {
     count: 'Count',
   },
 
+  quantity: {
+    title: 'Quantity Detection',
+    subtitle: 'Count items and verify against an expected quantity',
+    noModel: 'No Quantity Detection model set. Choose one in Settings.',
+    addImages: 'Add images',
+    expectedTotal: 'Expected total',
+    tolerance: 'Tolerance +/-',
+    reset: 'Reset',
+    running: 'Detecting...',
+    total: 'Total',
+    class: 'Class',
+    count: 'Count',
+    pass: 'Pass',
+    fail: 'Fail',
+    save: 'Save result',
+    saved: 'Saved',
+    removeInput: 'Remove',
+    imagesUnit: 'images',
+  },
+
   reports: {
     title: 'Audit Reports',
     subtitle: 'Generate PDF reports for audit trail',
@@ -259,6 +282,7 @@ export default {
       CAMERA_EDITED: 'Camera Edited',
       CAMERA_DELETED: 'Camera Deleted',
       SETTINGS_CHANGED: 'Settings Changed',
+      QUANTITY_CHECK: 'Quantity Check',
     },
   },
 

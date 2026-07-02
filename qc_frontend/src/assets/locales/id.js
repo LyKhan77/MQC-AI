@@ -17,6 +17,9 @@ export default {
     inference: 'Inferensi',
     qualityControl: 'Kontrol Kualitas',
     records: 'Catatan',
+    quantity: 'Kuantitas',
+    quantityDetection: 'Deteksi Kuantitas',
+    quantityHistory: 'Riwayat Kuantitas',
   },
 
   // Top bar
@@ -212,6 +215,26 @@ export default {
     count: 'Jumlah',
   },
 
+  quantity: {
+    title: 'Deteksi Kuantitas',
+    subtitle: 'Hitung item dan verifikasi terhadap jumlah yang diharapkan',
+    noModel: 'Belum ada model Deteksi Kuantitas. Pilih di Settings.',
+    addImages: 'Tambah gambar',
+    expectedTotal: 'Total diharapkan',
+    tolerance: 'Toleransi +/-',
+    reset: 'Reset',
+    running: 'Mendeteksi...',
+    total: 'Total',
+    class: 'Kelas',
+    count: 'Jumlah',
+    pass: 'Lulus',
+    fail: 'Gagal',
+    save: 'Simpan hasil',
+    saved: 'Tersimpan',
+    removeInput: 'Hapus',
+    imagesUnit: 'gambar',
+  },
+
   // Reports
   reports: {
     title: 'Laporan Audit',
@@ -268,6 +291,7 @@ export default {
       CAMERA_EDITED: 'Kamera Diedit',
       CAMERA_DELETED: 'Kamera Dihapus',
       SETTINGS_CHANGED: 'Setting Diubah',
+      QUANTITY_CHECK: 'Pemeriksaan Kuantitas',
     },
   },
 

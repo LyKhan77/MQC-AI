@@ -6,6 +6,7 @@ import Reports from '../views/Reports.vue'
 import AuditLog from '../views/AuditLog.vue'
 import Settings from '../views/Settings.vue'
 import MediaDetection from '../views/MediaDetection.vue'
+import QuantityDetection from '../views/QuantityDetection.vue'
 
 const routes = [
   { path: '/', redirect: '/live' },
@@ -13,6 +14,7 @@ const routes = [
   { path: '/qc', name: 'qc', component: QCStudio },
   { path: '/batches', name: 'batches', component: BatchHistory },
   { path: '/media-detection', name: 'media', component: MediaDetection },
+  { path: '/quantity', name: 'quantity', component: QuantityDetection },
   { path: '/reports', name: 'reports', component: Reports },
   { path: '/audit', name: 'audit', component: AuditLog },
   { path: '/settings', name: 'settings', component: Settings },
