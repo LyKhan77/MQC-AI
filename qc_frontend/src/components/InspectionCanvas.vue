@@ -257,6 +257,12 @@ async function handleOverlayClick(e) {
     await requestSegment({ point: [p.x, p.y] }, 'SAM point')
     return
   }
+  // Click on empty canvas (polygon/handle clicks are stopped) clears the current
+  // defect selection when no sub-mode owns the click. Reshape handles vanish with it.
+  if (!drawing.value && !pickingClass.value && !samActive.value && selectedDefectId.value) {
+    clearDefectSelection()
+    return
+  }
   addPoint(e)
 }
 

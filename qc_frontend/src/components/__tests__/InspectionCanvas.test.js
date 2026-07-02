@@ -250,4 +250,14 @@ describe('InspectionCanvas vertex reshaping', () => {
     expect(mocks.updateDefect).not.toHaveBeenCalled()
     expect(wrapper.findAll('.reshape-handle')[0].attributes('cx')).toBe('10')
   })
+
+  it('clears the defect selection when clicking empty canvas', async () => {
+    const wrapper = mount(InspectionCanvas)
+    const overlay = wrapper.get('svg.overlay')
+    overlay.element.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 })
+
+    await overlay.trigger('click', { clientX: 80, clientY: 80 })
+
+    expect(mocks.clearDefectSelection).toHaveBeenCalled()
+  })
 })
