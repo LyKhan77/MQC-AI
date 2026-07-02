@@ -11,6 +11,43 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - Quantity Detection (Phase 1: Image)
+
+### Summary
+
+New standalone Quantity Detection feature: count items in uploaded images using a dedicated Quantity Detection model, verify against an expected total with a pass/fail tolerance, accumulate counts across a session, and save retrievable records with CSV export. Adds a dedicated "Quantity" sidebar group (Quantity Detection + Quantity History) and a new Quantity Detection model slot in Settings, grouped with the existing Object Detection / QC-Segmentation model selectors under a "Models" heading.
+
+### Added
+
+- `qc_server/app/models.py`, `schemas.py`, `main.py` - `Setting.quantity_model` + `quantity_confidence_threshold` columns via `ensure_column` startup migration; `QuantityCheck` table (created via `create_all`).
+- `qc_server/app/services/object_detection.py` - `resolve_named_model_path(name)` sibling to `resolve_model_path`.
+- `qc_server/app/services/quantity.py` - `per_class_counts(detections)`.
+- `qc_server/app/routers/quantity.py` - `POST /api/quantity/detect/image` (reuses `detect()`/`serialize_detections()` with the quantity model; 409 if not configured) and `POST/GET/GET-by-id /api/quantity/checks` save/list/detail endpoints.
+- `qc_frontend/src/utils/quantity.js` - pure `perClassFromDetections`, `addCounts`, `totalOf`, `computeVerdict`, `checksToCsv`.
+- `qc_frontend/src/api/quantity.js` + `qc_frontend/src/composables/useQuantityHistory.js` - detect/create/list API wrapper and a singleton history composable.
+- `qc_frontend/src/views/QuantityDetection.vue` - multi-image upload, session accumulation of cumulative total + per-class counts, expected-total + tolerance verdict badge, Save (persists the check + logs `QUANTITY_CHECK` via `useAuditLog()`).
+- `qc_frontend/src/views/QuantityHistory.vue` - search/filter saved records + CSV export via `downloadBlob`.
+- `qc_frontend/src/components/AppSidebar.vue`, `router/index.js` - new `Quantity` sidebar group and `/quantity` + `/quantity/history` routes.
+- `qc_frontend/src/views/Settings.vue`, `api/settings.js`, `composables/useSettings.js` - grouped "Models" section (Object Detection / QC-Segmentation / Quantity Detection), each with its own confidence field.
+- `qc_frontend/src/assets/locales/en.js` + `id.js` - nav, settings, `quantity.*`, and `audit.actions.QUANTITY_CHECK` strings.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend quantity settings + detection | 2026-07-02 | `quantity_model`/`quantity_confidence_threshold` settings fields, `/api/quantity/detect/image` reusing the existing YOLO `detect()` | Any image can be counted with a dedicated Quantity Detection model, separate from Object Detection/QC models. |
+| Backend quantity check persistence | 2026-07-02 | `QuantityCheck` table + save/list/detail endpoints | Count sessions with expected/actual/verdict can be saved and retrieved for audit history. |
+| Frontend Quantity Detection page | 2026-07-02 | Session accumulation (cumulative total + per-class), expected total + tolerance -> Pass/Fail badge, Save -> QuantityHistory + `QUANTITY_CHECK` audit log | Inspectors can count multiple images in one session and verify against an expected quantity. |
+| Frontend Quantity History page | 2026-07-02 | Search/filter saved checks + CSV export | Saved quantity checks are retrievable and exportable for QC records. |
+| Settings Models grouping | 2026-07-02 | Object Detection / QC-Segmentation / Quantity Detection model selectors grouped under one "Models" heading, each with its own confidence | Model configuration reads as one coherent section instead of scattered fields. |
+| Verification | 2026-07-02 | Backend + frontend full suites, production build | Backend: 121 passed. Frontend: 89 passed (19 files). Build succeeded. |
+
+### Notes
+
+- Phase 1 scope is image input only. Video/camera + Snapshot/Over-time toggle are Phase 2 (the data model already carries `source_type`/`count_mode` for that); per-class expected targets are supported by `computeVerdict()` but the Phase 1 UI only exposes expected TOTAL + tolerance.
+- Built via subagent-driven-development on branch `feat/quantity-detection-p1` (not merged to main). Two review-driven fixes were applied during implementation: object-URL revoke on remove/reset in `QuantityDetection.vue` (memory-leak parity with `MediaDetection.vue`), and missing Carbon-token CSS for `.filter-bar`/`.text-input`/`.btn-sm`/`.data-table`/`.status-pill`/`.empty-state`/`.table-wrap`/`.btn-danger-sm` in both new views (copied from `BatchHistory.vue`/`Settings.vue`).
+- Browser smoke is pending final handoff: requires a real detection `.pt` model configured as the Quantity Detection model in Settings to actually count in the browser.
+
 ## [Unreleased] - 2026-07-02 - QC Studio Vertex Reshape Tool
 
 ### Summary
