@@ -233,6 +233,16 @@ export default {
     saved: 'Tersimpan',
     removeInput: 'Hapus',
     imagesUnit: 'gambar',
+    historyTitle: 'Riwayat Kuantitas',
+    historySubtitle: 'Hasil hitung tersimpan',
+    searchPlaceholder: 'Cari pemeriksaan...',
+    filterAll: 'Semua',
+    exportCsv: 'Ekspor CSV',
+    colId: 'ID',
+    colDate: 'Tanggal',
+    colModel: 'Model',
+    colVerdict: 'Status',
+    noChecks: 'Belum ada pemeriksaan tersimpan.',
   },
 
   // Reports

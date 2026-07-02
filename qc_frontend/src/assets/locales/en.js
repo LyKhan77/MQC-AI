@@ -226,6 +226,16 @@ export default {
     saved: 'Saved',
     removeInput: 'Remove',
     imagesUnit: 'images',
+    historyTitle: 'Quantity History',
+    historySubtitle: 'Saved count results',
+    searchPlaceholder: 'Search checks...',
+    filterAll: 'All',
+    exportCsv: 'Export CSV',
+    colId: 'ID',
+    colDate: 'Date',
+    colModel: 'Model',
+    colVerdict: 'Verdict',
+    noChecks: 'No saved checks.',
   },
 
   reports: {
