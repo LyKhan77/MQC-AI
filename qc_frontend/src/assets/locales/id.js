@@ -142,6 +142,7 @@ export default {
     toolSamPoint: 'SAM titik',
     toolSamBox: 'SAM kotak',
     toolDelete: 'Hapus',
+    toolReshape: 'Ubah Bentuk',
     editMode: 'Mode edit',
     viewOnly: 'Hanya lihat',
     addDefect: 'Tambah cacat',
@@ -154,6 +155,7 @@ export default {
     samHintPoint: 'Klik cacat untuk segmentasi otomatis.',
     samHintBox: 'Tarik kotak di sekitar cacat.',
     samEmpty: 'Bentuk tidak ditemukan - coba lagi.',
+    reshapeHint: 'Seret titik untuk mengubah bentuk.',
     needThreePoints: 'Gambar minimal 3 titik.',
   },
 
@@ -258,6 +260,7 @@ export default {
       DEFECT_ADDED: 'Cacat Ditambah',
       DEFECT_DELETED: 'Cacat Dihapus',
       DEFECT_RELABELED: 'Kelas Cacat Diganti',
+      DEFECT_RESHAPED: 'Bentuk Cacat Diubah',
       EXPORT_CROP: 'Export Crop',
       EXPORT_FULL: 'Export Full',
       REPORT_GENERATED: 'Laporan Dibuat',

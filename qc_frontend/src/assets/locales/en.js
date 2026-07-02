@@ -136,6 +136,7 @@ export default {
     toolSamPoint: 'SAM point',
     toolSamBox: 'SAM box',
     toolDelete: 'Delete',
+    toolReshape: 'Reshape',
     editMode: 'Edit mode',
     viewOnly: 'View-only',
     addDefect: 'Add defect',
@@ -148,6 +149,7 @@ export default {
     samHintPoint: 'Click a defect to auto-segment.',
     samHintBox: 'Drag a box around a defect.',
     samEmpty: 'No shape found - try again.',
+    reshapeHint: 'Drag a point to reshape.',
     needThreePoints: 'Draw at least 3 points.',
   },
 
@@ -249,6 +251,7 @@ export default {
       DEFECT_ADDED: 'Defect Added',
       DEFECT_DELETED: 'Defect Deleted',
       DEFECT_RELABELED: 'Defect Relabeled',
+      DEFECT_RESHAPED: 'Defect Reshaped',
       EXPORT_CROP: 'Export Crop',
       EXPORT_FULL: 'Export Full',
       REPORT_GENERATED: 'Report Generated',
