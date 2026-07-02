@@ -11,6 +11,28 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - Config Storage Path Anchoring
+
+### Summary
+
+`qc_server` storage path defaults (`data_dir`, `models_dir`, `database_url`) are now anchored to the `qc_server/` package directory instead of the process current working directory, preventing stray empty `data/`/`models/` folders and a duplicate empty SQLite DB from appearing at the repo root when the server is launched from elsewhere.
+
+### Fixed
+
+- `qc_server/app/config.py` - added `BASE_DIR = Path(__file__).resolve().parent.parent` and anchored `data_dir`, `models_dir`, and `database_url` defaults to it (`.as_posix()` for the sqlite URL); `MQC_DATA_DIR`/`MQC_MODELS_DIR`/`MQC_DATABASE_URL` env overrides still take precedence via `pydantic-settings`.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Config storage paths | 2026-07-02 | `BASE_DIR`-anchored defaults for `data_dir`, `models_dir`, `database_url` | Storage paths always resolve under `qc_server/` regardless of launch directory; env overrides unaffected. |
+| Verification | 2026-07-02 | Path resolution from `qc_server/` and from repo root, env override check, full backend suite, real-DB integrity check | Both launch locations resolve to `qc_server/data` and `qc_server/models`; no stray root folder created; env override wins; 117 passed, 2 warnings (same count as before); existing `qc_server/data/mqc.db` (2 batches) resolved unchanged. |
+
+### Notes
+
+- Repo root checked for stray `data/`, `models/`, or `data/mqc.db` after the fix: none found — no cleanup needed.
+- Scope limited to `qc_server/app/config.py` per plan; no data migration, router, or frontend changes.
+
 ## [Unreleased] - 2026-07-01 - QC Studio Edit Dock Cancel and Labels
 
 ### Summary
