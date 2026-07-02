@@ -11,6 +11,8 @@ const settings = ref({
   inputModeEnabled: true,
   quantityModel: '',
   quantityConfidenceThreshold: 0.5,
+  quantityNmsIou: 0.45,
+  quantityAgnosticNms: true,
 })
 
 async function refresh() {

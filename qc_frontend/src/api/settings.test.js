@@ -85,4 +85,15 @@ describe('settings api', () => {
       body: JSON.stringify({ quantity_model: 'count.pt', quantity_confidence_threshold: 0.6 }),
     })
   })
+
+  it('maps quantity NMS iou + agnostic both directions', async () => {
+    const f = ok({ quantity_nms_iou: 0.4, quantity_agnostic_nms: false })
+    vi.stubGlobal('fetch', f)
+    await updateSettings({ quantityNmsIou: '0.4', quantityAgnosticNms: false })
+    expect(f).toHaveBeenCalledWith('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity_nms_iou: 0.4, quantity_agnostic_nms: false }),
+    })
+  })
 })

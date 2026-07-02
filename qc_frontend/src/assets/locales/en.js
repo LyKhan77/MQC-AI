@@ -339,6 +339,8 @@ export default {
     qcModel: 'QC / Segmentation Model',
     quantityModel: 'Quantity Detection Model',
     quantityConfidence: 'Quantity Detection Confidence',
+    quantityNmsIou: 'Quantity NMS IoU (overlap)',
+    quantityMergeOverlap: 'Merge overlapping detections (class-agnostic)',
     noModelSelected: '-- select a model --',
     noModels: 'No models found. Drop a .pt file into qc_server/models/.',
     preferences: 'Preferences',

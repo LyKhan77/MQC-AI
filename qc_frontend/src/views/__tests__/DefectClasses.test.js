@@ -117,7 +117,7 @@ describe('Settings defect classes', () => {
     expect(wrapper.text()).toContain('defectClasses.welding')
     expect(wrapper.text()).toContain('1 / 1 defectClasses.on')
 
-    await wrapper.findAll('input[type="checkbox"]')[0].trigger('change')
+    await wrapper.findAll('.dc-check input[type="checkbox"]')[0].trigger('change')
     expect(mocks.toggle).toHaveBeenCalledWith(expect.objectContaining({ id: 'dc-scratch' }))
   })
 

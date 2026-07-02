@@ -349,6 +349,8 @@ export default {
     qcModel: 'Model QC / Segmentasi',
     quantityModel: 'Model Deteksi Kuantitas',
     quantityConfidence: 'Confidence Deteksi Kuantitas',
+    quantityNmsIou: 'NMS IoU Kuantitas (tumpang tindih)',
+    quantityMergeOverlap: 'Gabungkan deteksi yang tumpang tindih (lintas kelas)',
     noModelSelected: '-- pilih model --',
     noModels: 'Tidak ada model. Taruh file .pt di qc_server/models/.',
     preferences: 'Preferensi',

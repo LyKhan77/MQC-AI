@@ -94,6 +94,8 @@ async function saveSettings() {
     qcModel: settings.value.qcModel,
     quantityModel: settings.value.quantityModel,
     quantityConfidenceThreshold: Number(settings.value.quantityConfidenceThreshold),
+    quantityNmsIou: Number(settings.value.quantityNmsIou),
+    quantityAgnosticNms: settings.value.quantityAgnosticNms,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
   showToast(t('settings.saved'))
@@ -254,6 +256,16 @@ async function confirmDeleteClass() {
             <label>{{ t('settings.quantityConfidence') }}</label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityConfidenceThreshold" class="text-input" />
           </div>
+          <div class="form-row">
+            <label>{{ t('settings.quantityNmsIou') }}</label>
+            <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityNmsIou" class="text-input" />
+          </div>
+          <div class="form-row">
+            <label class="check-label">
+              <input type="checkbox" v-model="settings.quantityAgnosticNms" />
+              {{ t('settings.quantityMergeOverlap') }}
+            </label>
+          </div>
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>
           </div>
@@ -404,6 +416,13 @@ async function confirmDeleteClass() {
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-ink);
 }
 .form-hint {
   margin: 0;
