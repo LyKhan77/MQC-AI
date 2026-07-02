@@ -76,21 +76,30 @@ def create_check(payload: QuantityCheckIn, db: Session = Depends(get_db)):
     inputs = data.pop("inputs", []) or []
     q_base = os.path.join(app_settings.data_dir, "quantity")
     persisted = []
+    tmp_base = Path(q_base, "_tmp").resolve()
     for idx, inp in enumerate(inputs):
         crop_key = inp.pop("crop_key", None)
         files = inp.get("crops", []) or []
-        if crop_key and files:
+        # Contain the source dir strictly within _tmp so a crafted crop_key cannot
+        # traverse outside and move arbitrary files (path-traversal guard).
+        src_dir = Path(tmp_base, crop_key or "").resolve()
+        contained = False
+        try:
+            src_dir.relative_to(tmp_base)
+            contained = src_dir != tmp_base
+        except ValueError:
+            contained = False
+        if crop_key and files and contained and src_dir.is_dir():
             dest = os.path.join(q_base, check_id, str(idx))
             os.makedirs(dest, exist_ok=True)
-            src_dir = os.path.join(q_base, "_tmp", crop_key)
             urls = []
             for f in files:
                 name = os.path.basename(f)
-                src = os.path.join(src_dir, name)
+                src = os.path.join(str(src_dir), name)
                 if os.path.isfile(src):
                     shutil.move(src, os.path.join(dest, name))
                     urls.append(f"/api/quantity/crops/{check_id}/{idx}/{name}")
-            shutil.rmtree(src_dir, ignore_errors=True)
+            shutil.rmtree(str(src_dir), ignore_errors=True)
             inp["crops"] = urls
         persisted.append(inp)
     check = QuantityCheck(id=check_id, created_at=now_iso(), inputs=persisted, **data)

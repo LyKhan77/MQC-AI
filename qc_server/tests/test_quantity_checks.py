@@ -93,3 +93,27 @@ def test_save_persists_crops_and_delete_removes(client):
 
     assert client.delete(f"/api/quantity/checks/{cid}").status_code == 200
     assert not os.path.isdir(os.path.join(app_settings.data_dir, "quantity", cid))
+
+
+def test_save_rejects_crop_key_traversal(client):
+    # A file outside the _tmp tree must never be moved via a crafted crop_key.
+    secret = os.path.join(app_settings.data_dir, "secret.txt")
+    with open(secret, "wb") as f:
+        f.write(b"top-secret")
+    payload = {
+        "total_count": 1,
+        "per_class_counts": {"a": 1},
+        "verdict": "none",
+        "inputs": [
+            {
+                "name": "a.png",
+                "total": 1,
+                "per_class": {"a": 1},
+                "crop_key": "../..",
+                "crops": ["secret.txt"],
+            }
+        ],
+    }
+    created = client.post("/api/quantity/checks", json=payload)
+    assert created.status_code == 201
+    assert os.path.isfile(secret)  # traversal rejected; file not moved
