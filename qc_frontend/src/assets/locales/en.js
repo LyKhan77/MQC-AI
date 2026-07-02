@@ -248,6 +248,7 @@ export default {
     colImage: 'Image',
     deleteTitle: 'Delete Check',
     confirmDelete: 'Delete check',
+    noCrops: 'No crops saved.',
     noChecks: 'No saved checks.',
   },
 

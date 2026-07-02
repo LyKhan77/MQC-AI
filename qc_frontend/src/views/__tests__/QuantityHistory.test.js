@@ -12,7 +12,31 @@ vi.mock('../../composables/useQuantityHistory.js', async () => {
   return {
     useQuantityHistory: () => ({
       checks: ref([
-        { id: 'qty-1', created_at: '2026-07-02T10:00:00', source_type: 'image', model_used: 'm.pt', total_count: 5, expected_total: 5, tolerance: 0, verdict: 'pass', per_class_counts: { a: 5 }, inputs: [{ name: 'a.png', total: 5, per_class: { a: 5 } }] },
+        {
+          id: 'qty-1',
+          created_at: '2026-07-02T10:00:00',
+          source_type: 'image',
+          model_used: 'm.pt',
+          total_count: 5,
+          expected_total: 5,
+          tolerance: 0,
+          verdict: 'pass',
+          per_class_counts: { a: 5 },
+          inputs: [
+            {
+              name: 'a.png',
+              total: 3,
+              per_class: { a: 3 },
+              crops: ['/api/quantity/crops/qty-1/0/obj_000.png', '/api/quantity/crops/qty-1/0/obj_001.png'],
+            },
+            {
+              name: 'b.png',
+              total: 2,
+              per_class: { a: 2 },
+              crops: ['/api/quantity/crops/qty-1/1/obj_000.png'],
+            },
+          ],
+        },
       ]),
       refresh: mocks.refresh,
       remove: mocks.remove,
@@ -44,7 +68,15 @@ describe('QuantityHistory', () => {
     await flushPromises()
     await wrapper.findAll('button').find((b) => b.text().includes('quantity.inspect')).trigger('click')
     expect(wrapper.find('.dialog').exists()).toBe(true)
-    expect(wrapper.find('.dialog').text()).toContain('a.png')
+    expect(wrapper.find('.dialog').text()).toContain('m.pt')
+    expect(wrapper.find('.dialog').text()).toContain('5')
+  })
+
+  it('inspect shows a combined gallery of all crops', async () => {
+    const wrapper = mount(QuantityHistory)
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('quantity.inspect')).trigger('click')
+    expect(wrapper.findAll('.gallery-crop')).toHaveLength(3)
   })
 
   it('confirms then deletes a check', async () => {

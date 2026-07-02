@@ -255,6 +255,7 @@ export default {
     colImage: 'Gambar',
     deleteTitle: 'Hapus Pemeriksaan',
     confirmDelete: 'Hapus pemeriksaan',
+    noCrops: 'Tidak ada crop tersimpan.',
     noChecks: 'Belum ada pemeriksaan tersimpan.',
   },
 

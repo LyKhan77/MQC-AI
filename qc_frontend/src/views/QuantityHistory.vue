@@ -15,6 +15,9 @@ const verdictFilter = ref('')
 const inspecting = ref(null)
 const pendingDelete = ref(null)
 const deleteError = ref('')
+const inspectCrops = computed(() =>
+  (inspecting.value?.inputs || []).flatMap((i) => i.crops || []),
+)
 
 const filtered = computed(() => {
   let result = checks.value
@@ -113,12 +116,10 @@ function formatDate(iso) {
           <span>{{ t('quantity.expectedTotal') }}</span><span>{{ inspecting.expected_total ?? '-' }} +/- {{ inspecting.tolerance }}</span>
           <span>{{ t('quantity.colVerdict') }}</span><span>{{ inspecting.verdict }}</span>
         </div>
-        <table class="data-table">
-          <thead><tr><th>{{ t('quantity.colImage') }}</th><th>{{ t('quantity.total') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="(inp, i) in (inspecting.inputs || [])" :key="i"><td>{{ inp.name }}</td><td class="mono">{{ inp.total }}</td></tr>
-          </tbody>
-        </table>
+        <div class="gallery" v-if="inspectCrops.length">
+          <img v-for="(u, i) in inspectCrops" :key="i" :src="u" class="gallery-crop" :alt="`crop ${i + 1}`" />
+        </div>
+        <p v-else class="empty-state">{{ t('quantity.noCrops') }}</p>
         <div class="dialog-actions">
           <button class="btn-sm" @click="inspecting = null">{{ t('common.close') }}</button>
         </div>
@@ -229,6 +230,8 @@ function formatDate(iso) {
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
 .detail-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin-bottom: 12px; font-size: 13px; }
+.gallery { display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow: auto; }
+.gallery-crop { width: 96px; height: 80px; object-fit: contain; border: 1px solid var(--color-hairline); background: var(--color-surface-1); }
 .status-line.error { color: var(--color-error); }
 .mono { font-family: var(--font-mono); }
 </style>
