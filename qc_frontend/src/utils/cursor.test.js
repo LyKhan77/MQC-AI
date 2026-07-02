@@ -17,4 +17,12 @@ describe('cursorForState', () => {
   it('uses grab as the default pannable state', () => {
     expect(cursorForState({ drawing: false, dragging: false, editMode: true, overDefect: false })).toBe('grab')
   })
+
+  it('uses grabbing while reshaping a vertex', () => {
+    expect(cursorForState({ reshaping: true, overHandle: true })).toBe('grabbing')
+  })
+
+  it('uses grab when hovering a reshape handle', () => {
+    expect(cursorForState({ overHandle: true })).toBe('grab')
+  })
 })
