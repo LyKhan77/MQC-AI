@@ -104,6 +104,7 @@ class QuantityCheck(Base):
     per_class_counts: Mapped[dict] = mapped_column(JSON, default=dict)
     expected_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     expected_per_class: Mapped[dict] = mapped_column(JSON, default=dict)
+    inputs: Mapped[list] = mapped_column(JSON, default=list)
     tolerance: Mapped[int] = mapped_column(Integer, default=0)
     verdict: Mapped[str] = mapped_column(String, default="none")
     reviewer: Mapped[str] = mapped_column(String, default="")

@@ -55,3 +55,13 @@ def get_check(check_id: str, db: Session = Depends(get_db)):
     if not check:
         raise HTTPException(404, "not found")
     return check
+
+
+@router.delete("/checks/{check_id}")
+def delete_check(check_id: str, db: Session = Depends(get_db)):
+    check = db.get(QuantityCheck, check_id)
+    if not check:
+        raise HTTPException(404, "not found")
+    db.delete(check)
+    db.commit()
+    return {"deleted": check_id}

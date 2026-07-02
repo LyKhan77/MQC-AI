@@ -191,6 +191,7 @@ class QuantityCheckIn(BaseModel):
     per_class_counts: dict = {}
     expected_total: int | None = None
     expected_per_class: dict = {}
+    inputs: list = []
     tolerance: int = 0
     verdict: str = "none"
     reviewer: str = ""
@@ -210,6 +211,7 @@ class QuantityCheckOut(BaseModel):
     per_class_counts: dict
     expected_total: int | None
     expected_per_class: dict
+    inputs: list
     tolerance: int
     verdict: str
     reviewer: str

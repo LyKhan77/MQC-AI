@@ -40,6 +40,7 @@ def on_startup():
     ensure_column(engine, "settings", "qc_confidence_threshold", "FLOAT DEFAULT 0.5")
     ensure_column(engine, "settings", "quantity_model", "VARCHAR DEFAULT ''")
     ensure_column(engine, "settings", "quantity_confidence_threshold", "FLOAT DEFAULT 0.5")
+    ensure_column(engine, "quantity_checks", "inputs", "JSON DEFAULT '[]'")
     db = SessionLocal()
     try:
         seed_if_empty(db)
