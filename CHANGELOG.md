@@ -11,6 +11,37 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - Quantity NMS Tuning
+
+### Summary
+
+Quantity Detection can now reduce duplicate counts from overlapping YOLO boxes by tuning NMS per scene. The backend forwards Quantity-only IoU/class-agnostic NMS settings into `detect()`, and Settings exposes the controls beside the Quantity Detection model.
+
+### Added
+
+- `qc_server/app/services/object_detection.py` - `detect()` accepts optional `iou` and `agnostic_nms` arguments and forwards them to the Ultralytics call while preserving current defaults for existing callers.
+- `qc_server/app/models.py`, `schemas.py`, `main.py`, and `routers/quantity.py` - added `quantity_nms_iou` (default `0.45`) and `quantity_agnostic_nms` (default `True`) settings with guarded SQLite startup migration; `/api/quantity/detect/image` passes them to the detector.
+- `qc_frontend/src/api/settings.js`, `useSettings.js`, and `Settings.vue` - mapped `quantityNmsIou` / `quantityAgnosticNms`, added defaults, and added Settings controls for Quantity NMS IoU plus class-agnostic merge.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added the new Settings labels.
+
+### Changed
+
+- `qc_server/tests/test_object_detection.py`, `test_settings_quantity.py`, and `test_quantity_router.py` - added coverage for NMS argument forwarding, settings round-trip, and endpoint use of stored quantity NMS settings.
+- `qc_frontend/src/api/settings.test.js` and `views/__tests__/DefectClasses.test.js` - added settings mapper coverage and made the defect-class checkbox test target its own control after the new Settings checkbox.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend Quantity NMS | 2026-07-02 | Quantity-only `quantity_nms_iou` and `quantity_agnostic_nms` settings feed `detect(..., iou=, agnostic_nms=)` | Inspectors can lower overlap tolerance or merge cross-class overlaps without changing Live Monitor or Media Detection defaults. |
+| Frontend Settings | 2026-07-02 | Quantity NMS IoU number input and Merge overlapping detections checkbox in the Models section | Quantity duplicate-count tuning is available from the same place as the Quantity Detection model/confidence settings. |
+| Verification | 2026-07-02 | Backend and frontend red/green tests, full backend suite, full frontend suite, production build | Backend: 128 passed. Frontend: 93 passed (19 files). Build succeeded. |
+
+### Notes
+
+- This is pure NMS tuning, not tracking; no dependency was added.
+- Real duplicate reduction still needs browser smoke with a real detection `.pt` and a scene that previously double-counted.
+
 ## [Unreleased] - 2026-07-02 - Quantity Inference Display + Crop Evidence
 
 ### Summary
