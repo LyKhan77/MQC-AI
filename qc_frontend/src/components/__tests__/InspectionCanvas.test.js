@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   clearDefectSelection: vi.fn(),
   selectDefect: vi.fn(),
   addDefect: vi.fn(),
+  updateDefect: vi.fn(),
   removeDefect: vi.fn(),
   toggleReviewed: vi.fn(),
   toggleEditMode: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('../../composables/useInspection.js', async () => {
       selectDefect: mocks.selectDefect,
       clearDefectSelection: mocks.clearDefectSelection,
       addDefect: mocks.addDefect,
+      updateDefect: mocks.updateDefect,
       removeDefect: mocks.removeDefect,
     }),
   }
@@ -56,6 +58,7 @@ vi.mock('../../composables/useI18n.js', () => ({
       'qc.toolSamPoint': 'SAM point',
       'qc.toolSamBox': 'SAM box',
       'qc.toolDelete': 'Delete',
+      'qc.toolReshape': 'Reshape',
       'qc.finishDrawing': 'Finish',
       'qc.pickClass': 'Pick class',
       'qc.toggleAnnotation': 'Toggle Annotation',
@@ -75,6 +78,7 @@ vi.mock('../../composables/useI18n.js', () => ({
       'qc.drawHint': 'Click to add points, double-click to finish, Esc to cancel.',
       'qc.segmenting': 'Segmenting...',
       'qc.samEmpty': 'No shape found - try again.',
+      'qc.reshapeHint': 'Drag a point to reshape.',
       'qc.needThreePoints': 'Draw at least 3 points.',
       'qc.selectImage': 'Select an image from batch...',
       'common.cancel': 'Cancel',
@@ -119,8 +123,9 @@ describe('InspectionCanvas edit dock', () => {
     expect(dockText).toContain('Draw')
     expect(dockText).toContain('SAM point')
     expect(dockText).toContain('SAM box')
+    expect(dockText).toContain('Reshape')
     expect(dockText).toContain('Delete')
-    expect(wrapper.findAll('.tool-icon')).toHaveLength(5)
+    expect(wrapper.findAll('.tool-icon')).toHaveLength(6)
   })
 
   it('shows Cancel for an active SAM tool and Escape returns to Select', async () => {
@@ -172,5 +177,77 @@ describe('InspectionCanvas edit dock', () => {
 
     expect(wrapper.text()).not.toContain('Pick class')
     expect(wrapper.get('button[aria-label="Select"]').attributes('aria-pressed')).toBe('true')
+  })
+})
+
+describe('InspectionCanvas vertex reshaping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.selected.value.defects = [
+      { id: 'd-1', type: 'scratch', category: 'coating', confidence: 1, polygon: [[10, 10], [20, 10], [20, 20]] },
+    ]
+    mocks.state.selectedDefectId.value = 'd-1'
+  })
+
+  async function enterReshape(wrapper) {
+    await wrapper.get('button[aria-label="Reshape"]').trigger('click')
+    await nextTick()
+    const overlay = wrapper.get('svg.overlay')
+    overlay.element.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 })
+    return overlay
+  }
+
+  it('shows a handle per vertex when Reshape is active on a selected defect', async () => {
+    const wrapper = mount(InspectionCanvas)
+    await enterReshape(wrapper)
+    expect(wrapper.findAll('.reshape-handle')).toHaveLength(3)
+  })
+
+  it('commits a moved vertex on drop via updateDefect and logs the action', async () => {
+    const wrapper = mount(InspectionCanvas)
+    await enterReshape(wrapper)
+    const scroll = wrapper.get('.canvas-scroll')
+
+    await wrapper.findAll('.reshape-hit')[0].trigger('mousedown', { clientX: 10, clientY: 10 })
+    await scroll.trigger('mousemove', { clientX: 50, clientY: 60 })
+    await scroll.trigger('mouseup')
+    await flushPromises()
+
+    expect(mocks.updateDefect).toHaveBeenCalledTimes(1)
+    const [imageId, defectId, patch] = mocks.updateDefect.mock.calls[0]
+    expect(imageId).toBe('img-1')
+    expect(defectId).toBe('d-1')
+    expect(patch.polygon[0]).toEqual([50, 60])
+    expect(patch.polygon[1]).toEqual([20, 10])
+    expect(mocks.log).toHaveBeenCalledWith('DEFECT_RESHAPED', expect.stringContaining('d-1'))
+  })
+
+  it('does not commit when the press does not exceed the drag threshold', async () => {
+    const wrapper = mount(InspectionCanvas)
+    await enterReshape(wrapper)
+    const scroll = wrapper.get('.canvas-scroll')
+
+    await wrapper.findAll('.reshape-hit')[0].trigger('mousedown', { clientX: 10, clientY: 10 })
+    await scroll.trigger('mousemove', { clientX: 11, clientY: 11 })
+    await scroll.trigger('mouseup')
+    await flushPromises()
+
+    expect(mocks.updateDefect).not.toHaveBeenCalled()
+  })
+
+  it('reverts the dragged vertex on Escape without committing', async () => {
+    const wrapper = mount(InspectionCanvas)
+    await enterReshape(wrapper)
+    const scroll = wrapper.get('.canvas-scroll')
+
+    await wrapper.findAll('.reshape-hit')[0].trigger('mousedown', { clientX: 10, clientY: 10 })
+    await scroll.trigger('mousemove', { clientX: 50, clientY: 60 })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    await scroll.trigger('mouseup')
+    await flushPromises()
+
+    expect(mocks.updateDefect).not.toHaveBeenCalled()
+    expect(wrapper.findAll('.reshape-handle')[0].attributes('cx')).toBe('10')
   })
 })

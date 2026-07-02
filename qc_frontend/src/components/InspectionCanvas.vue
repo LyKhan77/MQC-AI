@@ -20,6 +20,7 @@ const {
   selectDefect,
   clearDefectSelection,
   addDefect,
+  updateDefect,
   removeDefect,
   currentBatchId,
 } = useInspection()
@@ -46,15 +47,30 @@ const samBoxStart = ref(null)
 const samBoxCurrent = ref(null)
 const pendingSource = ref('')
 const segmentRun = ref(0)
+const reshapePoints = ref(null)
+const reshapeDragIndex = ref(null)
+const reshapeDragOrigin = ref(null)
+const reshapeMoved = ref(false)
+const reshapePressClient = ref({ x: 0, y: 0 })
+const overHandle = ref(false)
+const RESHAPE_MOVE_THRESHOLD = 3
 
 const enabledClasses = computed(() => classes.value.filter((c) => c.enabled))
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
 const samActive = computed(() => activeTool.value === 'sam-point' || activeTool.value === 'sam-box')
+const selectedDefect = computed(() =>
+  selected.value?.defects.find((d) => d.id === selectedDefectId.value) ?? null,
+)
+const reshapeActive = computed(() =>
+  editMode.value && activeTool.value === 'reshape' && !!selectedDefectId.value && !!reshapePoints.value,
+)
 const canvasCursor = computed(() => cursorForState({
   drawing: drawing.value || samActive.value,
   dragging: dragging.value,
   editMode: editMode.value,
   overDefect: overDefect.value,
+  overHandle: overHandle.value,
+  reshaping: reshapeDragIndex.value !== null,
 }))
 const samBoxRect = computed(() => {
   if (!samBoxStart.value || !samBoxCurrent.value) return null
@@ -90,6 +106,23 @@ function onMouseDown(e) {
 }
 
 function onMouseMove(e) {
+  if (reshapeDragIndex.value !== null && selected.value && svgRef.value) {
+    const dx = e.clientX - reshapePressClient.value.x
+    const dy = e.clientY - reshapePressClient.value.y
+    if (!reshapeMoved.value && Math.hypot(dx, dy) <= RESHAPE_MOVE_THRESHOLD) return
+    reshapeMoved.value = true
+    const p = toImageCoords(
+      e.clientX,
+      e.clientY,
+      svgRef.value.getBoundingClientRect(),
+      selected.value.width,
+      selected.value.height,
+    )
+    const next = [...reshapePoints.value]
+    next[reshapeDragIndex.value] = [p.x, p.y]
+    reshapePoints.value = next
+    return
+  }
   if (samBoxStart.value && selected.value && svgRef.value) {
     samBoxCurrent.value = toImageCoords(
       e.clientX,
@@ -106,6 +139,10 @@ function onMouseMove(e) {
 }
 
 async function onMouseUp() {
+  if (reshapeDragIndex.value !== null) {
+    await finishReshapeDrag()
+    return
+  }
   if (samBoxStart.value) {
     await finishSamBox()
   }
@@ -154,6 +191,12 @@ function setSamTool(tool) {
   activeTool.value = tool
 }
 
+function setReshapeTool() {
+  if (!editMode.value || segmenting.value) return
+  cancelDrawing()
+  activeTool.value = 'reshape'
+}
+
 function setEditMode(next) {
   if (editMode.value === next) return
   if (!next) {
@@ -177,6 +220,14 @@ function cancelDrawing() {
 }
 
 function cancelActive() {
+  if (reshapeDragIndex.value !== null && reshapePoints.value) {
+    const next = [...reshapePoints.value]
+    next[reshapeDragIndex.value] = reshapeDragOrigin.value
+    reshapePoints.value = next
+    reshapeDragIndex.value = null
+    reshapeMoved.value = false
+    return
+  }
   if (segmenting.value) {
     segmentRun.value += 1
     segmenting.value = false
@@ -267,6 +318,31 @@ async function finishSamBox() {
   await requestSegment({ box }, 'SAM box')
 }
 
+function polyPointsFor(d) {
+  if (reshapeActive.value && d.id === selectedDefectId.value && reshapePoints.value) {
+    return pointsAttr(reshapePoints.value)
+  }
+  return pointsAttr(d.polygon)
+}
+
+function startReshapeDrag(idx, e) {
+  if (!reshapeActive.value || segmenting.value) return
+  reshapeDragIndex.value = idx
+  reshapeDragOrigin.value = [...reshapePoints.value[idx]]
+  reshapeMoved.value = false
+  reshapePressClient.value = { x: e.clientX, y: e.clientY }
+}
+
+async function finishReshapeDrag() {
+  const moved = reshapeMoved.value
+  reshapeDragIndex.value = null
+  reshapeMoved.value = false
+  if (!moved || !selected.value || !selectedDefectId.value || !reshapePoints.value) return
+  const polygon = reshapePoints.value.map((p) => [p[0], p[1]])
+  await updateDefect(selected.value.id, selectedDefectId.value, { polygon })
+  log('DEFECT_RESHAPED', `Reshaped defect: ${selectedDefectId.value}`)
+}
+
 async function chooseClass(cls) {
   if (!selected.value) return
   await addDefect(selected.value.id, {
@@ -330,6 +406,19 @@ watch(() => selected.value?.id, () => {
   cancelActive()
 })
 
+watch(
+  [activeTool, selectedDefectId, () => selected.value?.id],
+  () => {
+    if (editMode.value && activeTool.value === 'reshape' && selectedDefect.value) {
+      reshapePoints.value = selectedDefect.value.polygon.map((p) => [p[0], p[1]])
+    } else {
+      reshapePoints.value = null
+    }
+    reshapeDragIndex.value = null
+    reshapeMoved.value = false
+  },
+)
+
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
@@ -365,6 +454,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </svg>
         <span class="tool-label">{{ t('qc.toolSamBox') }}</span>
       </button>
+      <button class="tool-btn dock-tool" :class="{ active: activeTool === 'reshape' }" :disabled="segmenting" :title="t('qc.toolReshape')" :aria-label="t('qc.toolReshape')" :aria-pressed="activeTool === 'reshape'" @click="setReshapeTool">
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 18c4 0 6-12 16-12" />
+          <rect x="2" y="16" width="4" height="4" />
+          <rect x="9" y="3" width="4" height="4" />
+        </svg>
+        <span class="tool-label">{{ t('qc.toolReshape') }}</span>
+      </button>
       <button class="tool-btn dock-tool danger" :disabled="segmenting || !selectedDefectId" :title="t('qc.toolDelete')" :aria-label="t('qc.toolDelete')" @click="deleteSelectedDefect">
         <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 7h14M10 11v6M14 11v6M8 7l1 12h6l1-12M10 7V5h4v2" />
@@ -397,8 +494,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <button class="tool-btn" :title="t('qc.zoomReset')" :aria-label="t('qc.zoomReset')" @click="resetZoom">{{ t('qc.zoomResetShort') }}</button>
     </div>
 
-    <div v-if="selected && editMode && !pickingClass && (drawing || samActive || segmenting || drawMsg)" class="draw-hint mono">
-      {{ segmenting ? t('qc.segmenting') : drawMsg || (activeTool === 'sam-point' ? t('qc.samHintPoint') : activeTool === 'sam-box' ? t('qc.samHintBox') : t('qc.drawHint')) }}
+    <div v-if="selected && editMode && !pickingClass && (drawing || samActive || segmenting || drawMsg || activeTool === 'reshape')" class="draw-hint mono">
+      {{ segmenting ? t('qc.segmenting') : drawMsg || (activeTool === 'reshape' ? t('qc.reshapeHint') : activeTool === 'sam-point' ? t('qc.samHintPoint') : activeTool === 'sam-box' ? t('qc.samHintBox') : t('qc.drawHint')) }}
     </div>
 
     <div v-if="selected && editMode && pickingClass" class="floating-cluster class-picker">
@@ -439,7 +536,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <polygon
             v-for="d in selected.defects"
             :key="d.id"
-            :points="pointsAttr(d.polygon)"
+            :points="polyPointsFor(d)"
             :stroke="colorFor(d.type)"
             :fill="colorFor(d.type)"
             :fill-opacity="hoveredDefectId === d.id || selectedDefectId === d.id ? 0.4 : 0.15"
@@ -473,6 +570,29 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             r="4"
             class="draft-point"
           />
+          <template v-if="reshapeActive">
+            <circle
+              v-for="(p, idx) in reshapePoints"
+              :key="`reshape-hit-${idx}`"
+              :cx="p[0]"
+              :cy="p[1]"
+              r="10"
+              class="reshape-hit"
+              @mousedown.stop="startReshapeDrag(idx, $event)"
+              @click.stop
+              @mouseenter="overHandle = true"
+              @mouseleave="overHandle = false"
+            />
+            <circle
+              v-for="(p, idx) in reshapePoints"
+              :key="`reshape-handle-${idx}`"
+              :cx="p[0]"
+              :cy="p[1]"
+              r="5"
+              class="reshape-handle"
+              :class="{ active: reshapeDragIndex === idx }"
+            />
+          </template>
         </svg>
       </div>
     </div>
@@ -725,6 +845,22 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   stroke: var(--color-canvas);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
+}
+.reshape-hit {
+  fill: transparent;
+  stroke: none;
+  cursor: grab;
+  pointer-events: auto;
+}
+.reshape-handle {
+  fill: var(--color-canvas);
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.reshape-handle.active {
+  fill: var(--color-primary);
 }
 .sam-box-preview {
   fill: transparent;
