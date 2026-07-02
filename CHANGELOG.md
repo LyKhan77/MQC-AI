@@ -11,6 +11,39 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - Quantity Inference Display + Crop Evidence
+
+### Summary
+
+Quantity Detection now preserves visual evidence for counted objects: each detection response writes object crops, the detection page shows a selected annotated canvas with a filmstrip and crop gallery, saved checks move temp crops into permanent storage, and Quantity History Inspect shows one combined crop gallery.
+
+### Added
+
+- `qc_server/app/routers/quantity.py`, `schemas.py`, `main.py` - `POST /api/quantity/detect/image` now returns `crop_key` and crop records after writing detected objects with `crop_objects()`, serves them via `GET /api/quantity/crops/{p1}/{p2}/{filename}`, persists temp crops on `POST /api/quantity/checks`, cleans crop folders on delete, and sweeps `quantity/_tmp` on startup.
+- `qc_server/tests/test_quantity_router.py` and `test_quantity_checks.py` - added coverage for crop generation/serving, persist-on-save URL rewrite, and delete cleanup.
+- `qc_frontend/src/views/QuantityDetection.vue` - replaced the multi-card result grid with one selected annotated canvas, an image filmstrip, and per-image object crop evidence; save payloads now include `crop_key` and crop filenames.
+- `qc_frontend/src/views/QuantityHistory.vue` - Inspect now flattens saved `inputs[].crops` into one combined gallery.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added the no-crops Inspect empty state.
+
+### Changed
+
+- `README.md` and `AGENTS.md` - Quantity Detection and Quantity History docs now describe persisted crop evidence and combined-gallery Inspect.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend quantity crop evidence | 2026-07-02 | Detect-time temp crops, guarded crop-serving route, startup temp sweep | Detection results include served crop evidence for every valid bounding box without adding a new crop subsystem. |
+| Backend quantity check persistence | 2026-07-02 | Save moves temp crop files into `data/quantity/<check_id>/<index>/`; delete removes the check folder | Saved QuantityCheck records retain permanent crop URLs and clean up their evidence on removal. |
+| Frontend Quantity Detection UI | 2026-07-02 | Selected annotated canvas, image filmstrip, selected-image crop evidence grid, crop refs in save payload | Inspectors can switch uploaded images, inspect boxes, and verify one object crop per counted detection before saving. |
+| Frontend Quantity History UI | 2026-07-02 | Combined crop gallery in Inspect | Auditors can visually review all counted-object crops across a saved check in one place. |
+| Verification | 2026-07-02 | Backend focused red/green, full backend suite, frontend focused red/green, full frontend suite, production build | Backend: 125 passed. Frontend: 92 passed (19 files). Build succeeded. |
+
+### Notes
+
+- Detection remains bbox-first only; segmentation/mask evidence, video/camera inputs, and full-image replay in History Inspect remain deferred.
+- Browser smoke still needs a real detection `.pt` selected as the Quantity Detection model in Settings to draw real boxes/crops.
+
 ## [Unreleased] - 2026-07-02 - Quantity Detection UX v2
 
 ### Summary
