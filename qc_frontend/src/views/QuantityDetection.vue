@@ -59,12 +59,18 @@ function onPick(e) {
   e.target.value = ''
 }
 
+function revokeResult(item) {
+  if (item.url) URL.revokeObjectURL(item.url)
+}
+
 function removeResult(idx) {
-  results.value.splice(idx, 1)
+  const [removed] = results.value.splice(idx, 1)
+  if (removed) revokeResult(removed)
   saved.value = false
 }
 
 function resetSession() {
+  results.value.forEach(revokeResult)
   results.value = []
   expectedTotal.value = ''
   tolerance.value = 0
