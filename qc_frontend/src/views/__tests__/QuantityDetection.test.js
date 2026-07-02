@@ -36,11 +36,17 @@ describe('QuantityDetection', () => {
       ],
       width: 100,
       height: 100,
+      crop_key: 'k1',
+      crops: [
+        { file: 'obj_000.png', label: 'bolt', url: '/api/quantity/crops/_tmp/k1/obj_000.png' },
+        { file: 'obj_001.png', label: 'bolt', url: '/api/quantity/crops/_tmp/k1/obj_001.png' },
+        { file: 'obj_002.png', label: 'nut', url: '/api/quantity/crops/_tmp/k1/obj_002.png' },
+      ],
     })
     createQuantityCheck.mockResolvedValue({ id: 'qty-1' })
   })
 
-  it('accumulates counts, draws boxes, and saves a check with per-image inputs', async () => {
+  it('shows canvas boxes, a filmstrip, crop evidence, and saves crop refs', async () => {
     const wrapper = mount(QuantityDetection)
 
     await wrapper.vm.addFiles([file('a.png'), file('b.png')])
@@ -48,7 +54,9 @@ describe('QuantityDetection', () => {
 
     expect(wrapper.vm.sessionTotal).toBe(6)
     expect(wrapper.vm.sessionPerClass).toEqual({ bolt: 4, nut: 2 })
-    expect(wrapper.findAll('.det-box')).toHaveLength(6)
+    expect(wrapper.findAll('.film-thumb')).toHaveLength(2)
+    expect(wrapper.findAll('.det-box')).toHaveLength(3)
+    expect(wrapper.findAll('.evi-crop')).toHaveLength(3)
 
     await wrapper.vm.saveCheck()
     await flushPromises()
@@ -56,7 +64,13 @@ describe('QuantityDetection', () => {
     const payload = createQuantityCheck.mock.calls[0][0]
     expect(payload.total_count).toBe(6)
     expect(payload.inputs).toHaveLength(2)
-    expect(payload.inputs[0]).toMatchObject({ name: 'a.png', total: 3, per_class: { bolt: 2, nut: 1 } })
+    expect(payload.inputs[0]).toMatchObject({
+      name: 'a.png',
+      total: 3,
+      per_class: { bolt: 2, nut: 1 },
+      crop_key: 'k1',
+      crops: ['obj_000.png', 'obj_001.png', 'obj_002.png'],
+    })
     expect(mocks.log).toHaveBeenCalledWith('QUANTITY_CHECK', expect.any(String))
   })
 })

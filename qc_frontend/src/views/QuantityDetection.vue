@@ -15,13 +15,15 @@ const { settings } = useSettings()
 const REVIEWER = 'inspector@gspemail.com'
 
 const source = ref('image')
-const results = ref([]) // [{ name, url, total, perClass, detections, width, height }]
+const results = ref([]) // [{ name, url, total, perClass, detections, width, height, cropKey, crops }]
+const selectedIdx = ref(0)
 const running = ref(false)
 const errorMsg = ref('')
 const expectedTotal = ref('')
 const tolerance = ref(0)
 
 const hasModel = computed(() => !!settings.value.quantityModel)
+const selectedResult = computed(() => results.value[selectedIdx.value] || null)
 const sessionPerClass = computed(() => results.value.reduce((acc, r) => addCounts(acc, r.perClass), {}))
 const sessionTotal = computed(() => totalOf(sessionPerClass.value))
 const hasTarget = computed(() => expectedTotal.value !== '' && expectedTotal.value !== null)
@@ -47,7 +49,10 @@ async function addFiles(files) {
         detections: res.detections || [],
         width: res.width || 1,
         height: res.height || 1,
+        cropKey: res.crop_key || '',
+        crops: res.crops || [],
       })
+      selectedIdx.value = results.value.length - 1
     }
   } catch (e) {
     errorMsg.value = e.message || t('common.error')
@@ -69,11 +74,15 @@ function revokeResult(item) {
 function removeResult(idx) {
   const [removed] = results.value.splice(idx, 1)
   if (removed) revokeResult(removed)
+  if (selectedIdx.value >= results.value.length) {
+    selectedIdx.value = Math.max(0, results.value.length - 1)
+  }
 }
 
 function resetSession() {
   results.value.forEach(revokeResult)
   results.value = []
+  selectedIdx.value = 0
   expectedTotal.value = ''
   tolerance.value = 0
   errorMsg.value = ''
@@ -95,7 +104,13 @@ async function saveCheck() {
     verdict: verdict.value,
     reviewer: REVIEWER,
     notes: '',
-    inputs: results.value.map((r) => ({ name: r.name, total: r.total, per_class: r.perClass })),
+    inputs: results.value.map((r) => ({
+      name: r.name,
+      total: r.total,
+      per_class: r.perClass,
+      crop_key: r.cropKey,
+      crops: r.crops.map((c) => c.file),
+    })),
   }
   await createQuantityCheck(payload)
   log('QUANTITY_CHECK', `Total ${payload.total_count}, verdict ${payload.verdict}`)
@@ -164,36 +179,59 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
         </tbody>
       </table>
 
-      <div class="evidence-head">
-        <span class="evidence-title">{{ t('quantity.evidence') }}</span>
+      <div v-if="results.length" class="inference">
+        <div class="anno-wrap" v-if="selectedResult">
+          <img :src="selectedResult.url" :alt="selectedResult.name" class="anno-img" draggable="false" />
+          <svg class="anno-overlay" :viewBox="`0 0 ${selectedResult.width} ${selectedResult.height}`" preserveAspectRatio="none">
+            <rect
+              v-for="(d, i) in selectedResult.detections"
+              :key="i"
+              class="det-box"
+              :x="d.box[0]"
+              :y="d.box[1]"
+              :width="d.box[2] - d.box[0]"
+              :height="d.box[3] - d.box[1]"
+            />
+          </svg>
+          <span class="count-badge mono">{{ selectedResult.total }}</span>
+        </div>
+
+        <div class="filmstrip">
+          <button
+            v-for="(r, idx) in results"
+            :key="idx"
+            class="film-thumb"
+            :class="{ active: idx === selectedIdx }"
+            :aria-pressed="idx === selectedIdx"
+            @click="selectedIdx = idx"
+          >
+            <img :src="r.url" :alt="r.name" />
+            <span class="film-count mono">{{ r.total }}</span>
+            <span class="film-remove" @click.stop="removeResult(idx)" :title="t('quantity.removeInput')">x</span>
+          </button>
+          <label class="film-add btn-sm primary">
+            {{ t('quantity.addImages') }}
+            <input type="file" accept="image/*" multiple hidden @change="onPick" />
+          </label>
+        </div>
+
+        <div class="evidence-head">
+          <span class="evidence-title">{{ t('quantity.evidence') }} - {{ selectedResult ? selectedResult.crops.length : 0 }}</span>
+        </div>
+        <div class="evi-grid">
+          <figure v-for="(c, i) in (selectedResult ? selectedResult.crops : [])" :key="i" class="evi-card">
+            <img :src="c.url" :alt="c.label" class="evi-crop" />
+            <figcaption class="mono">{{ c.label }}</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div v-else class="evidence-head">
         <label class="btn-sm primary">
           {{ t('quantity.addImages') }}
           <input type="file" accept="image/*" multiple hidden @change="onPick" />
         </label>
-      </div>
-      <div class="result-grid">
-        <div v-for="(r, idx) in results" :key="idx" class="result-card">
-          <div class="anno-wrap">
-            <img :src="r.url" :alt="r.name" class="result-thumb" draggable="false" />
-            <svg class="anno-overlay" :viewBox="`0 0 ${r.width} ${r.height}`" preserveAspectRatio="none">
-              <rect
-                v-for="(d, i) in r.detections"
-                :key="i"
-                class="det-box"
-                :x="d.box[0]"
-                :y="d.box[1]"
-                :width="d.box[2] - d.box[0]"
-                :height="d.box[3] - d.box[1]"
-              />
-            </svg>
-            <span class="count-badge mono">{{ r.total }}</span>
-          </div>
-          <div class="card-foot">
-            <span class="mono card-name">{{ r.name }}</span>
-            <button class="btn-sm btn-danger-sm" @click="removeResult(idx)">{{ t('quantity.removeInput') }}</button>
-          </div>
-        </div>
-        <p v-if="!results.length" class="empty-state">{{ t('quantity.emptyEvidence') }}</p>
+        <p class="empty-state">{{ t('quantity.emptyEvidence') }}</p>
       </div>
     </template>
   </div>
@@ -230,17 +268,26 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
 .data-table th { text-align: left; padding: 10px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.32px; color: var(--color-ink-muted); border-bottom: 1px solid var(--color-hairline); background: var(--color-surface-1); }
 .data-table td { padding: 8px 16px; border-bottom: 1px solid var(--color-hairline); color: var(--color-ink); }
 
-.evidence-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .evidence-title { font-size: 12px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); }
-.result-grid { display: flex; flex-wrap: wrap; gap: 16px; }
-.result-card { border: 1px solid var(--color-hairline); }
-.anno-wrap { position: relative; width: 220px; height: 160px; background: var(--color-surface-1); }
-.result-thumb { display: block; width: 100%; height: 100%; object-fit: contain; }
+.inference { display: flex; flex-direction: column; gap: 12px; }
+.anno-wrap { position: relative; width: 100%; max-width: 640px; background: var(--color-surface-1); border: 1px solid var(--color-hairline); }
+.anno-img { display: block; width: 100%; max-height: 480px; object-fit: contain; }
 .anno-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .det-box { fill: none; stroke: var(--color-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.count-badge { position: absolute; top: 6px; right: 6px; padding: 2px 8px; background: var(--color-primary); color: var(--color-on-primary); font-size: 12px; font-weight: 600; }
-.card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; }
-.card-name { font-size: 12px; color: var(--color-ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+.count-badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; background: var(--color-primary); color: var(--color-on-primary); font-size: 12px; font-weight: 600; }
+.filmstrip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.film-thumb { position: relative; width: 84px; height: 64px; padding: 0; border: 1px solid var(--color-hairline); background: var(--color-surface-1); cursor: pointer; }
+.film-thumb:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.film-thumb.active { border-color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-primary); }
+.film-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.film-count { position: absolute; bottom: 2px; left: 2px; padding: 0 5px; background: var(--color-primary); color: var(--color-on-primary); font-size: 11px; }
+.film-remove { position: absolute; top: 0; right: 0; width: 18px; height: 18px; line-height: 18px; text-align: center; background: var(--color-error); color: var(--color-on-primary); font-size: 13px; }
+.film-add { display: inline-flex; align-items: center; height: 64px; }
+.evi-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.evi-card { margin: 0; border: 1px solid var(--color-hairline); width: 110px; }
+.evi-crop { display: block; width: 100%; height: 90px; object-fit: contain; background: var(--color-surface-1); }
+.evi-card figcaption { padding: 3px 6px; font-size: 11px; color: var(--color-ink-muted); text-align: center; }
 
 .btn-sm { padding: 5px 12px; background: transparent; border: 1px solid var(--color-hairline); color: var(--color-primary); font-family: var(--font-sans); font-size: 12px; cursor: pointer; letter-spacing: 0.16px; }
 .btn-sm:hover { background: var(--color-surface-1); }
