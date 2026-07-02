@@ -11,6 +11,41 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-02 - Quantity Detection UX v2
+
+### Summary
+
+Quantity Detection now behaves like an operational counting instrument: uploaded images render detection boxes and per-image count badges, the session total/verdict sits in a prominent result band with labeled target inputs, Settings model fields read as model/confidence pairs, Quantity nav icons are distinct, and Quantity History records can be inspected or deleted.
+
+### Added
+
+- `qc_server/app/models.py`, `schemas.py`, `main.py` - added `QuantityCheck.inputs` JSON persistence with guarded startup migration for existing dev databases.
+- `qc_server/app/routers/quantity.py` - added `DELETE /api/quantity/checks/{id}` returning `{"deleted": id}` and 404 for missing checks.
+- `qc_frontend/src/views/QuantityDetection.vue` - rebuilt the page around an Image/Video/Camera source selector, annotated SVG detection-box overlays, count badges, result band, labeled Expected total/Tolerance controls, no-model Settings link, Save toast, and reset flow.
+- `qc_frontend/src/views/QuantityHistory.vue` - added Inspect detail dialog for saved per-image numeric breakdowns and Delete confirmation dialog.
+- `qc_frontend/src/api/quantity.js` and `useQuantityHistory.js` - added delete API/composable support.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added new Quantity UX strings.
+
+### Changed
+
+- `qc_frontend/src/views/Settings.vue` - reordered the Models section into object model/confidence, QC model/confidence, defect strategy, and Quantity model/confidence pairs without changing save logic.
+- `qc_frontend/src/components/AppSidebar.vue` - replaced the Quantity group/detection/history glyphs with distinct number, counted-box, and clock icons.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend quantity checks | 2026-07-02 | `inputs` JSON field + DELETE endpoint | Saved checks retain per-image `{name,total,per_class}` numbers for History Inspect and can be removed from the API. |
+| Quantity Detection UI | 2026-07-02 | Annotated result dashboard with detection boxes, count badges, result band, source selector, no-model CTA, Save toast | Inspectors can see exactly which objects were counted per image and compare the big session total against a labeled target. |
+| Quantity History UI | 2026-07-02 | Inspect and Delete row actions | Saved records are auditable at per-image numeric level and deletable after confirmation. |
+| Settings/navigation UX | 2026-07-02 | Model/confidence field pairing and distinct Quantity nav icons | Quantity setup/navigation is easier to scan without backend logic changes. |
+| Verification | 2026-07-02 | Backend and frontend focused red/green tests, full suites, production build | Backend: 122 passed. Frontend: 91 passed (19 files). Build succeeded. |
+
+### Notes
+
+- Browser smoke still needs a real detection `.pt` selected as the Quantity Detection model in Settings to draw real boxes/counts.
+- Inspect intentionally shows saved numbers only; annotated-image replay remains out of scope because uploaded images are not persisted for Quantity checks.
+
 ## [Unreleased] - 2026-07-02 - Quantity Detection (Phase 1: Image)
 
 ### Summary
