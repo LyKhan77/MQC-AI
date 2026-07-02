@@ -38,6 +38,30 @@ def test_detect_image_returns_counts(client, monkeypatch):
     assert body["width"] == 10 and body["height"] == 10
 
 
+def test_detect_image_writes_crops_and_serves(client, monkeypatch):
+    q = _quantity_router()
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
+    monkeypatch.setattr(q, "detect", lambda frame, conf, mp: [Detection(1, 1, 8, 8, "bolt", 0.9)])
+    client.put("/api/settings", json={"quantity_model": "m.pt"})
+    resp = client.post(
+        "/api/quantity/detect/image",
+        files={"file": ("a.png", _png_bytes(), "image/png")},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["crop_key"]
+    assert len(body["crops"]) == 1
+    assert body["crops"][0]["label"] == "bolt"
+    url = body["crops"][0]["url"]
+    assert url.startswith("/api/quantity/crops/_tmp/")
+    served = client.get(url)
+    assert served.status_code == 200
+
+
+def test_serve_missing_crop_404(client):
+    assert client.get("/api/quantity/crops/_tmp/nope/x.png").status_code == 404
+
+
 def test_detect_image_no_model_409(client, monkeypatch):
     q = _quantity_router()
     monkeypatch.setattr(q, "resolve_named_model_path", lambda name: None)

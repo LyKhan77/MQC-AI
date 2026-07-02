@@ -70,6 +70,8 @@ class QuantityDetectOut(BaseModel):
     detections: list
     width: int
     height: int
+    crop_key: str
+    crops: list
 
 
 class AuditLogIn(BaseModel):

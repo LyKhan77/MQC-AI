@@ -1,11 +1,18 @@
+import os
+import shutil
+from pathlib import Path
+
 import cv2
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ..config import settings as app_settings
 from ..database import get_db
 from ..models import QuantityCheck
 from ..schemas import QuantityCheckIn, QuantityCheckOut, QuantityDetectOut
+from ..services.crop import crop_objects
 from ..services.object_detection import detect, resolve_named_model_path, serialize_detections
 from ..services.quantity import per_class_counts
 from ..util import gen_id, now_iso
@@ -26,13 +33,40 @@ async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depe
         raise HTTPException(400, "invalid image")
     detections = detect(frame, setting.quantity_confidence_threshold, model_path)
     h, w = frame.shape[:2]
+    crop_key = gen_id("qtmp")
+    tmp_dir = os.path.join(app_settings.data_dir, "quantity", "_tmp", crop_key)
+    files = crop_objects(frame, detections, tmp_dir)
+    kept = [d for d in detections if d.x2 > d.x1 and d.y2 > d.y1]
+    crops = [
+        {
+            "file": f,
+            "label": kept[i].label if i < len(kept) else "",
+            "url": f"/api/quantity/crops/_tmp/{crop_key}/{f}",
+        }
+        for i, f in enumerate(files)
+    ]
     return {
         "total": len(detections),
         "per_class": per_class_counts(detections),
         "detections": serialize_detections(detections),
         "width": int(w),
         "height": int(h),
+        "crop_key": crop_key,
+        "crops": crops,
     }
+
+
+@router.get("/crops/{p1}/{p2}/{filename}")
+def serve_quantity_crop(p1: str, p2: str, filename: str):
+    base = Path(app_settings.data_dir, "quantity").resolve()
+    path = Path(base, p1, p2, os.path.basename(filename)).resolve()
+    try:
+        path.relative_to(base)
+    except ValueError:
+        raise HTTPException(404, "not found")
+    if not path.is_file():
+        raise HTTPException(404, "not found")
+    return FileResponse(path)
 
 
 @router.post("/checks", response_model=QuantityCheckOut, status_code=201)
