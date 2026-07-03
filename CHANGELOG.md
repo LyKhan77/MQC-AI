@@ -11,6 +11,37 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Quantity Evidence Delete
+
+### Summary
+
+Quantity Detection now lets inspectors remove redundant detected objects from Evidence. The crop list is the single source of truth: counts, canvas boxes, evidence cards, save payloads, and audit logging all follow the remaining crops.
+
+### Added
+
+- `qc_server/app/routers/quantity.py` - `POST /api/quantity/detect/image` now includes `box: [x1, y1, x2, y2]` on each crop item, paired with the kept detection used to write that crop.
+- `qc_frontend/src/views/QuantityDetection.vue` - Evidence crop cards now have a delete control for removing redundant objects.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added `quantity.removeObject`.
+
+### Changed
+
+- `qc_frontend/src/views/QuantityDetection.vue` - session total/per-class counts, selected canvas boxes, filmstrip badges, and save payloads are derived from remaining crops instead of raw detection totals.
+- `qc_frontend/src/views/QuantityDetection.vue` - `QUANTITY_CHECK` audit detail now includes removed object count.
+- `qc_server/tests/test_quantity_router.py` and `qc_frontend/src/views/__tests__/QuantityDetection.test.js` - added coverage for crop boxes, crop-driven counts, crop deletion, and corrected save payloads.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend quantity crop evidence | 2026-07-03 | Crop response items carry their source bbox as `box` | Frontend can draw canvas boxes from crop records without tracking a parallel detections list. |
+| Frontend Quantity Detection correction | 2026-07-03 | Evidence delete removes a crop; counts, boxes, badges, verdict, and save payload recompute from remaining crops | Inspectors can correct over-detected counts by deleting redundant crop cards before saving. |
+| Verification | 2026-07-03 | Backend and frontend red/green tests, full backend suite, full frontend suite, production build | Backend: 128 passed. Frontend: 93 passed (19 files). Build succeeded. |
+
+### Notes
+
+- Scope is removal only: no manual add, undo, toggle, highlight, or dim state.
+- Browser smoke still needs a real Quantity Detection `.pt`: delete a crop -> box gone + count/verdict drop -> save keeps only remaining crops.
+
 ## [Unreleased] - 2026-07-02 - Quantity NMS Tuning
 
 ### Summary
