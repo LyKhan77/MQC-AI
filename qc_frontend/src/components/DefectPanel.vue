@@ -277,8 +277,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   letter-spacing: 0.16px;
 }
 .panel-head .fname {
-  font-size: 12px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .panel-body {
@@ -291,7 +291,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .group h4 {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-ink-muted);
   display: flex;
@@ -302,7 +302,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .grp-count {
   background: var(--color-surface-1);
   padding: 0 6px;
-  font-size: 12px;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: 0.32px;
 }
 .group ul {
@@ -337,13 +338,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .type {
   flex: 1;
-  font-size: 14px;
+  font-size: 15px;
   text-transform: capitalize;
   color: var(--color-ink);
   letter-spacing: 0.16px;
 }
 .conf {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
@@ -354,7 +355,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   color: var(--color-ink);
   border: 1px solid var(--color-hairline);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   padding: 4px;
 }
 .class-select:focus-visible,
@@ -375,8 +376,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-color: var(--color-error);
 }
 .none {
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
   letter-spacing: 0.16px;
 }
 .panel-actions {
@@ -389,8 +390,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .export-msg {
   margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .btn-primary {
@@ -399,7 +400,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   cursor: pointer;
   font-weight: 400;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   background: var(--color-primary);
   color: var(--color-on-primary);
   border: none;
@@ -411,7 +412,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   cursor: pointer;
   font-weight: 400;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   background: transparent;
   color: var(--color-ink);
   border: 1px solid var(--color-ink);

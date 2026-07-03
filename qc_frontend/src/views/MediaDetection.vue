@@ -307,13 +307,13 @@ onUnmounted(() => {
 .switcher button {
   padding: 8px 16px; background: var(--color-canvas); color: var(--color-ink-muted);
   border: 1px solid var(--color-hairline); border-left-width: 0; cursor: pointer;
-  font-size: 14px; letter-spacing: 0.16px;
+  font-size: 15px; letter-spacing: 0.16px;
 }
 .switcher button:first-child { border-left-width: 1px; }
 .switcher button.active { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
 .switcher button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 
-.model-strip { font-size: 12px; color: var(--color-ink-muted); margin: 0 0 16px; }
+.model-strip { font-size: 13px; color: var(--color-ink-muted); margin: 0 0 16px; }
 .model-missing { color: var(--color-error); }
 
 .dropzone {
@@ -328,11 +328,11 @@ onUnmounted(() => {
 .dz-icon { width: 32px; height: 32px; color: var(--color-ink-subtle); }
 .dz-title { font-size: 16px; color: var(--color-ink); }
 .dz-browse { color: var(--color-primary); text-decoration: underline; }
-.dz-hint { font-size: 12px; color: var(--color-ink-subtle); }
+.dz-hint { font-size: 13px; color: var(--color-ink-muted); }
 .dz-input { display: none; }
 
 .staged { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
-.staged-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-ink-muted); font-size: 12px; }
+.staged-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-ink-muted); font-size: 13px; }
 .staged-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .add-more { position: relative; overflow: hidden; cursor: pointer; }
 .staged-list { display: flex; flex-direction: column; border-top: 1px solid var(--color-hairline); }
@@ -342,7 +342,7 @@ onUnmounted(() => {
 .staged-thumb svg { width: 24px; height: 24px; color: var(--color-ink-subtle); }
 .staged-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .staged-name { color: var(--color-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.staged-size { font-size: 12px; color: var(--color-ink-muted); }
+.staged-size { font-size: 13px; color: var(--color-ink-muted); }
 .staged-remove { background: transparent; border: none; color: var(--color-ink-muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 8px; }
 .staged-remove:hover { color: var(--color-error); }
 
@@ -351,7 +351,7 @@ onUnmounted(() => {
 .progress-bar { height: 100%; background: var(--color-primary); transition: width 200ms ease-out; }
 .progress-bar.indeterminate { width: 40%; animation: indeterminate 1.2s ease-in-out infinite; }
 @keyframes indeterminate { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
-.progress-label { font-size: 12px; color: var(--color-ink-muted); }
+.progress-label { font-size: 13px; color: var(--color-ink-muted); }
 @media (prefers-reduced-motion: reduce) {
   .progress-bar.indeterminate { animation: none; width: 100%; }
 }
@@ -363,15 +363,16 @@ onUnmounted(() => {
 .result-canvas { border: 1px solid var(--color-hairline); background: var(--color-ink); }
 .result-canvas img { display: block; width: 100%; }
 .result-list { border: 1px solid var(--color-hairline); padding: 16px; }
-.result-list-head { display: flex; justify-content: space-between; font-size: 14px; color: var(--color-ink); margin-bottom: 12px; }
+.result-list-head { display: flex; justify-content: space-between; font-size: 15px; color: var(--color-ink); margin-bottom: 12px; }
+.result-list-head .mono { font-size: 16px; font-weight: 600; }
 .result-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .result-list li { display: grid; grid-template-columns: 1fr 2fr auto; align-items: center; gap: 8px; }
-.det-label { font-size: 14px; color: var(--color-ink); }
+.det-label { font-size: 15px; color: var(--color-ink); }
 .conf-bar { height: 6px; background: var(--color-surface-2); }
 .conf-fill { display: block; height: 100%; }
 .conf-fill.high { background: var(--color-success); }
 .conf-fill.mid { background: var(--color-warning); }
 .conf-fill.low { background: var(--color-error); }
-.det-pct { font-size: 12px; color: var(--color-ink-muted); }
-.empty-detections { font-size: 13px; color: var(--color-ink-subtle); }
+.det-pct { font-size: 13px; color: var(--color-ink-muted); }
+.empty-detections { font-size: 13px; color: var(--color-ink-muted); }
 </style>

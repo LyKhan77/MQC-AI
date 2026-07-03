@@ -691,7 +691,7 @@ onUnmounted(() => {
   background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.16px;
 }
 .tool-btn {
@@ -704,7 +704,7 @@ onUnmounted(() => {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink-muted);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.16px;
   min-height: 28px;
@@ -769,7 +769,7 @@ onUnmounted(() => {
   width: 128px;
 }
 .zoom-display {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink);
   min-width: 44px;
   text-align: center;
@@ -788,7 +788,7 @@ onUnmounted(() => {
   border-right: 1px solid var(--color-hairline);
   color: var(--color-ink-muted);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -800,7 +800,7 @@ onUnmounted(() => {
   color: var(--color-on-primary);
 }
 .edit-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
 }
 .class-chip {
@@ -813,7 +813,7 @@ onUnmounted(() => {
   border: 1px solid var(--color-hairline);
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
 }
 .class-chip:hover {
   border-color: var(--color-primary);
@@ -904,8 +904,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
   letter-spacing: 0.16px;
 }
 .mono {

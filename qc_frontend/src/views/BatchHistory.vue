@@ -143,7 +143,7 @@ const statusClass = (s) => `status-${s}`
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   letter-spacing: 0.16px;
 }
@@ -160,13 +160,13 @@ const statusClass = (s) => `status-${s}`
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 .data-table th {
   text-align: left;
   padding: 12px 16px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.32px;
   text-transform: uppercase;
@@ -190,16 +190,18 @@ const statusClass = (s) => `status-${s}`
 }
 .defect-num {
   color: var(--color-error);
+  font-size: 16px;
   font-weight: 600;
 }
 .clean-num {
   color: var(--color-success);
+  font-size: 16px;
   font-weight: 600;
 }
 .status-pill {
   display: inline-block;
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.32px;
 }
@@ -229,7 +231,7 @@ const statusClass = (s) => `status-${s}`
   border: 1px solid var(--color-hairline);
   color: var(--color-primary);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   margin-right: 4px;
   letter-spacing: 0.16px;
@@ -270,7 +272,7 @@ const statusClass = (s) => `status-${s}`
 .dialog-body {
   padding: 24px;
   color: var(--color-ink);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.16px;
 }
 .dialog-actions {
@@ -286,7 +288,7 @@ const statusClass = (s) => `status-${s}`
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -297,7 +299,7 @@ const statusClass = (s) => `status-${s}`
   border: 1px solid var(--color-primary);
   color: var(--color-on-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -310,7 +312,7 @@ const statusClass = (s) => `status-${s}`
 .empty-state {
   padding: 32px 16px;
   text-align: center;
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
 }
 </style>

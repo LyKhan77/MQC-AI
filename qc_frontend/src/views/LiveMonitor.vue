@@ -288,7 +288,7 @@ function onCameraChange() {
   max-width: 400px;
 }
 .control-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -300,7 +300,7 @@ function onCameraChange() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   letter-spacing: 0.16px;
 }
@@ -340,7 +340,7 @@ function onCameraChange() {
   color: var(--color-on-primary);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   cursor: pointer;
   letter-spacing: 0.16px;
@@ -358,7 +358,7 @@ function onCameraChange() {
   color: var(--color-on-primary);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -368,7 +368,7 @@ function onCameraChange() {
   color: var(--color-ink);
   border: 1px solid var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -382,12 +382,12 @@ function onCameraChange() {
   color: var(--color-ink-muted);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
 .btn-sm {
-  font-size: 12px;
+  font-size: 13px;
   padding: 2px 6px;
 }
 .status-strip {
@@ -417,18 +417,18 @@ function onCameraChange() {
   background: var(--color-ink-subtle);
 }
 .status-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .metric-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .metric-value {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-ink);
   letter-spacing: 0.16px;
@@ -453,20 +453,20 @@ function onCameraChange() {
 }
 .placeholder-content {
   text-align: center;
-  color: var(--color-ink-subtle);
+  color: var(--color-ink-muted);
 }
 .placeholder-content p {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.16px;
 }
 .endpoint {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
 }
 .hint {
-  font-size: 12px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
 }
 .stream-img {
   max-width: 100%;
@@ -509,14 +509,14 @@ function onCameraChange() {
   margin-bottom: 16px;
 }
 .form-row label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .form-hint {
-  font-size: 11px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .crop-head {
@@ -570,13 +570,13 @@ function onCameraChange() {
   gap: 2px;
 }
 .info-label {
-  font-size: 11px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.32px;
   text-transform: uppercase;
 }
 .info-value {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-ink);
   letter-spacing: 0.16px;
 }
@@ -589,7 +589,7 @@ function onCameraChange() {
 }
 .send-error {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-error);
   letter-spacing: 0.16px;
 }

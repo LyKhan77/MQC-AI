@@ -153,7 +153,7 @@ function formatDate(iso) {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   letter-spacing: 0.16px;
 }
@@ -166,7 +166,7 @@ function formatDate(iso) {
   border: 1px solid var(--color-hairline);
   color: var(--color-primary);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   margin-right: 4px;
   letter-spacing: 0.16px;
@@ -185,13 +185,13 @@ function formatDate(iso) {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 .data-table th {
   text-align: left;
   padding: 12px 16px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.32px;
   text-transform: uppercase;
@@ -203,6 +203,10 @@ function formatDate(iso) {
   border-bottom: 1px solid var(--color-hairline);
   color: var(--color-ink);
 }
+.data-table td.mono {
+  font-size: 16px;
+  font-weight: 600;
+}
 .data-table tbody tr:hover {
   background: var(--color-surface-1);
 }
@@ -212,15 +216,15 @@ function formatDate(iso) {
 .status-pill {
   display: inline-block;
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.32px;
 }
 .empty-state {
   padding: 32px 16px;
   text-align: center;
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
 }
 .verdict-pass { background: var(--color-success); color: var(--color-on-primary); }
 .verdict-fail { background: var(--color-error); color: var(--color-on-primary); }

@@ -115,7 +115,7 @@ function confirm() {
   border-bottom: 1px solid var(--color-hairline);
 }
 .summary-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -131,7 +131,7 @@ function confirm() {
   margin-bottom: 16px;
 }
 .form-row label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -143,7 +143,7 @@ function confirm() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   width: 120px;
 }
@@ -163,7 +163,7 @@ function confirm() {
   background: var(--color-surface-1);
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.16px;
 }
 .chip-swatch {
@@ -172,7 +172,7 @@ function confirm() {
   flex-shrink: 0;
 }
 .warn-text {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-error);
   margin: 0;
   letter-spacing: 0.16px;
@@ -190,7 +190,7 @@ function confirm() {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-actions .btn-primary {
   padding: 8px 16px;
@@ -198,7 +198,7 @@ function confirm() {
   border: 1px solid var(--color-primary);
   color: var(--color-on-primary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-actions .btn-primary:disabled {
   opacity: 0.5;

@@ -119,7 +119,7 @@ function save() {
   margin-bottom: 16px;
 }
 .form-row label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -131,7 +131,7 @@ function save() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
 }
 .text-input:focus {
@@ -166,7 +166,7 @@ function save() {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-actions .btn-primary {
   padding: 8px 16px;
@@ -174,7 +174,7 @@ function save() {
   border: 1px solid var(--color-primary);
   color: var(--color-on-primary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-actions .btn-primary:disabled {
   opacity: 0.5;

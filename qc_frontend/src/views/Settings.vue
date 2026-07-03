@@ -363,27 +363,27 @@ async function confirmDeleteClass() {
 }
 .section-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-ink);
   letter-spacing: 0.16px;
 }
 .section-desc {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 15px;
 }
 .data-table th {
   text-align: left;
   padding: 10px 16px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.32px;
   text-transform: uppercase;
@@ -412,7 +412,7 @@ async function confirmDeleteClass() {
   gap: 4px;
 }
 .form-row label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -426,8 +426,8 @@ async function confirmDeleteClass() {
 }
 .form-hint {
   margin: 0;
-  font-size: 12px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .text-input {
@@ -437,7 +437,7 @@ async function confirmDeleteClass() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   letter-spacing: 0.16px;
 }
@@ -466,7 +466,7 @@ async function confirmDeleteClass() {
   width: 100%;
   margin: 16px 0 4px;
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.32px;
   text-transform: uppercase;
@@ -495,7 +495,7 @@ async function confirmDeleteClass() {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-ink);
 }
 .dc-swatch {
@@ -521,7 +521,7 @@ async function confirmDeleteClass() {
   border: none;
   color: var(--color-ink-muted);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -537,7 +537,7 @@ async function confirmDeleteClass() {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -555,7 +555,7 @@ async function confirmDeleteClass() {
   border: 1px solid var(--color-hairline);
   color: var(--color-primary);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
   margin-right: 4px;
   letter-spacing: 0.16px;
@@ -564,7 +564,7 @@ async function confirmDeleteClass() {
   color: var(--color-error);
 }
 .status-pill {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   padding: 2px 6px;
   letter-spacing: 0.32px;
@@ -573,11 +573,11 @@ async function confirmDeleteClass() {
   color: var(--color-success);
 }
 .status-pill.off {
-  color: var(--color-ink-subtle);
+  color: var(--color-ink-muted);
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
 }
 .lang-toggle {
   display: flex;
@@ -589,7 +589,7 @@ async function confirmDeleteClass() {
   border: none;
   color: var(--color-ink-muted);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -625,7 +625,7 @@ async function confirmDeleteClass() {
 .dialog-body {
   padding: 24px;
   color: var(--color-ink);
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-body p {
   margin: 0;
@@ -643,7 +643,7 @@ async function confirmDeleteClass() {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dialog-actions .btn-primary {
   padding: 8px 16px;
@@ -651,6 +651,6 @@ async function confirmDeleteClass() {
   border: 1px solid var(--color-primary);
   color: var(--color-on-primary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
 }
 </style>

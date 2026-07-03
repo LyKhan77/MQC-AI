@@ -119,7 +119,7 @@ function confirm() {
   margin-bottom: 16px;
 }
 .form-row label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -131,7 +131,7 @@ function confirm() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   letter-spacing: 0.16px;
 }
@@ -139,8 +139,8 @@ function confirm() {
   border-bottom-color: var(--color-primary);
 }
 .form-hint {
-  font-size: 11px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .crop-head {
@@ -158,7 +158,7 @@ function confirm() {
   color: var(--color-on-primary);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -172,7 +172,7 @@ function confirm() {
   color: var(--color-ink-muted);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -180,7 +180,7 @@ function confirm() {
   background: var(--color-surface-1);
 }
 .btn-sm {
-  font-size: 12px;
+  font-size: 13px;
   padding: 2px 6px;
 }
 .crop-grid {
@@ -220,7 +220,7 @@ function confirm() {
 }
 .send-error {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-error);
   letter-spacing: 0.16px;
 }

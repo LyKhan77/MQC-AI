@@ -218,7 +218,7 @@ watch(
 
 .brand-text {
   font-weight: 400;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
   white-space: nowrap;
@@ -237,7 +237,7 @@ watch(
   padding: 10px 16px;
   color: var(--color-ink-muted);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.16px;
   border-left: 3px solid transparent;
   transition: none;

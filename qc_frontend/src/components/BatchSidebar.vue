@@ -188,7 +188,7 @@ function handleToggleReviewed(img) {
   color: var(--color-on-primary);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: 0.16px;
 }
 .btn-load:hover {
@@ -211,7 +211,7 @@ function handleToggleReviewed(img) {
   color: var(--color-ink);
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.16px;
 }
 .batch-rerun-row .btn-secondary:hover {
@@ -237,15 +237,15 @@ function handleToggleReviewed(img) {
   margin-top: 12px;
 }
 .batch-name {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink);
   margin: 0 0 4px;
   font-weight: 600;
   letter-spacing: 0.16px;
 }
 .batch-path {
-  font-size: 11px;
-  color: var(--color-ink-subtle);
+  font-size: 13px;
+  color: var(--color-ink-muted);
   margin: 0 0 8px;
   word-break: break-all;
   letter-spacing: 0.16px;
@@ -260,19 +260,19 @@ function handleToggleReviewed(img) {
   transition: width 0.2s ease;
 }
 .progress-text {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   margin: 4px 0 0;
   letter-spacing: 0.16px;
 }
 .error-msg {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-error);
   margin: 8px 0 0;
   letter-spacing: 0.16px;
 }
 .pending-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   margin: 12px 0 0;
   letter-spacing: 0.16px;
@@ -309,7 +309,7 @@ function handleToggleReviewed(img) {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink-muted);
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -325,7 +325,7 @@ function handleToggleReviewed(img) {
   border: 1px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
 }
 .batch-list {
@@ -376,7 +376,7 @@ function handleToggleReviewed(img) {
   letter-spacing: 0.16px;
 }
 .count {
-  font-size: 11px;
+  font-size: 13px;
   background: var(--color-error);
   color: var(--color-on-primary);
   padding: 0 5px;
@@ -384,7 +384,7 @@ function handleToggleReviewed(img) {
 }
 .check-mark {
   color: var(--color-success);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .img-del {
@@ -405,8 +405,8 @@ function handleToggleReviewed(img) {
   background: var(--color-surface-1);
 }
 .empty {
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
   padding: 16px;
   letter-spacing: 0.16px;
 }

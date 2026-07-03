@@ -93,7 +93,7 @@ const pageTitle = computed(() => {
   color: var(--color-ink-muted);
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.32px;
 }
@@ -121,7 +121,7 @@ const pageTitle = computed(() => {
   height: 32px;
   background: var(--color-primary);
   color: var(--color-on-primary);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.32px;
 }

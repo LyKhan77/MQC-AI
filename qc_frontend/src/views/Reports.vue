@@ -253,7 +253,7 @@ async function generatePDF() {
 }
 .field-label {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-ink);
   margin-bottom: 6px;
@@ -267,7 +267,7 @@ async function generatePDF() {
   border-bottom: 2px solid var(--color-hairline);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   margin-bottom: 24px;
   letter-spacing: 0.16px;
@@ -281,7 +281,7 @@ async function generatePDF() {
 }
 .report-preview h3 {
   margin: 0 0 12px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
@@ -304,13 +304,13 @@ async function generatePDF() {
   border: 1px solid var(--color-hairline);
 }
 .stat-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-ink-muted);
   letter-spacing: 0.16px;
 }
 .stat-value {
-  font-size: 24px;
-  font-weight: 300;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--color-ink);
   font-family: var(--font-mono);
 }
@@ -351,7 +351,7 @@ async function generatePDF() {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 13px;
   border: 1px solid;
   border-radius: 0;
   letter-spacing: 0.16px;
@@ -363,7 +363,7 @@ async function generatePDF() {
   flex-shrink: 0;
 }
 .clean-tag {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-success);
   letter-spacing: 0.16px;
 }
@@ -374,7 +374,7 @@ async function generatePDF() {
   color: var(--color-on-primary);
   border: none;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   letter-spacing: 0.16px;
 }
@@ -386,8 +386,8 @@ async function generatePDF() {
   cursor: default;
 }
 .empty-hint {
-  color: var(--color-ink-subtle);
-  font-size: 14px;
+  color: var(--color-ink-muted);
+  font-size: 15px;
 }
 .mono {
   font-family: var(--font-mono);
