@@ -44,6 +44,7 @@ def on_startup():
     ensure_column(engine, "settings", "quantity_nms_iou", "FLOAT DEFAULT 0.45")
     ensure_column(engine, "settings", "quantity_agnostic_nms", "BOOLEAN DEFAULT 1")
     ensure_column(engine, "quantity_checks", "inputs", "JSON DEFAULT '[]'")
+    ensure_column(engine, "quantity_checks", "name", "VARCHAR DEFAULT ''")
     shutil.rmtree(os.path.join(settings.data_dir, "quantity", "_tmp"), ignore_errors=True)
     db = SessionLocal()
     try:

@@ -182,10 +182,15 @@ class BatchResult(BaseModel):
 class BatchPatch(BaseModel):
     status: str | None = None
     reviewer: str | None = None
+    name: str | None = None
 
 
 class ImagePatch(BaseModel):
     reviewed: bool
+
+
+class QuantityCheckPatch(BaseModel):
+    name: str | None = None
 
 
 class QuantityCheckIn(BaseModel):
@@ -209,6 +214,7 @@ class QuantityCheckOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     created_at: str
+    name: str = ""
     source_type: str
     count_mode: str
     input_summary: str

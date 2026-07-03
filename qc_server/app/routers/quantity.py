@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..config import settings as app_settings
 from ..database import get_db
 from ..models import Batch, Camera, QuantityCheck
-from ..schemas import QuantityCheckIn, QuantityCheckOut, QuantityDetectOut
+from ..schemas import QuantityCheckIn, QuantityCheckOut, QuantityCheckPatch, QuantityDetectOut
 from ..services.crop import crop_objects
 from ..services.object_detection import detect, resolve_named_model_path, serialize_detections
 from ..services.pipeline import prepare_images
@@ -195,6 +195,18 @@ def check_to_qc(check_id: str, db: Session = Depends(get_db)):
     db.commit()
     prepare_images(db, batch)
     return {"batch_id": batch_id}
+
+
+@router.patch("/checks/{check_id}", response_model=QuantityCheckOut)
+def patch_check(check_id: str, payload: QuantityCheckPatch, db: Session = Depends(get_db)):
+    check = db.get(QuantityCheck, check_id)
+    if not check:
+        raise HTTPException(404, "not found")
+    for key, value in payload.model_dump(exclude_none=True).items():
+        setattr(check, key, value)
+    db.commit()
+    db.refresh(check)
+    return check
 
 
 @router.get("/checks/{check_id}", response_model=QuantityCheckOut)

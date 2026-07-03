@@ -119,6 +119,21 @@ def test_save_rejects_crop_key_traversal(client):
     assert os.path.isfile(secret)  # traversal rejected; file not moved
 
 
+def test_patch_check_renames(client):
+    cid = client.post(
+        "/api/quantity/checks",
+        json={"total_count": 1, "per_class_counts": {"a": 1}, "verdict": "none"},
+    ).json()["id"]
+    assert client.get(f"/api/quantity/checks/{cid}").json()["name"] == ""
+
+    resp = client.patch(f"/api/quantity/checks/{cid}", json={"name": "Panel A"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Panel A"
+    assert client.get(f"/api/quantity/checks/{cid}").json()["name"] == "Panel A"
+
+    assert client.patch("/api/quantity/checks/nope", json={"name": "x"}).status_code == 404
+
+
 def test_check_to_qc_creates_pending_batch(client):
     import cv2
     import numpy as np

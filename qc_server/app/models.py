@@ -97,6 +97,7 @@ class QuantityCheck(Base):
     __tablename__ = "quantity_checks"
     id: Mapped[str] = mapped_column(String, primary_key=True)
     created_at: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String, default="")
     source_type: Mapped[str] = mapped_column(String, default="image")
     count_mode: Mapped[str] = mapped_column(String, default="static")
     input_summary: Mapped[str] = mapped_column(String, default="")
