@@ -9,7 +9,7 @@ export default {
   nav: {
     liveMonitor: 'Live Monitor',
     qcStudio: 'QC Studio',
-    batchHistory: 'Batch History',
+    batchHistory: 'QC History',
     mediaDetection: 'Deteksi Media',
     reports: 'Reports',
     auditLog: 'Audit Log',

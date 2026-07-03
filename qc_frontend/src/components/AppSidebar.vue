@@ -39,7 +39,7 @@ const nav = [
     icon: 'M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7z M9 12l2 2 4-4',
     children: [
       { name: 'qc', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', labelKey: 'nav.qcStudio' },
-      { name: 'batches', icon: 'M3 5h18M3 12h18M3 19h18', labelKey: 'nav.batchHistory' },
+      { name: 'batches', icon: 'M12 8v4l3 2 M21 12a9 9 0 1 1-9-9', labelKey: 'nav.batchHistory' },
     ],
   },
   {
