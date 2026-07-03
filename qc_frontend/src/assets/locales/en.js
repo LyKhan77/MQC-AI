@@ -250,6 +250,7 @@ export default {
     pdfChecks: 'Checks',
     perClass: 'Per class',
     colId: 'ID',
+    colName: 'Name',
     colDate: 'Date',
     colModel: 'Model',
     colVerdict: 'Verdict',
@@ -421,5 +422,6 @@ export default {
     no: 'No',
     online: 'Online',
     offline: 'Offline',
+    dblClickRename: 'Double-click to rename',
   },
 }

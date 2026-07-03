@@ -9,12 +9,16 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   downloadBlob: vi.fn(),
   checkToQc: vi.fn(),
+  patchQuantityCheck: vi.fn(),
   showToast: vi.fn(),
 }))
 
 vi.mock('../../composables/useI18n.js', () => ({ useI18n: () => ({ t: (k) => k }) }))
 vi.mock('../../composables/useToast.js', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
-vi.mock('../../api/quantity.js', () => ({ checkToQc: mocks.checkToQc }))
+vi.mock('../../api/quantity.js', () => ({
+  checkToQc: mocks.checkToQc,
+  patchQuantityCheck: mocks.patchQuantityCheck,
+}))
 vi.mock('../../composables/useQuantityHistory.js', async () => {
   const { ref } = await import('vue')
   return {
@@ -106,6 +110,18 @@ describe('QuantityHistory', () => {
     expect(mocks.checkToQc).toHaveBeenCalledWith('qty-1')
     expect(mocks.showToast).toHaveBeenCalledWith('quantity.sentToQc')
     expect(wrapper.text()).toContain('quantity.openInQc')
+  })
+
+  it('renames a check on double-click and save', async () => {
+    mocks.patchQuantityCheck.mockResolvedValue({})
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.find('.editable-cell').trigger('dblclick')
+    const input = wrapper.find('.edit-cell-input')
+    await input.setValue('Panel A')
+    await input.trigger('blur')
+    await flushPromises()
+    expect(mocks.patchQuantityCheck).toHaveBeenCalledWith('qty-1', { name: 'Panel A' })
   })
 
   it('confirms then deletes a check', async () => {

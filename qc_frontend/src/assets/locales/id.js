@@ -257,6 +257,7 @@ export default {
     pdfChecks: 'Pemeriksaan',
     perClass: 'Per kelas',
     colId: 'ID',
+    colName: 'Nama',
     colDate: 'Tanggal',
     colModel: 'Model',
     colVerdict: 'Status',
@@ -432,5 +433,6 @@ export default {
     no: 'Tidak',
     online: 'Online',
     offline: 'Offline',
+    dblClickRename: 'Klik ganda untuk ganti nama',
   },
 }

@@ -3,10 +3,22 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import { useBatchHistory } from '../composables/useBatchHistory.js'
+import { patchBatch } from '../api/batches.js'
+import EditableCell from '../components/EditableCell.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const { batches, refresh, remove } = useBatchHistory()
+
+async function rename(batch, name) {
+  const prev = batch.name
+  batch.name = name
+  try {
+    await patchBatch(batch.id, { name })
+  } catch {
+    batch.name = prev
+  }
+}
 
 onMounted(refresh)
 
@@ -93,7 +105,9 @@ const statusClass = (s) => `status-${s}`
         </thead>
         <tbody>
           <tr v-for="batch in filtered" :key="batch.id">
-            <td class="mono">{{ batch.name }}</td>
+            <td class="mono">
+              <EditableCell :value="batch.name" :title="t('common.dblClickRename')" @save="rename(batch, $event)" />
+            </td>
             <td>{{ batch.cameraName }}</td>
             <td class="mono">{{ formatDate(batch.createdAt) }}</td>
             <td>{{ batch.imageCount }}</td>

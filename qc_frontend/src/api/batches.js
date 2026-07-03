@@ -72,8 +72,8 @@ export function resetBatch(batchId) {
   return apiPost(`/batches/${batchId}/reset`, {})
 }
 
-export function patchBatch(batchId, { status, reviewer }) {
-  return apiPatch(`/batches/${batchId}`, { status, reviewer })
+export function patchBatch(batchId, { status, reviewer, name }) {
+  return apiPatch(`/batches/${batchId}`, { status, reviewer, name })
 }
 
 export function deleteBatch(batchId) {

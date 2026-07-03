@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from './client.js'
+import { apiDelete, apiGet, apiPatch, apiPost } from './client.js'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
@@ -24,6 +24,10 @@ export function listQuantityChecks() {
 
 export function deleteQuantityCheck(id) {
   return apiDelete(`/quantity/checks/${id}`)
+}
+
+export function patchQuantityCheck(id, patch) {
+  return apiPatch(`/quantity/checks/${id}`, patch)
 }
 
 export function checkToQc(id) {

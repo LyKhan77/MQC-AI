@@ -3,9 +3,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useQuantityHistory } from '../composables/useQuantityHistory.js'
 import { useToast } from '../composables/useToast.js'
-import { checkToQc } from '../api/quantity.js'
+import { checkToQc, patchQuantityCheck } from '../api/quantity.js'
 import { checksToCsv } from '../utils/quantity.js'
 import { downloadBlob } from '../utils/export.js'
+import EditableCell from '../components/EditableCell.vue'
 
 const { t } = useI18n()
 const { checks, refresh, remove } = useQuantityHistory()
@@ -30,7 +31,7 @@ const filtered = computed(() => {
   let result = checks.value
   if (search.value) {
     const q = search.value.toLowerCase()
-    result = result.filter((c) => (c.model_used || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q))
+    result = result.filter((c) => (c.model_used || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q) || (c.name || '').toLowerCase().includes(q))
   }
   if (verdictFilter.value) {
     result = result.filter((c) => c.verdict === verdictFilter.value)
@@ -185,6 +186,16 @@ async function confirmDelete() {
   }
 }
 
+async function rename(check, name) {
+  const prev = check.name
+  check.name = name
+  try {
+    await patchQuantityCheck(check.id, { name })
+  } catch {
+    check.name = prev
+  }
+}
+
 async function sendToQc(check) {
   try {
     const { batch_id } = await checkToQc(check.id)
@@ -221,7 +232,7 @@ function formatDate(iso) {
       <table class="data-table">
         <thead>
           <tr>
-            <th>{{ t('quantity.colId') }}</th>
+            <th>{{ t('quantity.colName') }}</th>
             <th>{{ t('quantity.colDate') }}</th>
             <th>{{ t('quantity.colModel') }}</th>
             <th>{{ t('quantity.total') }}</th>
@@ -232,7 +243,9 @@ function formatDate(iso) {
         </thead>
         <tbody>
           <tr v-for="c in filtered" :key="c.id">
-            <td class="mono">{{ c.id }}</td>
+            <td class="mono">
+              <EditableCell :value="c.name" :title="t('common.dblClickRename')" @save="rename(c, $event)">{{ c.name || c.id }}</EditableCell>
+            </td>
             <td class="mono">{{ formatDate(c.created_at) }}</td>
             <td>{{ c.model_used }}</td>
             <td class="mono">{{ c.total_count }}</td>
