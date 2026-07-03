@@ -11,6 +11,15 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Direct Inspection Camera UX
+
+### Changed
+
+- Direct Inspection Server Camera now mirrors Live Monitor: a camera status strip (online/offline LED) and a live raw MJPEG `video-stage` preview for the selected camera (reuses `/api/cameras/{id}/stream`, polls status every 10s).
+- Mobile camera errors are now specific instead of one generic message: distinct copy for permission denied, no camera, camera in use, and non-secure-context (HTTPS required, the iOS Safari case), surfacing `getUserMedia` `err.name`. New `inspection.cameraNotFound` / `cameraInUse` / `cameraInsecure` / `cameraError` strings (en/id).
+
+---
+
 ## [Unreleased] - 2026-07-03 - Direct Inspection
 
 ### Summary
