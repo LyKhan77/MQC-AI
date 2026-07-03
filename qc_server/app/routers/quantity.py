@@ -47,6 +47,7 @@ async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depe
         {
             "file": f,
             "label": kept[i].label if i < len(kept) else "",
+            "box": [kept[i].x1, kept[i].y1, kept[i].x2, kept[i].y2] if i < len(kept) else None,
             "url": f"/api/quantity/crops/_tmp/{crop_key}/{f}",
         }
         for i, f in enumerate(files)

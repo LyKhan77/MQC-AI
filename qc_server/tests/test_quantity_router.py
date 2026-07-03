@@ -64,6 +64,7 @@ def test_detect_image_writes_crops_and_serves(client, monkeypatch):
     assert body["crop_key"]
     assert len(body["crops"]) == 1
     assert body["crops"][0]["label"] == "bolt"
+    assert body["crops"][0]["box"] == [1, 1, 8, 8]
     url = body["crops"][0]["url"]
     assert url.startswith("/api/quantity/crops/_tmp/")
     served = client.get(url)
