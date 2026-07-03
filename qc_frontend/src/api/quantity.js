@@ -25,3 +25,7 @@ export function listQuantityChecks() {
 export function deleteQuantityCheck(id) {
   return apiDelete(`/quantity/checks/${id}`)
 }
+
+export function checkToQc(id) {
+  return apiPost(`/quantity/checks/${id}/to-qc`)
+}

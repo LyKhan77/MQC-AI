@@ -2,11 +2,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useQuantityHistory } from '../composables/useQuantityHistory.js'
+import { useToast } from '../composables/useToast.js'
+import { checkToQc } from '../api/quantity.js'
 import { checksToCsv } from '../utils/quantity.js'
 import { downloadBlob } from '../utils/export.js'
 
 const { t } = useI18n()
 const { checks, refresh, remove } = useQuantityHistory()
+const { showToast } = useToast()
 
 onMounted(refresh)
 
@@ -18,6 +21,7 @@ const deleteError = ref('')
 const showExport = ref(false)
 const exportFormat = ref('csv')
 const exportSel = ref({})
+const sentBatchId = ref('')
 const inspectCrops = computed(() =>
   (inspecting.value?.inputs || []).flatMap((i) => i.crops || []),
 )
@@ -181,6 +185,16 @@ async function confirmDelete() {
   }
 }
 
+async function sendToQc(check) {
+  try {
+    const { batch_id } = await checkToQc(check.id)
+    sentBatchId.value = batch_id
+    showToast(t('quantity.sentToQc'))
+  } catch (e) {
+    showToast(e.message || t('common.error'))
+  }
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
@@ -226,6 +240,8 @@ function formatDate(iso) {
             <td><span v-if="c.verdict !== 'none'" class="status-pill" :class="c.verdict === 'pass' ? 'verdict-pass' : 'verdict-fail'">{{ c.verdict === 'pass' ? t('quantity.pass') : t('quantity.fail') }}</span><span v-else>-</span></td>
             <td>
               <button class="btn-sm" @click="inspect(c)">{{ t('quantity.inspect') }}</button>
+              <button class="btn-sm" @click="sendToQc(c)">{{ t('quantity.sendToQc') }}</button>
+              <router-link v-if="sentBatchId" :to="{ name: 'qc', query: { batch: sentBatchId } }" class="btn-sm">{{ t('quantity.openInQc') }}</router-link>
               <button class="btn-sm btn-danger-sm" @click="askDelete(c)">{{ t('common.delete') }}</button>
             </td>
           </tr>
@@ -248,6 +264,8 @@ function formatDate(iso) {
         </div>
         <p v-else class="empty-state">{{ t('quantity.noCrops') }}</p>
         <div class="dialog-actions">
+          <button class="btn-sm" @click="sendToQc(inspecting)">{{ t('quantity.sendToQc') }}</button>
+          <router-link v-if="sentBatchId" :to="{ name: 'qc', query: { batch: sentBatchId } }" class="btn-sm">{{ t('quantity.openInQc') }}</router-link>
           <button class="btn-sm" @click="inspecting = null">{{ t('common.close') }}</button>
         </div>
       </div>

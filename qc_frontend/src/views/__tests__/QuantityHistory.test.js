@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 
 import QuantityHistory from '../QuantityHistory.vue'
 
-const mocks = vi.hoisted(() => ({ refresh: vi.fn(), remove: vi.fn(), downloadBlob: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  remove: vi.fn(),
+  downloadBlob: vi.fn(),
+  checkToQc: vi.fn(),
+  showToast: vi.fn(),
+}))
 
 vi.mock('../../composables/useI18n.js', () => ({ useI18n: () => ({ t: (k) => k }) }))
+vi.mock('../../composables/useToast.js', () => ({ useToast: () => ({ showToast: mocks.showToast }) }))
+vi.mock('../../api/quantity.js', () => ({ checkToQc: mocks.checkToQc }))
 vi.mock('../../composables/useQuantityHistory.js', async () => {
   const { ref } = await import('vue')
   return {
@@ -45,18 +53,22 @@ vi.mock('../../composables/useQuantityHistory.js', async () => {
 })
 vi.mock('../../utils/export.js', () => ({ downloadBlob: mocks.downloadBlob }))
 
+function mountView() {
+  return mount(QuantityHistory, { global: { stubs: { RouterLink: RouterLinkStub } } })
+}
+
 describe('QuantityHistory', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('lists saved checks', async () => {
-    const wrapper = mount(QuantityHistory)
+    const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.text()).toContain('qty-1')
   })
 
   it('export modal downloads selected checks as CSV', async () => {
-    const wrapper = mount(QuantityHistory)
+    const wrapper = mountView()
     await flushPromises()
 
     const exportBtn = wrapper.findAll('button').find((b) => b.text().includes('quantity.export'))
@@ -70,7 +82,7 @@ describe('QuantityHistory', () => {
   })
 
   it('opens an inspect dialog with the saved numbers', async () => {
-    const wrapper = mount(QuantityHistory)
+    const wrapper = mountView()
     await flushPromises()
     await wrapper.findAll('button').find((b) => b.text().includes('quantity.inspect')).trigger('click')
     expect(wrapper.find('.dialog').exists()).toBe(true)
@@ -79,15 +91,26 @@ describe('QuantityHistory', () => {
   })
 
   it('inspect shows a combined gallery of all crops', async () => {
-    const wrapper = mount(QuantityHistory)
+    const wrapper = mountView()
     await flushPromises()
     await wrapper.findAll('button').find((b) => b.text().includes('quantity.inspect')).trigger('click')
     expect(wrapper.findAll('.gallery-crop')).toHaveLength(3)
   })
 
+  it('sends a check to QC', async () => {
+    mocks.checkToQc.mockResolvedValue({ batch_id: 'batch-1' })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.findAll('button').find((b) => b.text().includes('quantity.sendToQc')).trigger('click')
+    await flushPromises()
+    expect(mocks.checkToQc).toHaveBeenCalledWith('qty-1')
+    expect(mocks.showToast).toHaveBeenCalledWith('quantity.sentToQc')
+    expect(wrapper.text()).toContain('quantity.openInQc')
+  })
+
   it('confirms then deletes a check', async () => {
     mocks.remove.mockResolvedValue()
-    const wrapper = mount(QuantityHistory)
+    const wrapper = mountView()
     await flushPromises()
     await wrapper.findAll('button').find((b) => b.text().includes('common.delete')).trigger('click')
     await wrapper.find('.dialog-actions .btn-primary').trigger('click')
