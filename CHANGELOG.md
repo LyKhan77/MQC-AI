@@ -11,6 +11,39 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Quantity Snapshot Sources
+
+### Summary
+
+Quantity Detection now accepts snapshot inputs from images, scrubbed video frames, and full-resolution camera captures. Video capture happens in the browser and camera capture uses the server-side `grab_one()` frame before running the same quantity detect/crop pipeline.
+
+### Added
+
+- `qc_server/app/routers/quantity.py` - added `run_quantity_snapshot()` shared helper and `POST /api/quantity/detect/camera/{camera_id}` with 404 for missing camera, 409 for missing Quantity model, and 503 for unavailable camera frame.
+- `qc_server/app/schemas.py` - added optional `frame_url` to `QuantityDetectOut` for camera snapshot display.
+- `qc_frontend/src/api/quantity.js` - added `detectQuantityCamera(cameraId)`.
+- `qc_frontend/src/views/QuantityDetection.vue` - enabled Image/Video/Camera source selector; added video file preview + frame capture and camera selector + MJPEG preview + Capture.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added video/camera capture strings.
+
+### Changed
+
+- `qc_server/app/routers/quantity.py` - refactored image detection to use the shared snapshot helper so image and camera snapshots share detection, NMS, crop evidence, and response shaping.
+- `qc_frontend/src/views/QuantityDetection.vue` - saved checks now use the active `source_type` (`image`, `video`, or `camera`) while evidence delete, verdict, and save payload behavior stay crop-driven.
+- `qc_server/tests/test_quantity_router.py` and `qc_frontend/src/views/__tests__/QuantityDetection.test.js` - added coverage for camera snapshot detection and frontend camera capture into the existing session.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend quantity snapshots | 2026-07-03 | Shared `run_quantity_snapshot()` plus full-res camera capture endpoint | Image uploads and camera captures run through one detect/crop path; camera preview remains separate from the full-res counted frame. |
+| Frontend Quantity Detection sources | 2026-07-03 | Image, Video, and Camera selector modes with video frame capture and camera MJPEG preview/capture | Inspectors can count an uploaded image, a scrubbed video frame, or a registered camera snapshot, then delete crop evidence and save as before. |
+| Verification | 2026-07-03 | Backend and frontend red/green tests, full backend suite, full frontend suite, production build | Backend: 129 passed. Frontend: 94 passed (19 files). Build succeeded. |
+
+### Notes
+
+- Scope is snapshot-only. Over-time unique counting/tracking with `supervision`/ByteTrack remains deferred to Slice B.
+- Browser smoke still needs a real Quantity Detection `.pt` and a registered camera: video scrub+capture, camera preview+capture, offline-camera 503 message, evidence delete, save, and correct `source_type`.
+
 ## [Unreleased] - 2026-07-03 - Quantity Evidence Delete
 
 ### Summary
