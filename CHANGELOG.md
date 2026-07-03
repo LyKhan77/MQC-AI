@@ -11,6 +11,28 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Quantity PDF Detail Export
+
+### Summary
+
+Quantity History PDF export now produces a detailed count report with a report header, pass/fail summary, per-check blocks, per-class counts, and embedded crop thumbnails.
+
+### Changed
+
+- `qc_frontend/src/views/QuantityHistory.vue` - replaced the compact one-line PDF export with detailed per-check sections and crop image embedding from saved crop URLs.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added Quantity PDF title, checks summary, and per-class labels.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Quantity History PDF export | 2026-07-03 | Detailed jsPDF report with header, checks/pass/fail summary, per-check metadata, per-class counts, and counted-object crop thumbnails | Inspectors can export selected Quantity checks as a readable PDF audit artifact instead of a cramped one-line table. |
+
+### Notes
+
+- Scope stayed frontend-only. CSV export remains unchanged.
+- Crop fetch failures are skipped per image so stale crop URLs do not abort the PDF export.
+
 ## [Unreleased] - 2026-07-03 - UI Settings + Export Controls
 
 ### Summary

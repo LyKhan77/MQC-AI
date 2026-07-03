@@ -58,24 +58,109 @@ function runExport() {
 async function exportPdf(rows) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF()
+  const M = 14
+  const right = 196
   let y = 16
-  doc.setFontSize(14)
-  doc.text(t('quantity.historyTitle'), 14, y)
-  y += 8
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.text(t('quantity.pdfTitle'), M, y)
+  y += 7
+  doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  const cols = ['ID', t('quantity.colDate'), t('quantity.colModel'), t('quantity.total'), t('quantity.expectedTotal'), t('quantity.colVerdict')]
-  doc.text(cols.join('  |  '), 14, y)
+  doc.text(`${t('reports.date')}: ${new Date().toLocaleString('id-ID')}`, M, y)
   y += 6
+  const pass = rows.filter((r) => r.verdict === 'pass').length
+  const fail = rows.filter((r) => r.verdict === 'fail').length
+  doc.text(`${t('quantity.pdfChecks')}: ${rows.length}    ${t('quantity.pass')}: ${pass}    ${t('quantity.fail')}: ${fail}`, M, y)
+  y += 4
+  doc.setDrawColor(200)
+  doc.line(M, y, right, y)
+  y += 8
+
   for (const c of rows) {
-    const line = [c.id, formatDate(c.created_at), c.model_used, c.total_count, c.expected_total ?? '-', c.verdict].join('  |  ')
-    doc.text(String(line), 14, y)
-    y += 6
-    if (y > 280) {
+    if (y > 250) {
       doc.addPage()
       y = 16
     }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text(String(c.id), M, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    for (const line of [
+      `${t('quantity.colDate')}: ${formatDate(c.created_at)}`,
+      `${t('quantity.colModel')}: ${c.model_used} @ ${c.confidence_used}`,
+      `${t('quantity.total')}: ${c.total_count}`,
+      `${t('quantity.expectedTotal')}: ${c.expected_total ?? '-'} +/- ${c.tolerance}`,
+      `${t('quantity.colVerdict')}: ${c.verdict}`,
+    ]) {
+      doc.text(line, M, y)
+      y += 5
+    }
+
+    const pc = c.per_class_counts || {}
+    if (Object.keys(pc).length) {
+      doc.setFont('helvetica', 'bold')
+      doc.text(t('quantity.perClass'), M, y)
+      y += 5
+      doc.text(t('quantity.class'), M, y)
+      doc.text(t('quantity.count'), M + 75, y)
+      y += 2
+      doc.setDrawColor(230)
+      doc.line(M, y, M + 95, y)
+      y += 4
+      doc.setFont('helvetica', 'normal')
+      for (const k of Object.keys(pc)) {
+        doc.text(k, M, y)
+        doc.text(String(pc[k]), M + 75, y)
+        y += 5
+      }
+    }
+
+    const crops = (c.inputs || []).flatMap((i) => i.crops || [])
+    if (crops.length) {
+      const tw = 22
+      const th = 18
+      let x = M
+      if (y + th > 285) {
+        doc.addPage()
+        y = 16
+      }
+      for (const u of crops) {
+        try {
+          doc.addImage(await urlToDataUrl(u), 'PNG', x, y, tw, th)
+        } catch {
+          // Skip stale crop URLs; export should still finish.
+        }
+        x += tw + 3
+        if (x + tw > right) {
+          x = M
+          y += th + 3
+          if (y + th > 285) {
+            doc.addPage()
+            y = 16
+          }
+        }
+      }
+      y += th + 4
+    }
+    doc.setDrawColor(230)
+    doc.line(M, y, right, y)
+    y += 8
   }
   doc.save('quantity_history.pdf')
+}
+
+async function urlToDataUrl(url) {
+  const res = await fetch(url)
+  const blob = await res.blob()
+  return await new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = reject
+    r.readAsDataURL(blob)
+  })
 }
 
 function inspect(check) {
