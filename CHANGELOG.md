@@ -11,6 +11,40 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - UI Settings + Export Controls
+
+### Summary
+
+Settings now separates model configuration into Object Detection, QC, and Quantity blocks with native info tooltips. Defect classes can use any typed category, and Quantity History exports selected checks as CSV or PDF from one Export dialog.
+
+### Added
+
+- `qc_frontend/src/views/Settings.vue` - added model sub-section titles and native `title` info icons for each model parameter.
+- `qc_frontend/src/components/DefectClassModal.vue` - replaced the fixed category select with a free-type input plus datalist of existing categories.
+- `qc_frontend/src/views/QuantityHistory.vue` - added an Export modal with per-check selection and CSV/PDF format choice.
+- `qc_frontend/src/views/__tests__/DefectClasses.test.js` and `QuantityHistory.test.js` - added coverage for typed defect categories, dynamic category grouping, and selected CSV export.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added tooltip, category-placeholder, and Quantity export strings.
+
+### Changed
+
+- `qc_frontend/src/views/Settings.vue` - defect-class groups now derive from distinct categories in the API data instead of hardcoded coating/welding groups.
+- `qc_frontend/src/views/QuantityHistory.vue` - replaced direct "Export CSV" with one "Export" action that can export only selected checks.
+- `README.md` and `AGENTS.md` - documented model sub-groups/tooltips, free-type defect categories, and Quantity History CSV/PDF export.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Settings Models UI | 2026-07-03 | Object Detection / QC / Quantity sub-blocks plus native info icons | Operators can scan which model and confidence parameter affects each workflow without a tooltip dependency. |
+| Defect category UI | 2026-07-03 | Free-type category input backed by existing category datalist and dynamic grouping | New defect categories appear as their own Settings groups with no backend change. |
+| Quantity History export | 2026-07-03 | Selected-check Export modal with CSV and plain jsPDF PDF output | Inspectors can choose which saved Quantity checks to export and pick CSV or PDF from one action. |
+| Verification | 2026-07-03 | Frontend focused red/green tests, full frontend suite, production build | Frontend: 96 passed (19 files). Build succeeded. Browser smoke still needs a device session. |
+
+### Notes
+
+- Scope stayed frontend-only. No backend/schema/dependency changes.
+- Tooltip uses native `title=""`; PDF export uses existing `jsPDF`.
+
 ## [Unreleased] - 2026-07-03 - UI Type Scale Legibility
 
 ### Summary
