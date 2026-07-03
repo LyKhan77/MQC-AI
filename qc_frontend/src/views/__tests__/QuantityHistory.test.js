@@ -48,14 +48,20 @@ vi.mock('../../utils/export.js', () => ({ downloadBlob: mocks.downloadBlob }))
 describe('QuantityHistory', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('lists saved checks and exports CSV', async () => {
+  it('lists saved checks', async () => {
     const wrapper = mount(QuantityHistory)
     await flushPromises()
 
     expect(wrapper.text()).toContain('qty-1')
+  })
 
-    const exportBtn = wrapper.findAll('button').find((b) => b.text().includes('quantity.exportCsv'))
+  it('export modal downloads selected checks as CSV', async () => {
+    const wrapper = mount(QuantityHistory)
+    await flushPromises()
+
+    const exportBtn = wrapper.findAll('button').find((b) => b.text().includes('quantity.export'))
     await exportBtn.trigger('click')
+    await wrapper.find('.export-dialog button.btn-primary').trigger('click')
 
     expect(mocks.downloadBlob).toHaveBeenCalledTimes(1)
     const [blob, filename] = mocks.downloadBlob.mock.calls[0]

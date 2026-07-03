@@ -243,6 +243,8 @@ export default {
     historySubtitle: 'Saved count results',
     searchPlaceholder: 'Search checks...',
     filterAll: 'All',
+    export: 'Export',
+    exportTitle: 'Export checks',
     exportCsv: 'Export CSV',
     colId: 'ID',
     colDate: 'Date',

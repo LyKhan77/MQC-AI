@@ -250,6 +250,8 @@ export default {
     historySubtitle: 'Hasil hitung tersimpan',
     searchPlaceholder: 'Cari pemeriksaan...',
     filterAll: 'Semua',
+    export: 'Ekspor',
+    exportTitle: 'Ekspor pemeriksaan',
     exportCsv: 'Ekspor CSV',
     colId: 'ID',
     colDate: 'Tanggal',

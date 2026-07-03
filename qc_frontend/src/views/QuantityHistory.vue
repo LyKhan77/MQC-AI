@@ -15,6 +15,9 @@ const verdictFilter = ref('')
 const inspecting = ref(null)
 const pendingDelete = ref(null)
 const deleteError = ref('')
+const showExport = ref(false)
+const exportFormat = ref('csv')
+const exportSel = ref({})
 const inspectCrops = computed(() =>
   (inspecting.value?.inputs || []).flatMap((i) => i.crops || []),
 )
@@ -31,9 +34,48 @@ const filtered = computed(() => {
   return result
 })
 
-function exportCsv() {
-  const csv = checksToCsv(filtered.value)
-  downloadBlob(new Blob([csv], { type: 'text/csv' }), 'quantity_history.csv')
+function openExport() {
+  exportSel.value = Object.fromEntries(filtered.value.map((c) => [c.id, true]))
+  exportFormat.value = 'csv'
+  showExport.value = true
+}
+
+function selectedChecks() {
+  return filtered.value.filter((c) => exportSel.value[c.id])
+}
+
+function runExport() {
+  const rows = selectedChecks()
+  if (!rows.length) return
+  if (exportFormat.value === 'csv') {
+    downloadBlob(new Blob([checksToCsv(rows)], { type: 'text/csv' }), 'quantity_history.csv')
+  } else {
+    exportPdf(rows)
+  }
+  showExport.value = false
+}
+
+async function exportPdf(rows) {
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF()
+  let y = 16
+  doc.setFontSize(14)
+  doc.text(t('quantity.historyTitle'), 14, y)
+  y += 8
+  doc.setFontSize(10)
+  const cols = ['ID', t('quantity.colDate'), t('quantity.colModel'), t('quantity.total'), t('quantity.expectedTotal'), t('quantity.colVerdict')]
+  doc.text(cols.join('  |  '), 14, y)
+  y += 6
+  for (const c of rows) {
+    const line = [c.id, formatDate(c.created_at), c.model_used, c.total_count, c.expected_total ?? '-', c.verdict].join('  |  ')
+    doc.text(String(line), 14, y)
+    y += 6
+    if (y > 280) {
+      doc.addPage()
+      y = 16
+    }
+  }
+  doc.save('quantity_history.pdf')
 }
 
 function inspect(check) {
@@ -73,7 +115,7 @@ function formatDate(iso) {
         <option value="pass">{{ t('quantity.pass') }}</option>
         <option value="fail">{{ t('quantity.fail') }}</option>
       </select>
-      <button class="btn-sm" @click="exportCsv">{{ t('quantity.exportCsv') }}</button>
+      <button class="btn-sm" @click="openExport">{{ t('quantity.export') }}</button>
     </div>
 
     <div class="table-wrap">
@@ -134,6 +176,26 @@ function formatDate(iso) {
         <div class="dialog-actions">
           <button class="btn-sm" @click="pendingDelete = null">{{ t('common.cancel') }}</button>
           <button class="btn-sm btn-primary" @click="confirmDelete">{{ t('common.delete') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showExport" class="dialog-overlay export-dialog" @click.self="showExport = false">
+      <div class="dialog">
+        <h3>{{ t('quantity.exportTitle') }}</h3>
+        <div class="export-format">
+          <label><input type="radio" value="csv" v-model="exportFormat" /> CSV</label>
+          <label><input type="radio" value="pdf" v-model="exportFormat" /> PDF</label>
+        </div>
+        <div class="export-list">
+          <label v-for="c in filtered" :key="c.id" class="export-row">
+            <input type="checkbox" v-model="exportSel[c.id]" />
+            <span class="mono">{{ c.id }}</span> - {{ c.total_count }} - {{ c.verdict }}
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn-sm" @click="showExport = false">{{ t('common.cancel') }}</button>
+          <button class="btn-sm btn-primary" @click="runExport">{{ t('quantity.export') }}</button>
         </div>
       </div>
     </div>
@@ -238,4 +300,7 @@ function formatDate(iso) {
 .gallery-crop { width: 96px; height: 80px; object-fit: contain; border: 1px solid var(--color-hairline); background: var(--color-surface-1); }
 .status-line.error { color: var(--color-error); }
 .mono { font-family: var(--font-mono); }
+.export-format { display: flex; gap: 16px; margin-bottom: 12px; font-size: 14px; }
+.export-list { max-height: 280px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.export-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 </style>
