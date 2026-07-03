@@ -11,6 +11,30 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - UI Type Scale Legibility
+
+### Summary
+
+Raised the frontend type scale for production-floor readability while preserving the dense Carbon dashboard style. Quantity Detection received the reported-case pass first, followed by the remaining dashboard views and shared components.
+
+### Changed
+
+- `qc_frontend/src/style.css` - added an explicit 15px body base and raised the shared page subtitle to 15px.
+- `qc_frontend/src/views/QuantityDetection.vue` - raised small labels, captions, table text, buttons, and inputs; added a 16px/600 count-value tier for per-class counts.
+- `qc_frontend/src/views/{AuditLog,BatchHistory,LiveMonitor,MediaDetection,QuantityHistory,Reports,Settings}.vue` and `qc_frontend/src/components/{AppSidebar,BatchSidebar,CropReviewDialog,DefectClassModal,DefectPanel,InspectionCanvas,QcRunDialog,TopBar}.vue` - raised hardcoded 11/12px text to 13px, 14px body/control text to 15px, improved small muted-text contrast, and emphasized primary count/stat values at 16px/600 where applicable.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Frontend type scale | 2026-07-03 | CSS-only production-floor legibility pass across global styles, Quantity Detection, remaining views, and shared components | Body/control text starts at 15px, muted helper/caption text floors at 13px with stronger contrast, and operational count/stat values stand out without changing app logic or layout structure. |
+| Verification | 2026-07-03 | Frontend full test suite and production build after global, Quantity Detection, and app-wide passes | Frontend: 94 passed (19 files). Build succeeded. Browser smoke still needs a device session. |
+
+### Notes
+
+- Scope was CSS-only except for adding the `count-val` class to Quantity Detection's per-class count cell.
+- Browser smoke remains a device-session checklist: labels, tables, captions, badges, and numeric values should be checked at production-floor viewing distance.
+
 ## [Unreleased] - 2026-07-03 - Quantity Snapshot Sources
 
 ### Summary
