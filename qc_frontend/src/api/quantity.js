@@ -14,6 +14,10 @@ export function createQuantityCheck(payload) {
   return apiPost('/quantity/checks', payload)
 }
 
+export function detectQuantityCamera(cameraId) {
+  return apiPost(`/quantity/detect/camera/${cameraId}`)
+}
+
 export function listQuantityChecks() {
   return apiGet('/quantity/checks')
 }

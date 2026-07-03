@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
 import QuantityDetection from '../QuantityDetection.vue'
-import { detectQuantityImage, createQuantityCheck } from '../../api/quantity.js'
+import { detectQuantityImage, createQuantityCheck, detectQuantityCamera } from '../../api/quantity.js'
 
 const mocks = vi.hoisted(() => ({ log: vi.fn() }))
 
@@ -14,9 +14,14 @@ vi.mock('../../composables/useSettings.js', async () => {
   const { ref } = await import('vue')
   return { useSettings: () => ({ settings: ref({ quantityModel: 'count.pt', quantityConfidenceThreshold: 0.5 }), refresh: vi.fn() }) }
 })
+vi.mock('../../composables/useCameras.js', async () => {
+  const { ref } = await import('vue')
+  return { useCameras: () => ({ cameras: ref([{ id: 'cam-1', name: 'C1' }]), refresh: vi.fn() }) }
+})
 vi.mock('../../api/quantity.js', () => ({
   detectQuantityImage: vi.fn(),
   createQuantityCheck: vi.fn(),
+  detectQuantityCamera: vi.fn(),
 }))
 
 function file(name = 'a.png') {
@@ -67,5 +72,32 @@ describe('QuantityDetection', () => {
     expect(payload.total_count).toBe(2)
     expect(payload.inputs[0].crops).toHaveLength(2)
     expect(mocks.log).toHaveBeenCalledWith('QUANTITY_CHECK', expect.any(String))
+  })
+
+  it('captures a camera snapshot into the session', async () => {
+    detectQuantityCamera.mockResolvedValue({
+      total: 2,
+      per_class: { pcb: 2 },
+      detections: [
+        { box: [0, 0, 4, 4], label: 'pcb', confidence: 0.9 },
+        { box: [5, 5, 9, 9], label: 'pcb', confidence: 0.8 },
+      ],
+      width: 100,
+      height: 100,
+      crop_key: 'k9',
+      crops: [
+        { file: 'obj_000.png', label: 'pcb', box: [0, 0, 4, 4], url: '/api/quantity/crops/_tmp/k9/obj_000.png' },
+        { file: 'obj_001.png', label: 'pcb', box: [5, 5, 9, 9], url: '/api/quantity/crops/_tmp/k9/obj_001.png' },
+      ],
+      frame_url: '/api/quantity/crops/_tmp/k9/frame.jpg',
+    })
+    const wrapper = mount(QuantityDetection)
+    await wrapper.get('button[aria-label="quantity.sourceCamera"]').trigger('click')
+    await wrapper.get('select.cam-select').setValue('cam-1')
+    await wrapper.get('button[aria-label="quantity.capture"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.sessionTotal).toBe(2)
+    expect(wrapper.vm.selectedResult.url).toBe('/api/quantity/crops/_tmp/k9/frame.jpg')
   })
 })

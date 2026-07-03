@@ -1,29 +1,45 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useToast } from '../composables/useToast.js'
 import { useSettings } from '../composables/useSettings.js'
-import { detectQuantityImage, createQuantityCheck } from '../api/quantity.js'
+import { useCameras } from '../composables/useCameras.js'
+import { detectQuantityImage, createQuantityCheck, detectQuantityCamera } from '../api/quantity.js'
 import { totalOf, computeVerdict } from '../utils/quantity.js'
 
 const { t } = useI18n()
 const { log } = useAuditLog()
 const { showToast } = useToast()
 const { settings } = useSettings()
+const { cameras, refresh: refreshCameras } = useCameras()
 
 const REVIEWER = 'inspector@gspemail.com'
+const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
 const source = ref('image')
 const results = ref([]) // [{ name, url, detected, crops, width, height, cropKey }]
 const selectedIdx = ref(0)
 const running = ref(false)
+const capturing = ref(false)
 const errorMsg = ref('')
 const expectedTotal = ref('')
 const tolerance = ref(0)
+const videoEl = ref(null)
+const videoUrl = ref('')
+const selectedCameraId = ref('')
 
 const hasModel = computed(() => !!settings.value.quantityModel)
 const selectedResult = computed(() => results.value[selectedIdx.value] || null)
+const cameraStreamUrl = computed(() =>
+  selectedCameraId.value ? `${API_BASE}/cameras/${selectedCameraId.value}/stream` : '',
+)
+
+onMounted(refreshCameras)
+onUnmounted(() => {
+  results.value.forEach(revokeResult)
+  if (videoUrl.value) URL.revokeObjectURL(videoUrl.value)
+})
 
 function perClassOf(crops) {
   const acc = {}
@@ -81,6 +97,50 @@ function onPick(e) {
   e.target.value = ''
 }
 
+function onVideoPick(e) {
+  const f = e.target.files && e.target.files[0]
+  if (f) {
+    if (videoUrl.value) URL.revokeObjectURL(videoUrl.value)
+    videoUrl.value = URL.createObjectURL(f)
+  }
+  e.target.value = ''
+}
+
+function captureVideoFrame() {
+  const v = videoEl.value
+  if (!v || !v.videoWidth) return
+  const canvas = document.createElement('canvas')
+  canvas.width = v.videoWidth
+  canvas.height = v.videoHeight
+  canvas.getContext('2d').drawImage(v, 0, 0)
+  canvas.toBlob((blob) => {
+    if (blob) addFiles([new File([blob], `frame_${Math.round(v.currentTime * 1000)}.jpg`, { type: 'image/jpeg' })])
+  }, 'image/jpeg', 0.95)
+}
+
+async function captureCamera() {
+  if (!selectedCameraId.value || capturing.value) return
+  capturing.value = true
+  errorMsg.value = ''
+  try {
+    const res = await detectQuantityCamera(selectedCameraId.value)
+    results.value.push({
+      name: `camera ${new Date().toLocaleTimeString()}`,
+      url: res.frame_url,
+      detected: res.total,
+      crops: (res.crops || []).map((c) => ({ ...c })),
+      width: res.width || 1,
+      height: res.height || 1,
+      cropKey: res.crop_key || '',
+    })
+    selectedIdx.value = results.value.length - 1
+  } catch (e) {
+    errorMsg.value = e.message || t('common.error')
+  } finally {
+    capturing.value = false
+  }
+}
+
 function revokeResult(item) {
   if (item.url) URL.revokeObjectURL(item.url)
 }
@@ -111,7 +171,7 @@ function resetSession() {
 async function saveCheck() {
   if (!results.value.length) return
   const payload = {
-    source_type: 'image',
+    source_type: source.value,
     count_mode: 'static',
     input_summary: `${results.value.length} ${t('quantity.imagesUnit')}`,
     model_used: settings.value.quantityModel,
@@ -137,7 +197,17 @@ async function saveCheck() {
   showToast(t('quantity.saved'))
 }
 
-defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass, verdict })
+defineExpose({
+  addFiles,
+  saveCheck,
+  resetSession,
+  sessionTotal,
+  sessionPerClass,
+  verdict,
+  captureCamera,
+  selectedCameraId,
+  selectedResult,
+})
 </script>
 
 <template>
@@ -154,10 +224,27 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
 
     <template v-else>
       <div class="segmented" role="group" :aria-label="t('quantity.source')">
-        <button class="segment-btn" :class="{ active: source === 'image' }" :aria-pressed="source === 'image'" @click="source = 'image'">{{ t('quantity.sourceImage') }}</button>
-        <button class="segment-btn" disabled :title="t('quantity.comingSoon')">{{ t('quantity.sourceVideo') }}</button>
-        <button class="segment-btn" disabled :title="t('quantity.comingSoon')">{{ t('quantity.sourceCamera') }}</button>
+        <button class="segment-btn" :class="{ active: source === 'image' }" :aria-label="t('quantity.sourceImage')" :aria-pressed="source === 'image'" @click="source = 'image'">{{ t('quantity.sourceImage') }}</button>
+        <button class="segment-btn" :class="{ active: source === 'video' }" :aria-label="t('quantity.sourceVideo')" :aria-pressed="source === 'video'" @click="source = 'video'">{{ t('quantity.sourceVideo') }}</button>
+        <button class="segment-btn" :class="{ active: source === 'camera' }" :aria-label="t('quantity.sourceCamera')" :aria-pressed="source === 'camera'" @click="source = 'camera'">{{ t('quantity.sourceCamera') }}</button>
         <span class="ctx mono">{{ settings.quantityModel }} - {{ Number(settings.quantityConfidenceThreshold).toFixed(2) }}</span>
+      </div>
+
+      <div class="capture-bar" v-if="source === 'video'">
+        <label class="btn-sm">
+          {{ t('quantity.loadVideo') }}
+          <input type="file" accept="video/*" hidden @change="onVideoPick" />
+        </label>
+        <video v-if="videoUrl" ref="videoEl" :src="videoUrl" class="cap-video" controls muted playsinline></video>
+        <button class="btn-sm primary" :disabled="!videoUrl" @click="captureVideoFrame">{{ t('quantity.captureFrame') }}</button>
+      </div>
+      <div class="capture-bar" v-else-if="source === 'camera'">
+        <select v-model="selectedCameraId" class="text-input cam-select">
+          <option value="">{{ t('quantity.selectCamera') }}</option>
+          <option v-for="c in cameras" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+        <img v-if="cameraStreamUrl" :src="cameraStreamUrl" class="cam-preview" alt="camera preview" />
+        <button class="btn-sm primary" :disabled="!selectedCameraId || capturing" :aria-label="t('quantity.capture')" @click="captureCamera">{{ capturing ? t('quantity.running') : t('quantity.capture') }}</button>
       </div>
 
       <div class="result-band">
@@ -229,7 +316,7 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
             <span class="film-count mono">{{ r.crops.length }}</span>
             <span class="film-remove" @click.stop="removeResult(idx)" :title="t('quantity.removeInput')">x</span>
           </button>
-          <label class="film-add btn-sm primary">
+          <label v-if="source === 'image'" class="film-add btn-sm primary">
             {{ t('quantity.addImages') }}
             <input type="file" accept="image/*" multiple hidden @change="onPick" />
           </label>
@@ -248,7 +335,7 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
       </div>
 
       <div v-else class="evidence-head">
-        <label class="btn-sm primary">
+        <label v-if="source === 'image'" class="btn-sm primary">
           {{ t('quantity.addImages') }}
           <input type="file" accept="image/*" multiple hidden @change="onPick" />
         </label>
@@ -264,6 +351,10 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
 .segment-btn.active { background: var(--color-primary); color: var(--color-on-primary); }
 .segment-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ctx { padding: 0 12px; color: var(--color-ink-subtle); font-size: 12px; }
+.capture-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cap-video { max-width: 420px; max-height: 260px; background: var(--color-ink); border: 1px solid var(--color-hairline); }
+.cam-preview { max-width: 420px; max-height: 260px; background: var(--color-surface-1); border: 1px solid var(--color-hairline); object-fit: contain; }
+.cam-select { min-width: 200px; width: auto; }
 
 .result-band { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 20px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); margin-bottom: 16px; }
 .total-block { display: flex; flex-direction: column; }
