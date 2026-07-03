@@ -10,27 +10,19 @@ from sqlalchemy.orm import Session
 
 from ..config import settings as app_settings
 from ..database import get_db
-from ..models import QuantityCheck
+from ..models import Camera, QuantityCheck
 from ..schemas import QuantityCheckIn, QuantityCheckOut, QuantityDetectOut
 from ..services.crop import crop_objects
 from ..services.object_detection import detect, resolve_named_model_path, serialize_detections
 from ..services.quantity import per_class_counts
+from ..services.streaming import grab_one
 from ..util import gen_id, now_iso
 from .settings import get_or_create_setting
 
 router = APIRouter(prefix="/api/quantity", tags=["quantity"])
 
 
-@router.post("/detect/image", response_model=QuantityDetectOut)
-async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    setting = get_or_create_setting(db)
-    model_path = resolve_named_model_path(setting.quantity_model)
-    if not model_path:
-        raise HTTPException(409, "quantity model not configured")
-    raw = await file.read()
-    frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
-    if frame is None:
-        raise HTTPException(400, "invalid image")
+def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
     detections = detect(
         frame,
         setting.quantity_confidence_threshold,
@@ -52,6 +44,11 @@ async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depe
         }
         for i, f in enumerate(files)
     ]
+    frame_url = None
+    if save_frame:
+        os.makedirs(tmp_dir, exist_ok=True)
+        cv2.imwrite(os.path.join(tmp_dir, "frame.jpg"), frame)
+        frame_url = f"/api/quantity/crops/_tmp/{crop_key}/frame.jpg"
     return {
         "total": len(detections),
         "per_class": per_class_counts(detections),
@@ -60,7 +57,36 @@ async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depe
         "height": int(h),
         "crop_key": crop_key,
         "crops": crops,
+        "frame_url": frame_url,
     }
+
+
+@router.post("/detect/image", response_model=QuantityDetectOut)
+async def detect_quantity_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    setting = get_or_create_setting(db)
+    model_path = resolve_named_model_path(setting.quantity_model)
+    if not model_path:
+        raise HTTPException(409, "quantity model not configured")
+    raw = await file.read()
+    frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if frame is None:
+        raise HTTPException(400, "invalid image")
+    return run_quantity_snapshot(frame, setting, model_path)
+
+
+@router.post("/detect/camera/{camera_id}", response_model=QuantityDetectOut)
+def detect_quantity_camera(camera_id: str, db: Session = Depends(get_db)):
+    cam = db.get(Camera, camera_id)
+    if not cam:
+        raise HTTPException(404, "camera not found")
+    setting = get_or_create_setting(db)
+    model_path = resolve_named_model_path(setting.quantity_model)
+    if not model_path:
+        raise HTTPException(409, "quantity model not configured")
+    frame = grab_one(cam.source)
+    if frame is None:
+        raise HTTPException(503, "camera frame unavailable")
+    return run_quantity_snapshot(frame, setting, model_path, save_frame=True)
 
 
 @router.get("/crops/{p1}/{p2}/{filename}")

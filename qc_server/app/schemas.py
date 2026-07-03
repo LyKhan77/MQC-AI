@@ -76,6 +76,7 @@ class QuantityDetectOut(BaseModel):
     height: int
     crop_key: str
     crops: list
+    frame_url: str | None = None
 
 
 class AuditLogIn(BaseModel):

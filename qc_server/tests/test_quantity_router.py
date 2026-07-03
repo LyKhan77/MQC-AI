@@ -81,3 +81,24 @@ def test_detect_image_no_model_409(client, monkeypatch):
     resp = client.post("/api/quantity/detect/image",
                        files={"file": ("a.png", _png_bytes(), "image/png")})
     assert resp.status_code == 409
+
+
+def test_detect_camera_returns_crops_and_frame(client, monkeypatch):
+    q = _quantity_router()
+    client.post("/api/cameras", json={"id": "cam-1", "name": "C", "type": "usb", "source": "0"})
+    client.put("/api/settings", json={"quantity_model": "m.pt"})
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
+    monkeypatch.setattr(q, "detect", lambda *a, **k: [Detection(1, 1, 8, 8, "pcb", 0.9)])
+    monkeypatch.setattr(q, "grab_one", lambda src: np.zeros((10, 10, 3), np.uint8))
+
+    resp = client.post("/api/quantity/detect/camera/cam-1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert len(body["crops"]) == 1
+    assert body["crops"][0]["box"] == [1, 1, 8, 8]
+    assert body["frame_url"].endswith("/frame.jpg")
+
+    assert client.post("/api/quantity/detect/camera/nope").status_code == 404
+    monkeypatch.setattr(q, "grab_one", lambda src: None)
+    assert client.post("/api/quantity/detect/camera/cam-1").status_code == 503
