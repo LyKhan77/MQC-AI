@@ -293,7 +293,11 @@ export default {
     clean: 'Bersih',
     defect: 'Cacat',
     empty: 'Belum ada tangkapan. Unggah atau ambil untuk inspeksi.',
-    cameraDenied: 'Akses kamera ditolak atau tidak tersedia.',
+    cameraDenied: 'Akses kamera ditolak. Izinkan kamera di pengaturan browser.',
+    cameraNotFound: 'Tidak ada kamera di perangkat ini.',
+    cameraInUse: 'Kamera sedang dipakai aplikasi lain.',
+    cameraInsecure: 'Kamera butuh koneksi aman (HTTPS).',
+    cameraError: 'Kesalahan kamera',
   },
 
   // Reports

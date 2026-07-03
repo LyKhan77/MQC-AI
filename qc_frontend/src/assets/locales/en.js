@@ -286,7 +286,11 @@ export default {
     clean: 'Clean',
     defect: 'Defect',
     empty: 'No captures yet. Upload or capture to inspect.',
-    cameraDenied: 'Camera access denied or unavailable.',
+    cameraDenied: 'Camera access denied. Allow camera in your browser settings.',
+    cameraNotFound: 'No camera found on this device.',
+    cameraInUse: 'Camera is in use by another app.',
+    cameraInsecure: 'Camera needs a secure (HTTPS) connection.',
+    cameraError: 'Camera error',
   },
 
   reports: {

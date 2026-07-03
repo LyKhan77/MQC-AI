@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { detectInspection, inspectionToQc } from '../api/inspection.js'
 import { useCameras } from '../composables/useCameras.js'
@@ -11,7 +11,7 @@ const { cameras, refresh } = useCameras()
 
 const source = ref('upload')
 const cropMode = ref('full')
-const selectedCamera = ref('')
+const selectedCameraId = ref('')
 const stack = ref([])
 const busy = ref(false)
 const errorMsg = ref('')
@@ -19,8 +19,20 @@ const videoEl = ref(null)
 
 let mediaStream = null
 
-onMounted(refresh)
-onBeforeUnmount(stopCamera)
+const selectedCamera = computed(() => cameras.value.find((c) => c.id === selectedCameraId.value))
+const rawStreamUrl = computed(() =>
+  selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : '',
+)
+
+let statusTimer = null
+onMounted(() => {
+  refresh()
+  statusTimer = setInterval(refresh, 10000)
+})
+onBeforeUnmount(() => {
+  if (statusTimer) clearInterval(statusTimer)
+  stopCamera()
+})
 
 async function pushDetect(opts) {
   busy.value = true
@@ -41,20 +53,31 @@ async function onFiles(event) {
 }
 
 function captureServer() {
-  if (!selectedCamera.value) return
-  return pushDetect({ cameraId: selectedCamera.value })
+  if (!selectedCameraId.value) return
+  return pushDetect({ cameraId: selectedCameraId.value })
 }
 
 async function openCamera() {
   errorMsg.value = ''
+  // getUserMedia is undefined on a non-secure context (plain http over LAN IP).
+  if (!navigator.mediaDevices?.getUserMedia) {
+    errorMsg.value = t('inspection.cameraInsecure')
+    return
+  }
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     if (videoEl.value) {
       videoEl.value.srcObject = mediaStream
       await videoEl.value.play()
     }
-  } catch {
-    errorMsg.value = t('inspection.cameraDenied')
+  } catch (err) {
+    const byName = {
+      NotAllowedError: t('inspection.cameraDenied'),
+      NotFoundError: t('inspection.cameraNotFound'),
+      NotReadableError: t('inspection.cameraInUse'),
+      SecurityError: t('inspection.cameraInsecure'),
+    }
+    errorMsg.value = byName[err?.name] || `${t('inspection.cameraError')}: ${err?.name || err?.message || 'unknown'}`
   }
 }
 
@@ -138,16 +161,40 @@ function polyPoints(poly) {
       <div v-if="source === 'upload'">
         <input type="file" accept="image/*" multiple :disabled="busy" @change="onFiles" />
       </div>
-      <div v-else-if="source === 'server'" class="row">
-        <select v-model="selectedCamera" class="text-input">
-          <option value="">{{ t('inspection.selectCamera') }}</option>
-          <option v-for="camera in cameras" :key="camera.id" :value="camera.id">
-            {{ camera.name }}
-          </option>
-        </select>
-        <button class="btn-sm" :disabled="busy || !selectedCamera" @click="captureServer">
-          {{ t('inspection.capture') }}
-        </button>
+      <div v-else-if="source === 'server'" class="server-cam">
+        <div class="row">
+          <select v-model="selectedCameraId" class="text-input">
+            <option value="">{{ t('inspection.selectCamera') }}</option>
+            <option v-for="camera in cameras" :key="camera.id" :value="camera.id">
+              {{ camera.name }}
+            </option>
+          </select>
+          <button class="btn-sm" :disabled="busy || !selectedCameraId" @click="captureServer">
+            {{ t('inspection.capture') }}
+          </button>
+        </div>
+
+        <div class="status-strip">
+          <div class="status-item">
+            <span class="status-led" :class="selectedCamera?.status === 'online' ? 'on' : 'off'"></span>
+            <span class="status-text">
+              {{ selectedCamera ? t(`live.${selectedCamera.status}`) : t('live.noCameraSelected') }}
+            </span>
+          </div>
+        </div>
+
+        <div class="video-stage">
+          <img
+            v-if="selectedCamera && selectedCamera.status === 'online'"
+            :src="rawStreamUrl"
+            class="stream-img"
+            :alt="selectedCamera.name"
+          />
+          <div v-else class="placeholder-content">
+            <p>{{ selectedCamera ? t('live.offlineNoSignal') : t('live.noCameraSelected') }}</p>
+            <p v-if="selectedCamera" class="mono endpoint">{{ selectedCamera.source }}</p>
+          </div>
+        </div>
       </div>
       <div v-else class="mobile-cam">
         <video ref="videoEl" playsinline muted class="cam-video"></video>
@@ -277,10 +324,75 @@ function polyPoints(poly) {
   color: var(--color-error);
 }
 
+.server-cam,
 .mobile-cam {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 16px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+}
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-led.on {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+.status-led.off {
+  background: var(--color-ink-subtle);
+}
+.status-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.video-stage {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  max-height: 60vh;
+}
+.stream-img {
+  max-width: 100%;
+  max-height: 60vh;
+  width: auto;
+  height: auto;
+  background: #000;
+}
+.placeholder-content {
+  text-align: center;
+  color: var(--color-ink-muted);
+  padding: 24px;
+}
+.placeholder-content p {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.endpoint {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+.mono {
+  font-family: var(--font-mono);
 }
 
 .cam-video {
