@@ -8,10 +8,12 @@ import Settings from '../views/Settings.vue'
 import MediaDetection from '../views/MediaDetection.vue'
 import QuantityDetection from '../views/QuantityDetection.vue'
 import QuantityHistory from '../views/QuantityHistory.vue'
+import DirectInspection from '../views/DirectInspection.vue'
 
 const routes = [
   { path: '/', redirect: '/live' },
   { path: '/live', name: 'live', component: LiveMonitor },
+  { path: '/direct-inspection', name: 'direct-inspection', component: DirectInspection },
   { path: '/qc', name: 'qc', component: QCStudio },
   { path: '/batches', name: 'batches', component: BatchHistory },
   { path: '/media-detection', name: 'media', component: MediaDetection },

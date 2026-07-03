@@ -8,6 +8,7 @@ export default {
   // Nav
   nav: {
     liveMonitor: 'Live Monitor',
+    directInspection: 'Inspeksi Langsung',
     qcStudio: 'QC Studio',
     batchHistory: 'QC History',
     mediaDetection: 'Deteksi Media',
@@ -271,6 +272,28 @@ export default {
     confirmDelete: 'Hapus pemeriksaan',
     noCrops: 'Tidak ada crop tersimpan.',
     noChecks: 'Belum ada pemeriksaan tersimpan.',
+  },
+
+  inspection: {
+    title: 'Inspeksi Langsung',
+    subtitle: 'Cek cacat sesuai permintaan, lalu kirim ke QC Studio',
+    sourceUpload: 'Unggah',
+    sourceServerCamera: 'Kamera Server',
+    sourceMobileCamera: 'Kamera Ponsel',
+    cropMode: 'Pangkas',
+    cropFull: 'Bingkai penuh',
+    cropAuto: 'Pangkas otomatis',
+    openCamera: 'Buka Kamera',
+    capture: 'Ambil',
+    selectCamera: 'Pilih kamera',
+    detectDefects: 'Deteksi Cacat',
+    reviewStack: 'Tinjau',
+    sendToStudio: 'Kirim ke QC Studio',
+    removeCapture: 'Hapus',
+    clean: 'Bersih',
+    defect: 'Cacat',
+    empty: 'Belum ada tangkapan. Unggah atau ambil untuk inspeksi.',
+    cameraDenied: 'Akses kamera ditolak atau tidak tersedia.',
   },
 
   // Reports

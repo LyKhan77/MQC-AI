@@ -6,6 +6,7 @@ export default {
 
   nav: {
     liveMonitor: 'Live Monitor',
+    directInspection: 'Direct Inspection',
     qcStudio: 'QC Studio',
     batchHistory: 'QC History',
     mediaDetection: 'Media Detection',
@@ -264,6 +265,28 @@ export default {
     confirmDelete: 'Delete check',
     noCrops: 'No crops saved.',
     noChecks: 'No saved checks.',
+  },
+
+  inspection: {
+    title: 'Direct Inspection',
+    subtitle: 'On-demand defect check, then hand off to QC Studio',
+    sourceUpload: 'Upload',
+    sourceServerCamera: 'Server Camera',
+    sourceMobileCamera: 'Mobile Camera',
+    cropMode: 'Crop',
+    cropFull: 'Full frame',
+    cropAuto: 'Auto-crop',
+    openCamera: 'Open Camera',
+    capture: 'Capture',
+    selectCamera: 'Select camera',
+    detectDefects: 'Detect Defects',
+    reviewStack: 'Review',
+    sendToStudio: 'Send to QC Studio',
+    removeCapture: 'Remove',
+    clean: 'Clean',
+    defect: 'Defect',
+    empty: 'No captures yet. Upload or capture to inspect.',
+    cameraDenied: 'Camera access denied or unavailable.',
   },
 
   reports: {
