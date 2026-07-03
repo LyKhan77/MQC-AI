@@ -11,6 +11,35 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Direct Inspection
+
+### Summary
+
+Direct Inspection adds a Quality Control submenu for on-demand QC. Operators can upload images, grab server-camera frames, or use a mobile browser camera over HTTPS, run defect detection immediately, review annotated capture cards, remove bad captures, and send the stack to QC Studio as a pending batch.
+
+### Added
+
+- `qc_server/app/services/autocrop.py` - model-free dominant-part crop using Otsu thresholding and largest-contour bounding box, with full-frame fallback.
+- `qc_server/app/routers/inspection.py` - added `POST /api/inspection/detect`, `GET /api/inspection/frame/{key}/frame.jpg`, and `POST /api/inspection/to-qc`; detection reuses the configured defect strategy and Send to QC reuses `prepare_images()` plus pending `Batch`.
+- `qc_server/tests/test_autocrop.py` and `qc_server/tests/test_inspection.py` - covered auto-crop, upload detection, bad images, pending-batch handoff, empty key rejection, and traversal-key rejection.
+- `qc_frontend/src/api/inspection.js` - added `detectInspection()` and `inspectionToQc()`.
+- `qc_frontend/src/views/DirectInspection.vue` - added Upload, Server Camera, and Mobile Camera sources; full-frame/auto-crop toggle; annotated preview stack; remove; and Send to QC Studio flow.
+- `qc_frontend/src/views/__tests__/DirectInspection.test.js` - covered upload-to-card, remove, and Send to QC routing.
+- `qc_frontend/src/router/index.js`, `AppSidebar.vue`, `en.js`, and `id.js` - registered the page under Quality Control as the first child and added bilingual labels.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Direct Inspection backend | 2026-07-03 | Thin inspection router writes temp frames, optionally auto-crops, runs `get_strategy(setting.defect_strategy).detect(...)`, serves previews, and moves selected frames into a pending QC batch | On-demand single-image QC uses the same defect strategy and QC Studio batch preparation path as existing workflows, with no new inference dependency. |
+| Direct Inspection frontend | 2026-07-03 | Responsive page for upload, server camera, and mobile `getUserMedia` capture; annotated cards; remove; and Send to QC Studio redirect | Operators can stack ad hoc captures and open QC Studio at `?batch=` with pending raw images ready for segmentation. |
+| Verification | 2026-07-03 | Backend full suite, frontend full suite, and frontend production build | Backend: 139 passed. Frontend: 101 passed (20 files). Build succeeded. Browser smoke remains on the dev device. |
+
+### Notes
+
+- Mobile camera requires HTTPS because `getUserMedia` needs a secure context.
+- Scope stayed preview-only; defect corrections still belong in QC Studio.
+
 ## [Unreleased] - 2026-07-03 - Rename History Entries Inline
 
 ### Summary
