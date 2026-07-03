@@ -181,6 +181,13 @@ function polyPoints(poly) {
               {{ selectedCamera ? t(`live.${selectedCamera.status}`) : t('live.noCameraSelected') }}
             </span>
           </div>
+          <div v-if="selectedCamera" class="status-item">
+            <span class="metric-label">{{ t('live.fps') }}</span>
+            <span class="metric-value mono">{{ selectedCamera.fps }}</span>
+          </div>
+          <div v-if="selectedCamera?.resolution" class="status-item">
+            <span class="metric-value mono">{{ selectedCamera.resolution }}</span>
+          </div>
         </div>
 
         <div class="video-stage">
@@ -359,6 +366,17 @@ function polyPoints(poly) {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.metric-label {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.16px;
+}
+.metric-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
   letter-spacing: 0.16px;
 }
 .video-stage {
