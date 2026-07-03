@@ -5,7 +5,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 import { useToast } from '../composables/useToast.js'
 import { useSettings } from '../composables/useSettings.js'
 import { detectQuantityImage, createQuantityCheck } from '../api/quantity.js'
-import { perClassFromDetections, addCounts, totalOf, computeVerdict } from '../utils/quantity.js'
+import { totalOf, computeVerdict } from '../utils/quantity.js'
 
 const { t } = useI18n()
 const { log } = useAuditLog()
@@ -15,7 +15,7 @@ const { settings } = useSettings()
 const REVIEWER = 'inspector@gspemail.com'
 
 const source = ref('image')
-const results = ref([]) // [{ name, url, total, perClass, detections, width, height, cropKey, crops }]
+const results = ref([]) // [{ name, url, detected, crops, width, height, cropKey }]
 const selectedIdx = ref(0)
 const running = ref(false)
 const errorMsg = ref('')
@@ -24,8 +24,24 @@ const tolerance = ref(0)
 
 const hasModel = computed(() => !!settings.value.quantityModel)
 const selectedResult = computed(() => results.value[selectedIdx.value] || null)
-const sessionPerClass = computed(() => results.value.reduce((acc, r) => addCounts(acc, r.perClass), {}))
+
+function perClassOf(crops) {
+  const acc = {}
+  for (const c of crops) acc[c.label] = (acc[c.label] || 0) + 1
+  return acc
+}
+
+const sessionPerClass = computed(() => {
+  const acc = {}
+  for (const r of results.value) {
+    for (const c of r.crops) acc[c.label] = (acc[c.label] || 0) + 1
+  }
+  return acc
+})
 const sessionTotal = computed(() => totalOf(sessionPerClass.value))
+const removedCount = computed(() =>
+  results.value.reduce((n, r) => n + Math.max(0, (r.detected || 0) - r.crops.length), 0),
+)
 const hasTarget = computed(() => expectedTotal.value !== '' && expectedTotal.value !== null)
 const totalDelta = computed(() => (hasTarget.value ? sessionTotal.value - Number(expectedTotal.value) : null))
 const verdict = computed(() => computeVerdict({
@@ -44,13 +60,11 @@ async function addFiles(files) {
       results.value.push({
         name: f.name,
         url: URL.createObjectURL(f),
-        total: res.total,
-        perClass: res.per_class || perClassFromDetections(res.detections),
-        detections: res.detections || [],
+        detected: res.total,
+        crops: (res.crops || []).map((c) => ({ ...c })),
         width: res.width || 1,
         height: res.height || 1,
         cropKey: res.crop_key || '',
-        crops: res.crops || [],
       })
       selectedIdx.value = results.value.length - 1
     }
@@ -77,6 +91,12 @@ function removeResult(idx) {
   if (selectedIdx.value >= results.value.length) {
     selectedIdx.value = Math.max(0, results.value.length - 1)
   }
+}
+
+function removeCrop(idx) {
+  const sel = selectedResult.value
+  if (!sel) return
+  sel.crops = sel.crops.filter((_, i) => i !== idx)
 }
 
 function resetSession() {
@@ -106,14 +126,14 @@ async function saveCheck() {
     notes: '',
     inputs: results.value.map((r) => ({
       name: r.name,
-      total: r.total,
-      per_class: r.perClass,
+      total: r.crops.length,
+      per_class: perClassOf(r.crops),
       crop_key: r.cropKey,
       crops: r.crops.map((c) => c.file),
     })),
   }
   await createQuantityCheck(payload)
-  log('QUANTITY_CHECK', `Total ${payload.total_count}, verdict ${payload.verdict}`)
+  log('QUANTITY_CHECK', `Total ${sessionTotal.value}, removed ${removedCount.value}, verdict ${verdict.value}`)
   showToast(t('quantity.saved'))
 }
 
@@ -184,16 +204,16 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
           <img :src="selectedResult.url" :alt="selectedResult.name" class="anno-img" draggable="false" />
           <svg class="anno-overlay" :viewBox="`0 0 ${selectedResult.width} ${selectedResult.height}`" preserveAspectRatio="none">
             <rect
-              v-for="(d, i) in selectedResult.detections"
+              v-for="(c, i) in selectedResult.crops"
               :key="i"
               class="det-box"
-              :x="d.box[0]"
-              :y="d.box[1]"
-              :width="d.box[2] - d.box[0]"
-              :height="d.box[3] - d.box[1]"
+              :x="c.box[0]"
+              :y="c.box[1]"
+              :width="c.box[2] - c.box[0]"
+              :height="c.box[3] - c.box[1]"
             />
           </svg>
-          <span class="count-badge mono">{{ selectedResult.total }}</span>
+          <span class="count-badge mono">{{ selectedResult.crops.length }}</span>
         </div>
 
         <div class="filmstrip">
@@ -206,7 +226,7 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
             @click="selectedIdx = idx"
           >
             <img :src="r.url" :alt="r.name" />
-            <span class="film-count mono">{{ r.total }}</span>
+            <span class="film-count mono">{{ r.crops.length }}</span>
             <span class="film-remove" @click.stop="removeResult(idx)" :title="t('quantity.removeInput')">x</span>
           </button>
           <label class="film-add btn-sm primary">
@@ -222,6 +242,7 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
           <figure v-for="(c, i) in (selectedResult ? selectedResult.crops : [])" :key="i" class="evi-card">
             <img :src="c.url" :alt="c.label" class="evi-crop" />
             <figcaption class="mono">{{ c.label }}</figcaption>
+            <button class="evi-del" :aria-label="t('quantity.removeObject')" :title="t('quantity.removeObject')" @click="removeCrop(i)">x</button>
           </figure>
         </div>
       </div>
@@ -285,9 +306,10 @@ defineExpose({ addFiles, saveCheck, resetSession, sessionTotal, sessionPerClass,
 .film-remove { position: absolute; top: 0; right: 0; width: 18px; height: 18px; line-height: 18px; text-align: center; background: var(--color-error); color: var(--color-on-primary); font-size: 13px; }
 .film-add { display: inline-flex; align-items: center; height: 64px; }
 .evi-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.evi-card { margin: 0; border: 1px solid var(--color-hairline); width: 110px; }
+.evi-card { position: relative; margin: 0; border: 1px solid var(--color-hairline); width: 110px; }
 .evi-crop { display: block; width: 100%; height: 90px; object-fit: contain; background: var(--color-surface-1); }
 .evi-card figcaption { padding: 3px 6px; font-size: 11px; color: var(--color-ink-muted); text-align: center; }
+.evi-del { position: absolute; top: 0; right: 0; width: 20px; height: 20px; line-height: 18px; text-align: center; background: var(--color-error); color: var(--color-on-primary); border: 0; font-size: 14px; cursor: pointer; }
 
 .btn-sm { padding: 5px 12px; background: transparent; border: 1px solid var(--color-hairline); color: var(--color-primary); font-family: var(--font-sans); font-size: 12px; cursor: pointer; letter-spacing: 0.16px; }
 .btn-sm:hover { background: var(--color-surface-1); }

@@ -238,6 +238,7 @@ export default {
     save: 'Simpan hasil',
     saved: 'Tersimpan',
     removeInput: 'Hapus',
+    removeObject: 'Hapus objek',
     imagesUnit: 'gambar',
     evidence: 'Bukti',
     emptyEvidence: 'Tambahkan gambar untuk mulai menghitung.',

@@ -231,6 +231,7 @@ export default {
     save: 'Save result',
     saved: 'Saved',
     removeInput: 'Remove',
+    removeObject: 'Remove object',
     imagesUnit: 'images',
     evidence: 'Evidence',
     emptyEvidence: 'Add images to start counting.',

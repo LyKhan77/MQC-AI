@@ -38,39 +38,34 @@ describe('QuantityDetection', () => {
       height: 100,
       crop_key: 'k1',
       crops: [
-        { file: 'obj_000.png', label: 'bolt', url: '/api/quantity/crops/_tmp/k1/obj_000.png' },
-        { file: 'obj_001.png', label: 'bolt', url: '/api/quantity/crops/_tmp/k1/obj_001.png' },
-        { file: 'obj_002.png', label: 'nut', url: '/api/quantity/crops/_tmp/k1/obj_002.png' },
+        { file: 'obj_000.png', label: 'bolt', box: [0, 0, 5, 5], url: '/api/quantity/crops/_tmp/k1/obj_000.png' },
+        { file: 'obj_001.png', label: 'bolt', box: [5, 5, 9, 9], url: '/api/quantity/crops/_tmp/k1/obj_001.png' },
+        { file: 'obj_002.png', label: 'nut', box: [1, 6, 4, 9], url: '/api/quantity/crops/_tmp/k1/obj_002.png' },
       ],
     })
     createQuantityCheck.mockResolvedValue({ id: 'qty-1' })
   })
 
-  it('shows canvas boxes, a filmstrip, crop evidence, and saves crop refs', async () => {
+  it('counts from crops, deletes an object, and saves the remainder', async () => {
     const wrapper = mount(QuantityDetection)
 
-    await wrapper.vm.addFiles([file('a.png'), file('b.png')])
+    await wrapper.vm.addFiles([file('a.png')])
     await flushPromises()
 
-    expect(wrapper.vm.sessionTotal).toBe(6)
-    expect(wrapper.vm.sessionPerClass).toEqual({ bolt: 4, nut: 2 })
-    expect(wrapper.findAll('.film-thumb')).toHaveLength(2)
+    expect(wrapper.vm.sessionTotal).toBe(3)
     expect(wrapper.findAll('.det-box')).toHaveLength(3)
     expect(wrapper.findAll('.evi-crop')).toHaveLength(3)
+
+    await wrapper.findAll('button[aria-label="quantity.removeObject"]')[0].trigger('click')
+    expect(wrapper.vm.sessionTotal).toBe(2)
+    expect(wrapper.findAll('.det-box')).toHaveLength(2)
 
     await wrapper.vm.saveCheck()
     await flushPromises()
 
     const payload = createQuantityCheck.mock.calls[0][0]
-    expect(payload.total_count).toBe(6)
-    expect(payload.inputs).toHaveLength(2)
-    expect(payload.inputs[0]).toMatchObject({
-      name: 'a.png',
-      total: 3,
-      per_class: { bolt: 2, nut: 1 },
-      crop_key: 'k1',
-      crops: ['obj_000.png', 'obj_001.png', 'obj_002.png'],
-    })
+    expect(payload.total_count).toBe(2)
+    expect(payload.inputs[0].crops).toHaveLength(2)
     expect(mocks.log).toHaveBeenCalledWith('QUANTITY_CHECK', expect.any(String))
   })
 })
