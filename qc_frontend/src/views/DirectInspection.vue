@@ -107,7 +107,7 @@ async function sendToStudio() {
   busy.value = true
   errorMsg.value = ''
   try {
-    const { batch_id } = await inspectionToQc(stack.value.map((item) => item.key))
+    const { batch_id } = await inspectionToQc(stack.value.map((item) => ({ key: item.key, defects: item.defects })))
     stopCamera()
     router.push({ name: 'qc', query: { batch: batch_id } })
   } catch (err) {

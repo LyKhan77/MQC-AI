@@ -11,6 +11,31 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Direct Inspection Persisted Defects
+
+### Summary
+
+Direct Inspection now sends the preview defect polygons into QC Studio instead of creating a raw pending batch. The backend stores the moved captures as a `done` batch, writes `Defect` rows, and emits `result.json` so QC Studio opens with defects already drawn.
+
+### Changed
+
+- `qc_frontend/src/api/inspection.js` and `qc_frontend/src/views/DirectInspection.vue` - `inspectionToQc()` now posts `captures` with `{ key, defects }` from the preview stack.
+- `qc_server/app/routers/inspection.py` - `/api/inspection/to-qc` now moves capture frames, prepares image rows, persists supplied defects, sets per-image clean/defect status, marks the batch `done`, and writes `result.json`.
+- `qc_server/tests/test_inspection.py` and `qc_frontend/src/views/__tests__/DirectInspection.test.js` - updated payload-shape coverage and added persisted-defect done-batch coverage.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Direct Inspection to QC | 2026-07-03 | Preview captures now carry their defect lists through `/api/inspection/to-qc` into batch/image/defect rows | QC Studio opens Direct Inspection submissions as finished `done` batches with existing polygons visible; Re-run and Reset remain available. |
+| Verification | 2026-07-03 | Focused backend and frontend red/green tests | Focused backend: 7 passed. Focused frontend: 3 passed. Full verification is recorded in this session response. |
+
+### Notes
+
+- Browser smoke remains on the dev device: upload -> detect -> Send to QC Studio -> done batch opens with defects drawn -> Re-run/Reset visible -> Reset returns raw.
+
+---
+
 ## [Unreleased] - 2026-07-03 - Direct Inspection Camera UX
 
 ### Changed

@@ -57,7 +57,7 @@ describe('DirectInspection', () => {
     expect(wrapper.findAll('.stack-card')).toHaveLength(0)
   })
 
-  it('send to studio calls api with keys and routes to qc', async () => {
+  it('send to studio calls api with captures and routes to qc', async () => {
     mocks.detectInspection.mockResolvedValue(sample('ins-9'))
     mocks.inspectionToQc.mockResolvedValue({ batch_id: 'batch-1' })
     const wrapper = mount(DirectInspection)
@@ -67,7 +67,7 @@ describe('DirectInspection', () => {
     await flushPromises()
     await wrapper.find('.footer-actions .btn-primary').trigger('click')
     await flushPromises()
-    expect(mocks.inspectionToQc).toHaveBeenCalledWith(['ins-9'])
+    expect(mocks.inspectionToQc).toHaveBeenCalledWith([{ key: 'ins-9', defects: [{ polygon: [[1, 1], [2, 2], [2, 1]] }] }])
     expect(mocks.push).toHaveBeenCalledWith({ name: 'qc', query: { batch: 'batch-1' } })
   })
 })

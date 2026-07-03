@@ -9,9 +9,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from .. import storage
 from ..config import settings as app_settings
 from ..database import get_db
-from ..models import Batch, Camera, DefectClass
+from ..models import Batch, Camera, Defect, DefectClass, Image
 from ..services.autocrop import autocrop
 from ..services.inference.base import DefectClassSpec, get_strategy
 from ..services.pipeline import prepare_images
@@ -109,7 +110,7 @@ def serve_frame(key: str):
 
 
 class ToQcIn(BaseModel):
-    keys: list[str] = []
+    captures: list[dict] = []
 
 
 @router.post("/to-qc", status_code=201)
@@ -119,8 +120,10 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     dest = os.path.join(app_settings.data_dir, "batches", batch_id)
     os.makedirs(dest, exist_ok=True)
     count = 0
+    defects_by_key = {}
 
-    for key in payload.keys:
+    for capture in payload.captures:
+        key = capture.get("key") or ""
         src_dir = (tmp_base / (key or "")).resolve()
         try:
             src_dir.relative_to(tmp_base)
@@ -133,6 +136,7 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
             shutil.move(str(src), os.path.join(dest, f"{src_dir.name}.jpg"))
             shutil.rmtree(str(src_dir), ignore_errors=True)
             count += 1
+            defects_by_key[src_dir.name] = capture.get("defects") or []
 
     if count == 0:
         shutil.rmtree(dest, ignore_errors=True)
@@ -145,7 +149,7 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
         source_path=dest,
         camera_id=None,
         created_at=now_iso(),
-        status="pending",
+        status="done",
         model_info={
             "detection": setting.detection_model,
             "segmentation": setting.segmentation_model,
@@ -156,4 +160,22 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     db.add(batch)
     db.commit()
     prepare_images(db, batch)
+    defect_count = 0
+    for image in db.query(Image).filter(Image.batch_id == batch.id).all():
+        key = os.path.splitext(image.filename)[0]
+        defects = defects_by_key.get(key, [])
+        for item in defects:
+            db.add(Defect(
+                id=gen_id("d"),
+                image_id=image.id,
+                type=item.get("type", ""),
+                category=item.get("category", ""),
+                confidence=float(item.get("confidence", 0)),
+                polygon=item.get("polygon", []),
+            ))
+        image.status = "defect" if defects else "clean"
+        defect_count += len(defects)
+    batch.defect_count = defect_count
+    db.commit()
+    storage.write_result_json(db, batch)
     return {"batch_id": batch_id}

@@ -3,6 +3,8 @@ import io
 import cv2
 import numpy as np
 
+from app.services.inference.base import Detection
+
 
 def _png_bytes():
     frame = np.zeros((40, 40, 3), np.uint8)
@@ -36,24 +38,52 @@ def test_detect_rejects_bad_image(client):
     assert resp.status_code == 400
 
 
-def test_to_qc_creates_pending_batch_from_keys(client):
-    keys = []
+def test_to_qc_creates_done_batch_from_captures(client):
+    captures = []
     for _ in range(2):
         files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
         resp = client.post("/api/inspection/detect", files=files, data={"crop_mode": "full"})
-        keys.append(resp.json()["key"])
+        captures.append({"key": resp.json()["key"], "defects": []})
 
-    resp = client.post("/api/inspection/to-qc", json={"keys": keys})
+    resp = client.post("/api/inspection/to-qc", json={"captures": captures})
     assert resp.status_code == 201
     batch_id = resp.json()["batch_id"]
-    assert client.get(f"/api/batches/{batch_id}/status").json()["status"] == "pending"
-    assert len(client.get(f"/api/batches/{batch_id}").json()["images"]) == 2
+    assert client.get(f"/api/batches/{batch_id}/status").json()["status"] == "done"
+    images = client.get(f"/api/batches/{batch_id}").json()["images"]
+    assert len(images) == 2
+    assert all(im["status"] == "clean" and im["defects"] == [] for im in images)
+
+
+class _OneDefectStrategy:
+    def detect(self, *args, **kwargs):
+        return [Detection("scratch", "coating", 0.9, [[1, 1], [10, 1], [10, 10]])]
+
+
+def test_to_qc_persists_defects_as_done_batch(client, monkeypatch):
+    from app.routers import inspection
+
+    monkeypatch.setattr(inspection, "get_strategy", lambda _: _OneDefectStrategy())
+    files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
+    detected = client.post("/api/inspection/detect", files=files, data={"crop_mode": "full"}).json()
+    assert detected["defects"]
+
+    resp = client.post(
+        "/api/inspection/to-qc",
+        json={"captures": [{"key": detected["key"], "defects": detected["defects"]}]},
+    )
+
+    assert resp.status_code == 201
+    batch_id = resp.json()["batch_id"]
+    assert client.get(f"/api/batches/{batch_id}/status").json()["status"] == "done"
+    image = client.get(f"/api/batches/{batch_id}").json()["images"][0]
+    assert image["status"] == "defect"
+    assert len(image["defects"]) == len(detected["defects"])
 
 
 def test_to_qc_rejects_empty(client):
-    assert client.post("/api/inspection/to-qc", json={"keys": []}).status_code == 400
+    assert client.post("/api/inspection/to-qc", json={"captures": []}).status_code == 400
 
 
 def test_to_qc_rejects_key_traversal(client):
-    resp = client.post("/api/inspection/to-qc", json={"keys": ["../.."]})
+    resp = client.post("/api/inspection/to-qc", json={"captures": [{"key": "../..", "defects": []}]})
     assert resp.status_code == 400

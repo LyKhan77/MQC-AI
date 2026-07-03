@@ -12,6 +12,6 @@ export async function detectInspection({ file, cameraId, cropMode = 'full' }) {
   return res.json()
 }
 
-export function inspectionToQc(keys) {
-  return apiPost('/inspection/to-qc', { keys })
+export function inspectionToQc(captures) {
+  return apiPost('/inspection/to-qc', { captures })
 }
