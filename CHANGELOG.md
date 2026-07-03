@@ -11,6 +11,34 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Quantity Checks Send to QC
+
+### Summary
+
+Quantity History can now send saved counted-object crops into QC Studio as a new pending batch. The backend copies persisted Quantity crop files into a batch-owned folder, prepares raw image rows, and the frontend exposes Send to QC from both row actions and the Inspect dialog with a toast plus Open in QC link.
+
+### Added
+
+- `qc_server/app/routers/quantity.py` - added `POST /api/quantity/checks/{id}/to-qc`, copying persisted Quantity crop PNG/JPG files into `data/batches/<batch_id>/` with index-prefixed filenames, creating `Batch(name="qty_<id>")`, and running `prepare_images()`.
+- `qc_server/tests/test_quantity_checks.py` - added coverage for converting a saved Quantity check with permanent crops into a pending QC batch and for missing-check 404 behavior.
+- `qc_frontend/src/api/quantity.js` - added `checkToQc(id)`.
+- `qc_frontend/src/views/QuantityHistory.vue` - added Send to QC actions in the table and Inspect dialog, success/error toast handling, and an Open in QC router link.
+- `qc_frontend/src/views/__tests__/QuantityHistory.test.js` - added coverage for the Send to QC action, toast, and Open in QC link.
+- `qc_frontend/src/assets/locales/en.js` and `id.js` - added Send to QC, Sent to QC, and Open in QC strings.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Backend Quantity-to-QC bridge | 2026-07-03 | `POST /api/quantity/checks/{id}/to-qc` copies persisted crop evidence into a batch-owned source folder and prepares pending raw QC images | Deleting the Quantity check no longer breaks the QC batch because the batch owns its copied crops and existing batch delete cleanup applies. |
+| Frontend Quantity History | 2026-07-03 | Send to QC actions in row actions and Inspect dialog with toast and Open in QC link | Inspectors can move counted-object crop evidence from Quantity History into QC Studio without auto-redirect. |
+| Verification | 2026-07-03 | Backend full suite, frontend full suite, and frontend production build | Backend: 130 passed. Frontend: 97 passed (19 files). Build succeeded. Browser smoke remains on the dev device. |
+
+### Notes
+
+- Scope stayed to single-check send. Batch naming UI and multi-check send remain deferred.
+- Browser smoke checklist: Send to QC from Inspect and Actions, confirm toast, click Open in QC, confirm QC Studio loads pending batch of copied crops.
+
 ## [Unreleased] - 2026-07-03 - Quantity PDF Detail Export
 
 ### Summary
