@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 
 const { t } = useI18n()
@@ -31,6 +31,18 @@ const name = ref('')
 const category = ref('coating')
 const color = ref(SWATCHES[0])
 
+const categoryList = computed(() => {
+  const base = ['coating', 'welding', ...props.categories]
+  if (category.value && category.value !== '__add__') base.push(category.value)
+  return [...new Set(base)]
+})
+
+function onCategoryChange() {
+  if (category.value !== '__add__') return
+  const v = (window.prompt(t('defectClasses.newCategoryPrompt')) || '').trim()
+  category.value = v || 'coating'
+}
+
 watch(
   () => props.show,
   (open) => {
@@ -58,10 +70,10 @@ function save() {
         </div>
         <div class="form-row">
           <label>{{ t('defectClasses.category') }}</label>
-          <input v-model="category" class="text-input" list="dc-cats" :placeholder="t('defectClasses.categoryPlaceholder')" />
-          <datalist id="dc-cats">
-            <option v-for="c in categories" :key="c" :value="c" />
-          </datalist>
+          <select v-model="category" class="text-input" @change="onCategoryChange">
+            <option v-for="c in categoryList" :key="c" :value="c">{{ c }}</option>
+            <option value="__add__">{{ t('defectClasses.addCategory') }}</option>
+          </select>
         </div>
         <div class="form-row">
           <label>{{ t('defectClasses.color') }}</label>

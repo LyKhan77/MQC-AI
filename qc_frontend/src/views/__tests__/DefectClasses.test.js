@@ -140,13 +140,14 @@ describe('Settings defect classes', () => {
     })
   })
 
-  it('adds a defect class with a typed category', async () => {
+  it('adds a defect class with a new category via prompt', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('assembly')
     const wrapper = mount(Settings)
     await flushPromises()
 
     await wrapper.findAll('button').find((button) => button.text().includes('defectClasses.add')).trigger('click')
     await wrapper.find('input[placeholder="defectClasses.namePlaceholder"]').setValue('new flaw')
-    await wrapper.find('input[placeholder="defectClasses.categoryPlaceholder"]').setValue('assembly')
+    await wrapper.find('.dialog select').setValue('__add__')
     await wrapper.find('.dialog-actions .btn-primary').trigger('click')
     await flushPromises()
 
