@@ -117,3 +117,36 @@ def test_save_rejects_crop_key_traversal(client):
     created = client.post("/api/quantity/checks", json=payload)
     assert created.status_code == 201
     assert os.path.isfile(secret)  # traversal rejected; file not moved
+
+
+def test_check_to_qc_creates_pending_batch(client):
+    import cv2
+    import numpy as np
+
+    payload = {
+        "total_count": 1,
+        "per_class_counts": {"a": 1},
+        "verdict": "none",
+        "inputs": [
+            {
+                "name": "a.png",
+                "total": 1,
+                "per_class": {"a": 1},
+                "crop_key": "k",
+                "crops": [],
+            }
+        ],
+    }
+    cid = client.post("/api/quantity/checks", json=payload).json()["id"]
+    d = os.path.join(app_settings.data_dir, "quantity", cid, "0")
+    os.makedirs(d, exist_ok=True)
+    cv2.imwrite(os.path.join(d, "obj_000.png"), np.zeros((6, 6, 3), np.uint8))
+
+    resp = client.post(f"/api/quantity/checks/{cid}/to-qc")
+    assert resp.status_code == 201
+    bid = resp.json()["batch_id"]
+    b = client.get(f"/api/batches/{bid}").json()
+    assert client.get(f"/api/batches/{bid}/status").json()["status"] == "pending"
+    assert len(b["images"]) == 1
+
+    assert client.post("/api/quantity/checks/nope/to-qc").status_code == 404

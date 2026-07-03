@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 
 from ..config import settings as app_settings
 from ..database import get_db
-from ..models import Camera, QuantityCheck
+from ..models import Batch, Camera, QuantityCheck
 from ..schemas import QuantityCheckIn, QuantityCheckOut, QuantityDetectOut
 from ..services.crop import crop_objects
 from ..services.object_detection import detect, resolve_named_model_path, serialize_detections
+from ..services.pipeline import prepare_images
 from ..services.quantity import per_class_counts
 from ..services.streaming import grab_one
 from ..util import gen_id, now_iso
@@ -145,6 +146,55 @@ def create_check(payload: QuantityCheckIn, db: Session = Depends(get_db)):
 @router.get("/checks", response_model=list[QuantityCheckOut])
 def list_checks(db: Session = Depends(get_db)):
     return db.query(QuantityCheck).order_by(QuantityCheck.created_at.desc()).all()
+
+
+@router.post("/checks/{check_id}/to-qc", status_code=201)
+def check_to_qc(check_id: str, db: Session = Depends(get_db)):
+    check = db.get(QuantityCheck, check_id)
+    if not check:
+        raise HTTPException(404, "not found")
+    q_dir = os.path.join(app_settings.data_dir, "quantity", check_id)
+    if not os.path.isdir(q_dir):
+        raise HTTPException(400, "no crops to send")
+
+    batch_id = gen_id("batch")
+    dest = os.path.join(app_settings.data_dir, "batches", batch_id)
+    os.makedirs(dest, exist_ok=True)
+    n = 0
+    for sub in sorted(os.listdir(q_dir)):
+        subp = os.path.join(q_dir, sub)
+        if not os.path.isdir(subp):
+            continue
+        for filename in sorted(os.listdir(subp)):
+            if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+                shutil.copy2(
+                    os.path.join(subp, filename),
+                    os.path.join(dest, f"{sub}_{filename}"),
+                )
+                n += 1
+    if n == 0:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise HTTPException(400, "no crops to send")
+
+    setting = get_or_create_setting(db)
+    batch = Batch(
+        id=batch_id,
+        name=f"qty_{check_id}",
+        source_path=dest,
+        camera_id=None,
+        created_at=now_iso(),
+        status="pending",
+        model_info={
+            "detection": setting.detection_model,
+            "segmentation": setting.segmentation_model,
+            "confidence": setting.confidence_threshold,
+            "strategy": setting.defect_strategy,
+        },
+    )
+    db.add(batch)
+    db.commit()
+    prepare_images(db, batch)
+    return {"batch_id": batch_id}
 
 
 @router.get("/checks/{check_id}", response_model=QuantityCheckOut)
