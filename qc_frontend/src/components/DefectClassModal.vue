@@ -7,6 +7,7 @@ const { t } = useI18n()
 const props = defineProps({
   show: Boolean,
   editing: { type: Object, default: null },
+  categories: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['cancel', 'save'])
@@ -42,7 +43,7 @@ watch(
 )
 
 function save() {
-  emit('save', { name: name.value.trim(), category: category.value, color: color.value })
+  emit('save', { name: name.value.trim(), category: category.value.trim() || 'coating', color: color.value })
 }
 </script>
 
@@ -57,10 +58,10 @@ function save() {
         </div>
         <div class="form-row">
           <label>{{ t('defectClasses.category') }}</label>
-          <select v-model="category" class="text-input">
-            <option value="coating">{{ t('defectClasses.coating') }}</option>
-            <option value="welding">{{ t('defectClasses.welding') }}</option>
-          </select>
+          <input v-model="category" class="text-input" list="dc-cats" :placeholder="t('defectClasses.categoryPlaceholder')" />
+          <datalist id="dc-cats">
+            <option v-for="c in categories" :key="c" :value="c" />
+          </datalist>
         </div>
         <div class="form-row">
           <label>{{ t('defectClasses.color') }}</label>

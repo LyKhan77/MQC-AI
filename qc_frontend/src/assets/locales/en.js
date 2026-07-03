@@ -384,6 +384,7 @@ export default {
     name: 'Name',
     namePlaceholder: 'e.g. orange peel',
     category: 'Category',
+    categoryPlaceholder: 'e.g. coating, welding, assembly',
     coating: 'Coating',
     welding: 'Welding',
     color: 'Color',

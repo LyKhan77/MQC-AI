@@ -75,6 +75,7 @@ vi.mock('../../composables/useDefectClasses.js', async () => {
         { id: 'dc-scratch', name: 'scratch', category: 'coating', color: '#4589ff', enabled: true },
         { id: 'dc-orange-peel', name: 'orange peel', category: 'coating', color: '#ff832b', enabled: false },
         { id: 'dc-porosity', name: 'porosity', category: 'welding', color: '#fa4d56', enabled: true },
+        { id: 'dc-burr', name: 'burr', category: 'assembly', color: '#24a148', enabled: true },
       ]),
       refresh: mocks.refreshClasses,
       add: mocks.add,
@@ -112,9 +113,11 @@ describe('Settings defect classes', () => {
     const wrapper = mount(Settings)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('defectClasses.coating')
+    expect(wrapper.text()).toContain('coating')
     expect(wrapper.text()).toContain('1 / 2 defectClasses.on')
-    expect(wrapper.text()).toContain('defectClasses.welding')
+    expect(wrapper.text()).toContain('welding')
+    expect(wrapper.text()).toContain('1 / 1 defectClasses.on')
+    expect(wrapper.text()).toContain('assembly')
     expect(wrapper.text()).toContain('1 / 1 defectClasses.on')
 
     await wrapper.findAll('.dc-check input[type="checkbox"]')[0].trigger('change')
@@ -133,6 +136,23 @@ describe('Settings defect classes', () => {
     expect(mocks.add).toHaveBeenCalledWith({
       name: 'new flaw',
       category: 'coating',
+      color: '#4589ff',
+    })
+  })
+
+  it('adds a defect class with a typed category', async () => {
+    const wrapper = mount(Settings)
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('defectClasses.add')).trigger('click')
+    await wrapper.find('input[placeholder="defectClasses.namePlaceholder"]').setValue('new flaw')
+    await wrapper.find('input[placeholder="defectClasses.categoryPlaceholder"]').setValue('assembly')
+    await wrapper.find('.dialog-actions .btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(mocks.add).toHaveBeenCalledWith({
+      name: 'new flaw',
+      category: 'assembly',
       color: '#4589ff',
     })
   })

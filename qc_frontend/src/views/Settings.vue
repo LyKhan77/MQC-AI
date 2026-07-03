@@ -24,19 +24,27 @@ const expandedGroups = ref({ coating: true, welding: true })
 function toggleGroup(key) {
   expandedGroups.value[key] = !expandedGroups.value[key]
 }
+function isGroupExpanded(key) {
+  return expandedGroups.value[key] !== false
+}
 
 const showClassModal = ref(false)
 const editingClass = ref(null)
 const pendingDeleteClass = ref(null)
 
-const coating = computed(() => classes.value.filter((c) => c.category === 'coating'))
-const welding = computed(() => classes.value.filter((c) => c.category === 'welding'))
-const coatingOn = computed(() => coating.value.filter((c) => c.enabled).length)
-const weldingOn = computed(() => welding.value.filter((c) => c.enabled).length)
-const classGroups = computed(() => [
-  { key: 'coating', items: coating.value, on: coatingOn.value },
-  { key: 'welding', items: welding.value, on: weldingOn.value },
-])
+const categoryOptions = computed(() => [...new Set(classes.value.map((c) => c.category).filter(Boolean))])
+const classGroups = computed(() =>
+  categoryOptions.value.map((key) => {
+    const items = classes.value.filter((c) => c.category === key)
+    return { key, label: categoryLabel(key), items, on: items.filter((c) => c.enabled).length }
+  }),
+)
+
+function categoryLabel(key) {
+  const i18nKey = `defectClasses.${key}`
+  const translated = t(i18nKey)
+  return translated === i18nKey ? key : translated
+}
 
 const cameraTypes = [
   { value: 'rpi', label: 'Raspberry Pi Cam (CSI)' },
@@ -289,12 +297,12 @@ async function confirmDeleteClass() {
           <template v-for="grp in classGroups" :key="grp.key">
             <button type="button" class="dc-group-head" @click="toggleGroup(grp.key)">
               <span class="dc-group-label">
-                <span class="dc-chevron">{{ expandedGroups[grp.key] ? '▾' : '▸' }}</span>
-                {{ t('defectClasses.' + grp.key) }}
+                <span class="dc-chevron">{{ isGroupExpanded(grp.key) ? '▾' : '▸' }}</span>
+                {{ grp.label }}
               </span>
               <span class="mono">{{ grp.on }} / {{ grp.items.length }} {{ t('defectClasses.on') }}</span>
             </button>
-            <template v-if="expandedGroups[grp.key]">
+            <template v-if="isGroupExpanded(grp.key)">
               <p v-if="grp.items.length === 0" class="form-hint">{{ t('defectClasses.empty') }}</p>
               <div v-for="c in grp.items" :key="c.id" class="dc-row">
                 <label class="dc-check">
@@ -329,7 +337,13 @@ async function confirmDeleteClass() {
       </section>
     </div>
 
-    <DefectClassModal :show="showClassModal" :editing="editingClass" @cancel="showClassModal = false" @save="saveClass" />
+    <DefectClassModal
+      :show="showClassModal"
+      :editing="editingClass"
+      :categories="categoryOptions"
+      @cancel="showClassModal = false"
+      @save="saveClass"
+    />
 
     <div v-if="pendingDeleteClass" class="dialog-overlay" @click.self="pendingDeleteClass = null">
       <div class="dialog">

@@ -394,6 +394,7 @@ export default {
     name: 'Nama',
     namePlaceholder: 'mis. orange peel',
     category: 'Kategori',
+    categoryPlaceholder: 'mis. coating, welding, assembly',
     coating: 'Coating',
     welding: 'Welding',
     color: 'Warna',
