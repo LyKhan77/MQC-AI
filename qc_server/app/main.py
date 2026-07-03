@@ -13,6 +13,7 @@ from .routers import (
     defect_classes,
     detect,
     images,
+    inspection,
     models as models_router,
     quantity,
     settings as settings_router,
@@ -46,6 +47,7 @@ def on_startup():
     ensure_column(engine, "quantity_checks", "inputs", "JSON DEFAULT '[]'")
     ensure_column(engine, "quantity_checks", "name", "VARCHAR DEFAULT ''")
     shutil.rmtree(os.path.join(settings.data_dir, "quantity", "_tmp"), ignore_errors=True)
+    shutil.rmtree(os.path.join(settings.data_dir, "inspection", "_tmp"), ignore_errors=True)
     db = SessionLocal()
     try:
         seed_if_empty(db)
@@ -69,6 +71,7 @@ app.include_router(defect_classes.router)
 app.include_router(models_router.router)
 app.include_router(detect.router)
 app.include_router(quantity.router)
+app.include_router(inspection.router)
 app.include_router(settings_router.router)
 app.include_router(audit.router)
 app.include_router(batches.router)
