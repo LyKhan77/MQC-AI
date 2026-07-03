@@ -282,7 +282,7 @@ defineExpose({
       <table class="data-table" v-if="Object.keys(sessionPerClass).length">
         <thead><tr><th>{{ t('quantity.class') }}</th><th>{{ t('quantity.count') }}</th></tr></thead>
         <tbody>
-          <tr v-for="(n, label) in sessionPerClass" :key="label"><td>{{ label }}</td><td class="mono">{{ n }}</td></tr>
+          <tr v-for="(n, label) in sessionPerClass" :key="label"><td>{{ label }}</td><td class="mono count-val">{{ n }}</td></tr>
         </tbody>
       </table>
 
@@ -350,7 +350,7 @@ defineExpose({
 .segment-btn { min-height: 32px; padding: 6px 14px; background: transparent; border: 0; border-right: 1px solid var(--color-hairline); color: var(--color-ink-muted); font-family: var(--font-sans); font-size: 13px; cursor: pointer; }
 .segment-btn.active { background: var(--color-primary); color: var(--color-on-primary); }
 .segment-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ctx { padding: 0 12px; color: var(--color-ink-subtle); font-size: 12px; }
+.ctx { padding: 0 12px; color: var(--color-ink-muted); font-size: 13px; }
 .capture-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .cap-video { max-width: 420px; max-height: 260px; background: var(--color-ink); border: 1px solid var(--color-hairline); }
 .cam-preview { max-width: 420px; max-height: 260px; background: var(--color-surface-1); border: 1px solid var(--color-hairline); object-fit: contain; }
@@ -359,54 +359,55 @@ defineExpose({
 .result-band { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 20px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); margin-bottom: 16px; }
 .total-block { display: flex; flex-direction: column; }
 .total-num { font-size: 48px; line-height: 1; color: var(--color-ink); }
-.total-label { font-size: 12px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); margin-top: 4px; }
+.total-label { font-size: 13px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); margin-top: 4px; }
 .verdict-block { display: flex; flex-direction: column; gap: 6px; }
-.target-readout { font-size: 12px; color: var(--color-ink-muted); }
+.target-readout { font-size: 13px; color: var(--color-ink-muted); }
 .target-inputs { display: flex; gap: 16px; margin-left: auto; }
 .field { display: flex; flex-direction: column; gap: 4px; }
-.field-label { font-size: 12px; color: var(--color-ink-muted); letter-spacing: 0.16px; }
+.field-label { font-size: 13px; color: var(--color-ink-muted); letter-spacing: 0.16px; }
 .band-actions { display: flex; gap: 8px; }
 
-.status-pill { display: inline-block; padding: 3px 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.32px; }
+.status-pill { display: inline-block; padding: 3px 10px; font-size: 13px; font-weight: 600; letter-spacing: 0.32px; }
 .verdict-pass { background: var(--color-success); color: var(--color-on-primary); }
 .verdict-fail { background: var(--color-error); color: var(--color-on-primary); }
 .status-line { margin: 8px 0; font-size: 13px; }
 .status-line.error { color: var(--color-error); }
 
-.text-input { padding: 8px 12px; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-bottom: 2px solid var(--color-hairline); color: var(--color-ink); font-family: var(--font-sans); font-size: 14px; outline: none; width: 96px; }
+.text-input { padding: 8px 12px; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-bottom: 2px solid var(--color-hairline); color: var(--color-ink); font-family: var(--font-sans); font-size: 15px; outline: none; width: 96px; }
 .text-input:focus { border-bottom-color: var(--color-primary); }
 
-.data-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 16px; }
-.data-table th { text-align: left; padding: 10px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.32px; color: var(--color-ink-muted); border-bottom: 1px solid var(--color-hairline); background: var(--color-surface-1); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 15px; margin-bottom: 16px; }
+.data-table th { text-align: left; padding: 10px 16px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.32px; color: var(--color-ink-muted); border-bottom: 1px solid var(--color-hairline); background: var(--color-surface-1); }
 .data-table td { padding: 8px 16px; border-bottom: 1px solid var(--color-hairline); color: var(--color-ink); }
+.count-val { font-size: 16px; font-weight: 600; }
 
 .evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.evidence-title { font-size: 12px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); }
+.evidence-title { font-size: 13px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); }
 .inference { display: flex; flex-direction: column; gap: 12px; }
 .anno-wrap { position: relative; width: 100%; max-width: 640px; background: var(--color-surface-1); border: 1px solid var(--color-hairline); }
 .anno-img { display: block; width: 100%; max-height: 480px; object-fit: contain; }
 .anno-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .det-box { fill: none; stroke: var(--color-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.count-badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; background: var(--color-primary); color: var(--color-on-primary); font-size: 12px; font-weight: 600; }
+.count-badge { position: absolute; top: 8px; right: 8px; padding: 2px 8px; background: var(--color-primary); color: var(--color-on-primary); font-size: 13px; font-weight: 600; }
 .filmstrip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .film-thumb { position: relative; width: 84px; height: 64px; padding: 0; border: 1px solid var(--color-hairline); background: var(--color-surface-1); cursor: pointer; }
 .film-thumb:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .film-thumb.active { border-color: var(--color-primary); box-shadow: inset 0 0 0 1px var(--color-primary); }
 .film-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.film-count { position: absolute; bottom: 2px; left: 2px; padding: 0 5px; background: var(--color-primary); color: var(--color-on-primary); font-size: 11px; }
+.film-count { position: absolute; bottom: 2px; left: 2px; padding: 0 5px; background: var(--color-primary); color: var(--color-on-primary); font-size: 13px; }
 .film-remove { position: absolute; top: 0; right: 0; width: 18px; height: 18px; line-height: 18px; text-align: center; background: var(--color-error); color: var(--color-on-primary); font-size: 13px; }
 .film-add { display: inline-flex; align-items: center; height: 64px; }
 .evi-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .evi-card { position: relative; margin: 0; border: 1px solid var(--color-hairline); width: 110px; }
 .evi-crop { display: block; width: 100%; height: 90px; object-fit: contain; background: var(--color-surface-1); }
-.evi-card figcaption { padding: 3px 6px; font-size: 11px; color: var(--color-ink-muted); text-align: center; }
+.evi-card figcaption { padding: 3px 6px; font-size: 13px; color: var(--color-ink); text-align: center; }
 .evi-del { position: absolute; top: 0; right: 0; width: 20px; height: 20px; line-height: 18px; text-align: center; background: var(--color-error); color: var(--color-on-primary); border: 0; font-size: 14px; cursor: pointer; }
 
-.btn-sm { padding: 5px 12px; background: transparent; border: 1px solid var(--color-hairline); color: var(--color-primary); font-family: var(--font-sans); font-size: 12px; cursor: pointer; letter-spacing: 0.16px; }
+.btn-sm { padding: 5px 12px; background: transparent; border: 1px solid var(--color-hairline); color: var(--color-primary); font-family: var(--font-sans); font-size: 13px; cursor: pointer; letter-spacing: 0.16px; }
 .btn-sm:hover { background: var(--color-surface-1); }
 .btn-sm.primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
 .btn-sm:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-danger-sm { color: var(--color-error); border-color: var(--color-error); }
-.empty-state { padding: 24px 16px; text-align: center; color: var(--color-ink-subtle); font-size: 14px; }
+.empty-state { padding: 24px 16px; text-align: center; color: var(--color-ink-subtle); font-size: 15px; }
 .mono { font-family: var(--font-mono); }
 </style>
