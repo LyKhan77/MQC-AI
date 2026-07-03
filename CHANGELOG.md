@@ -11,6 +11,21 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-03 - Rename History Entries Inline
+
+### Summary
+
+QC History batches and Quantity History checks can now be renamed inline — no Edit button. Double-click the Name cell, type, Enter/blur to save; Esc cancels. QuantityCheck gains a `name` field (falls back to the ID for display); Batch reuses its existing `name`. A shared `EditableCell.vue` drives both tables.
+
+### Added
+- `QuantityCheck.name` column (migrated via `ensure_column`), `PATCH /api/quantity/checks/{id}` (name), `name` on `BatchPatch` (existing `PATCH /api/batches/{id}` now renames).
+- Shared `EditableCell.vue` (double-click → input → save/cancel); `patchQuantityCheck` api helper; `common.dblClickRename`, `quantity.colName` strings (en/id).
+
+### Changed
+- Quantity History first column is now Name (editable, shows name or ID); QC History Name cell editable. Both search filters include the name.
+
+---
+
 ## [Unreleased] - 2026-07-03 - Quantity Checks Send to QC
 
 ### Summary
