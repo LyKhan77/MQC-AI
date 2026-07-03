@@ -350,6 +350,9 @@ export default {
     defectStrategy: 'Strategi Deteksi Cacat',
     strategyMock: 'Mock (dummy)',
     strategySam3: 'SAM3 Prompt',
+    objectDetection: 'Deteksi Objek',
+    qcSegmentation: 'QC / Segmentasi',
+    quantity: 'Kuantitas',
     activeModel: 'Model Deteksi Objek',
     qcModel: 'Model QC / Segmentasi',
     quantityModel: 'Model Deteksi Kuantitas',
@@ -369,6 +372,17 @@ export default {
     save: 'Simpan',
     saved: 'Konfigurasi tersimpan',
     confirmDelete: 'Yakin ingin menghapus kamera ini?',
+    tip: {
+      activeModel: 'Model YOLO untuk deteksi objek (Live Monitor, Deteksi Media).',
+      objectDetectionConfidence: 'Confidence minimum untuk menyimpan kotak deteksi objek (0-1).',
+      qcModel: 'Model segmentasi untuk mask cacat QC.',
+      qcConfidence: 'Confidence minimum untuk segmentasi QC (0-1).',
+      defectStrategy: 'Cara membuat hasil cacat: mock (dummy) atau prompt teks SAM3.',
+      quantityModel: 'Model deteksi YOLO untuk penghitungan Kuantitas.',
+      quantityConfidence: 'Confidence minimum agar objek dihitung (0-1). Lebih tinggi = lebih sedikit hitungan salah.',
+      quantityNmsIou: 'Overlap (IoU) saat kotak duplikat digabung (0-1). Lebih rendah menggabungkan lebih banyak.',
+      quantityMergeOverlap: 'Gabungkan kotak lintas kelas (class-agnostic NMS) untuk mengurangi duplikat.',
+    },
   },
 
   defectClasses: {

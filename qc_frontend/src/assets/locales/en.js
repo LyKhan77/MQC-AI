@@ -340,6 +340,9 @@ export default {
     defectStrategy: 'Defect Detection Strategy',
     strategyMock: 'Mock (dummy)',
     strategySam3: 'SAM3 Prompt',
+    objectDetection: 'Object Detection',
+    qcSegmentation: 'QC / Segmentation',
+    quantity: 'Quantity',
     activeModel: 'Object Detection Model',
     qcModel: 'QC / Segmentation Model',
     quantityModel: 'Quantity Detection Model',
@@ -359,6 +362,17 @@ export default {
     save: 'Save',
     saved: 'Configuration saved',
     confirmDelete: 'Are you sure you want to delete this camera?',
+    tip: {
+      activeModel: 'YOLO model used for object detection (Live Monitor, Media Detection).',
+      objectDetectionConfidence: 'Minimum confidence to keep an object-detection box (0-1).',
+      qcModel: 'Segmentation model used for QC defect masks.',
+      qcConfidence: 'Minimum confidence for QC segmentation (0-1).',
+      defectStrategy: 'How defects are produced: mock (dummy) or SAM3 text prompts.',
+      quantityModel: 'YOLO detection model used for Quantity counting.',
+      quantityConfidence: 'Minimum confidence to count an object (0-1). Higher = fewer false counts.',
+      quantityNmsIou: 'Overlap (IoU) above which duplicate boxes are merged (0-1). Lower merges more.',
+      quantityMergeOverlap: 'Merge overlapping boxes across classes (class-agnostic NMS) to cut duplicates.',
+    },
   },
 
   defectClasses: {

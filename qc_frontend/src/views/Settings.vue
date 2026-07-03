@@ -213,8 +213,9 @@ async function confirmDeleteClass() {
           </div>
         </div>
         <div class="config-grid">
+          <h4 class="model-block-title">{{ t('settings.objectDetection') }}</h4>
           <div class="form-row">
-            <label>{{ t('settings.activeModel') }}</label>
+            <label>{{ t('settings.activeModel') }}<span class="info-i" :title="t('settings.tip.activeModel')">i</span></label>
             <select v-if="availableModels.length" v-model="settings.activeModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
@@ -222,11 +223,12 @@ async function confirmDeleteClass() {
             <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-row">
-            <label>{{ t('settings.objectDetectionConfidence') }}</label>
+            <label>{{ t('settings.objectDetectionConfidence') }}<span class="info-i" :title="t('settings.tip.objectDetectionConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
           </div>
+          <h4 class="model-block-title">{{ t('settings.qcSegmentation') }}</h4>
           <div class="form-row">
-            <label>{{ t('settings.qcModel') }}</label>
+            <label>{{ t('settings.qcModel') }}<span class="info-i" :title="t('settings.tip.qcModel')">i</span></label>
             <select v-if="availableModels.length" v-model="settings.qcModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
@@ -234,18 +236,19 @@ async function confirmDeleteClass() {
             <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-row">
-            <label>{{ t('settings.qcConfidence') }}</label>
+            <label>{{ t('settings.qcConfidence') }}<span class="info-i" :title="t('settings.tip.qcConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.qcConfidenceThreshold" class="text-input" />
           </div>
           <div class="form-row">
-            <label>{{ t('settings.defectStrategy') }}</label>
+            <label>{{ t('settings.defectStrategy') }}<span class="info-i" :title="t('settings.tip.defectStrategy')">i</span></label>
             <select v-model="settings.defectStrategy" class="text-input">
               <option value="mock">{{ t('settings.strategyMock') }}</option>
               <option value="sam3_prompt">{{ t('settings.strategySam3') }}</option>
             </select>
           </div>
+          <h4 class="model-block-title">{{ t('settings.quantity') }}</h4>
           <div class="form-row">
-            <label>{{ t('settings.quantityModel') }}</label>
+            <label>{{ t('settings.quantityModel') }}<span class="info-i" :title="t('settings.tip.quantityModel')">i</span></label>
             <select v-if="availableModels.length" v-model="settings.quantityModel" class="text-input">
               <option value="">{{ t('settings.noModelSelected') }}</option>
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
@@ -253,17 +256,18 @@ async function confirmDeleteClass() {
             <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-row">
-            <label>{{ t('settings.quantityConfidence') }}</label>
+            <label>{{ t('settings.quantityConfidence') }}<span class="info-i" :title="t('settings.tip.quantityConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityConfidenceThreshold" class="text-input" />
           </div>
           <div class="form-row">
-            <label>{{ t('settings.quantityNmsIou') }}</label>
+            <label>{{ t('settings.quantityNmsIou') }}<span class="info-i" :title="t('settings.tip.quantityNmsIou')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityNmsIou" class="text-input" />
           </div>
           <div class="form-row">
             <label class="check-label">
               <input type="checkbox" v-model="settings.quantityAgnosticNms" />
               {{ t('settings.quantityMergeOverlap') }}
+              <span class="info-i" :title="t('settings.tip.quantityMergeOverlap')">i</span>
             </label>
           </div>
           <div class="form-actions">
@@ -455,6 +459,30 @@ async function confirmDeleteClass() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+.model-block-title {
+  grid-column: 1 / -1;
+  margin: 8px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.32px;
+  color: var(--color-ink-muted);
+}
+.info-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 50%;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--color-ink-muted);
+  cursor: help;
+  vertical-align: middle;
 }
 .dc-list {
   padding: 12px 24px 20px;
