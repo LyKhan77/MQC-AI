@@ -309,6 +309,18 @@ export default {
     cameraInUse: 'Kamera sedang dipakai aplikasi lain.',
     cameraInsecure: 'Kamera butuh koneksi aman (HTTPS).',
     cameraError: 'Kesalahan kamera',
+    qcModel: 'Model QC',
+    confidence: 'Confidence',
+    strategy: 'Strategi',
+    uploadHint: 'Unggah satu atau beberapa gambar inspeksi untuk pratinjau cacat.',
+    serverHint: 'Ambil frame saat ini dari kamera server terdaftar.',
+    mobileHint: 'Buka halaman ini melalui HTTPS untuk memakai kamera perangkat mobile.',
+    captures: 'Tangkapan',
+    defects: 'Tangkapan cacat',
+    cleanCaptures: 'Tangkapan bersih',
+    defectPolygons: 'Poligon cacat',
+    sendReviewTitle: 'Tinjau kiriman QC',
+    sendReviewNote: 'Gambar tangkapan dan poligon cacat saat ini akan dikirim ke QC Studio.',
   },
 
   // Reports

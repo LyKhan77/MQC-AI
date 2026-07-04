@@ -4,10 +4,13 @@ import { useRouter } from 'vue-router'
 import { detectInspection, inspectionToQc } from '../api/inspection.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useI18n } from '../composables/useI18n.js'
+import { useSettings } from '../composables/useSettings.js'
+import BaseModal from '../components/BaseModal.vue'
 
 const { t } = useI18n()
 const router = useRouter()
 const { cameras, refresh } = useCameras()
+const { settings } = useSettings()
 
 const source = ref('upload')
 const cropMode = ref('full')
@@ -16,6 +19,8 @@ const stack = ref([])
 const busy = ref(false)
 const errorMsg = ref('')
 const videoEl = ref(null)
+const selectedIdx = ref(0)
+const showSendDialog = ref(false)
 
 let mediaStream = null
 
@@ -23,6 +28,17 @@ const selectedCamera = computed(() => cameras.value.find((c) => c.id === selecte
 const rawStreamUrl = computed(() =>
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : '',
 )
+const selectedCapture = computed(() => stack.value[selectedIdx.value] || null)
+const defectCaptureCount = computed(() => stack.value.filter((item) => item.verdict === 'defect').length)
+const cleanCaptureCount = computed(() => stack.value.filter((item) => item.verdict !== 'defect').length)
+const defectTotal = computed(() =>
+  stack.value.reduce((total, item) => total + (item.defects?.length || 0), 0),
+)
+const modelContext = computed(() => ({
+  model: settings.value.qcModel || '-',
+  confidence: Number(settings.value.qcConfidenceThreshold || 0).toFixed(2),
+  strategy: settings.value.defectStrategy || '-',
+}))
 
 let statusTimer = null
 onMounted(() => {
@@ -100,6 +116,18 @@ async function captureMobile() {
 
 function removeCapture(index) {
   stack.value.splice(index, 1)
+  if (selectedIdx.value >= stack.value.length) {
+    selectedIdx.value = Math.max(0, stack.value.length - 1)
+  }
+}
+
+function openSendReview() {
+  if (!stack.value.length) return
+  showSendDialog.value = true
+}
+
+function closeSendReview() {
+  showSendDialog.value = false
 }
 
 async function sendToStudio() {
@@ -108,7 +136,7 @@ async function sendToStudio() {
   errorMsg.value = ''
   try {
     const { batch_id } = await inspectionToQc(stack.value.map((item) => ({ key: item.key, defects: item.defects })))
-    stopCamera()
+    closeSendReview()
     router.push({ name: 'qc', query: { batch: batch_id } })
   } catch (err) {
     errorMsg.value = err?.message || 'error'
@@ -132,6 +160,25 @@ function polyPoints(poly) {
     <div class="page-header">
       <h2>{{ t('inspection.title') }}</h2>
       <p class="page-subtitle">{{ t('inspection.subtitle') }}</p>
+    </div>
+
+    <div class="context-strip" aria-label="Direct inspection context">
+      <div class="context-item">
+        <span class="context-label">{{ t('inspection.qcModel') }}</span>
+        <span class="context-value mono">{{ modelContext.model }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">{{ t('inspection.confidence') }}</span>
+        <span class="context-value mono">{{ modelContext.confidence }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">{{ t('inspection.strategy') }}</span>
+        <span class="context-value mono">{{ modelContext.strategy }}</span>
+      </div>
+      <div class="context-item">
+        <span class="context-label">{{ t('inspection.cropMode') }}</span>
+        <span class="context-value">{{ cropMode === 'auto' ? t('inspection.cropAuto') : t('inspection.cropFull') }}</span>
+      </div>
     </div>
 
     <div class="controls">
@@ -159,9 +206,11 @@ function polyPoints(poly) {
 
     <div class="source-panel">
       <div v-if="source === 'upload'">
+        <p class="source-hint">{{ t('inspection.uploadHint') }}</p>
         <input type="file" accept="image/*" multiple :disabled="busy" @change="onFiles" />
       </div>
       <div v-else-if="source === 'server'" class="server-cam">
+        <p class="source-hint">{{ t('inspection.serverHint') }}</p>
         <div class="row">
           <select v-model="selectedCameraId" class="text-input">
             <option value="">{{ t('inspection.selectCamera') }}</option>
@@ -204,6 +253,7 @@ function polyPoints(poly) {
         </div>
       </div>
       <div v-else class="mobile-cam">
+        <p class="source-hint">{{ t('inspection.mobileHint') }}</p>
         <video ref="videoEl" playsinline muted class="cam-video"></video>
         <div class="row">
           <button class="btn-sm" @click="openCamera">{{ t('inspection.openCamera') }}</button>
@@ -216,37 +266,95 @@ function polyPoints(poly) {
 
     <p v-if="errorMsg" class="status-line error">{{ errorMsg }}</p>
 
+    <div class="review-summary">
+      <div class="summary-item">
+        <span class="summary-number mono">{{ stack.length }}</span>
+        <span class="summary-label">{{ t('inspection.captures') }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-number mono">{{ defectCaptureCount }}</span>
+        <span class="summary-label">{{ t('inspection.defects') }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-number mono">{{ cleanCaptureCount }}</span>
+        <span class="summary-label">{{ t('inspection.cleanCaptures') }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-number mono">{{ defectTotal }}</span>
+        <span class="summary-label">{{ t('inspection.defectPolygons') }}</span>
+      </div>
+    </div>
+
     <h3 class="stack-title">{{ t('inspection.reviewStack') }} ({{ stack.length }})</h3>
-    <div v-if="stack.length" class="stack">
-      <div v-for="(item, index) in stack" :key="item.key" class="stack-card">
-        <div class="canvas-wrap">
-          <img :src="item.frame_url" class="frame-img" :alt="`capture ${index + 1}`" />
-          <svg class="overlay" :viewBox="`0 0 ${item.width} ${item.height}`" preserveAspectRatio="none">
+    <div v-if="stack.length" class="inspection-workbench">
+      <section v-if="selectedCapture" class="selected-capture">
+        <div class="canvas-wrap large">
+          <img :src="selectedCapture.frame_url" class="frame-img" :alt="`capture ${selectedIdx + 1}`" />
+          <svg class="overlay" :viewBox="`0 0 ${selectedCapture.width} ${selectedCapture.height}`" preserveAspectRatio="none">
             <polygon
-              v-for="(defect, defectIndex) in item.defects"
+              v-for="(defect, defectIndex) in selectedCapture.defects"
               :key="defectIndex"
               :points="polyPoints(defect.polygon)"
               class="poly"
             />
           </svg>
         </div>
-        <div class="stack-meta">
-          <span class="status-pill" :class="item.verdict === 'defect' ? 'verdict-fail' : 'verdict-pass'">
-            {{ item.verdict === 'defect' ? t('inspection.defect') : t('inspection.clean') }}
+        <div class="selected-meta">
+          <span class="status-pill" :class="selectedCapture.verdict === 'defect' ? 'verdict-fail' : 'verdict-pass'">
+            {{ selectedCapture.verdict === 'defect' ? t('inspection.defect') : t('inspection.clean') }}
           </span>
-          <button class="btn-sm btn-danger-sm" @click="removeCapture(index)">
+          <span class="mono">{{ selectedCapture.defects?.length || 0 }} {{ t('inspection.defectPolygons') }}</span>
+          <button class="btn-sm btn-danger-sm" @click="removeCapture(selectedIdx)">
             {{ t('inspection.removeCapture') }}
           </button>
         </div>
+      </section>
+
+      <div class="capture-strip">
+        <button
+          v-for="(item, index) in stack"
+          :key="item.key"
+          class="capture-thumb"
+          :class="{ active: selectedIdx === index }"
+          :aria-pressed="selectedIdx === index"
+          @click="selectedIdx = index"
+        >
+          <img :src="item.frame_url" :alt="`capture ${index + 1}`" />
+          <span class="thumb-count mono">{{ item.defects?.length || 0 }}</span>
+        </button>
       </div>
     </div>
     <p v-else class="empty-state">{{ t('inspection.empty') }}</p>
 
     <div class="footer-actions">
-      <button class="btn-primary" :disabled="busy || !stack.length" @click="sendToStudio">
+      <button class="btn-primary" :disabled="busy || !stack.length" @click="openSendReview">
         {{ t('inspection.sendToStudio') }}
       </button>
     </div>
+
+    <BaseModal :show="showSendDialog" :title="t('inspection.sendReviewTitle')" @close="closeSendReview">
+      <div class="review-summary compact">
+        <div class="summary-item">
+          <span class="summary-number mono">{{ stack.length }}</span>
+          <span class="summary-label">{{ t('inspection.captures') }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-number mono">{{ defectCaptureCount }}</span>
+          <span class="summary-label">{{ t('inspection.defects') }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-number mono">{{ defectTotal }}</span>
+          <span class="summary-label">{{ t('inspection.defectPolygons') }}</span>
+        </div>
+      </div>
+      <p class="send-note">{{ t('inspection.sendReviewNote') }}</p>
+      <template #actions>
+        <button class="btn-sm" @click="closeSendReview">{{ t('common.cancel') }}</button>
+        <button class="btn-primary" :disabled="busy" @click="sendToStudio">
+          {{ t('inspection.sendToStudio') }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -295,6 +403,40 @@ function polyPoints(poly) {
 
 .source-panel {
   margin-bottom: 16px;
+}
+
+.context-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+  margin-bottom: 16px;
+}
+
+.context-item {
+  min-width: 160px;
+  padding: 10px 14px;
+  border-right: 1px solid var(--color-hairline);
+}
+
+.context-label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+.context-value {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-ink);
+  font-size: 14px;
+}
+
+.source-hint {
+  margin: 0 0 8px;
+  color: var(--color-ink-muted);
+  font-size: 14px;
 }
 
 .row {
@@ -426,18 +568,6 @@ function polyPoints(poly) {
   font-weight: 400;
 }
 
-.stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.stack-card {
-  width: 240px;
-  border: 1px solid var(--color-hairline);
-  background: var(--color-canvas);
-}
-
 .canvas-wrap {
   position: relative;
   width: 100%;
@@ -461,12 +591,97 @@ function polyPoints(poly) {
   stroke-width: 2;
 }
 
-.stack-meta {
+.selected-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.review-summary {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+  margin: 16px 0;
+}
+
+.summary-item {
+  min-width: 140px;
+  padding: 12px 16px;
+  border-right: 1px solid var(--color-hairline);
+}
+
+.summary-number {
+  display: block;
+  font-size: 24px;
+  color: var(--color-ink);
+}
+
+.summary-label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.inspection-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.canvas-wrap.large {
+  max-width: 760px;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+}
+
+.capture-strip {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 8px;
+}
+
+.capture-thumb {
+  position: relative;
+  width: 88px;
+  height: 64px;
+  padding: 0;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+  cursor: pointer;
+}
+
+.capture-thumb.active {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.capture-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-count {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  padding: 0 5px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 13px;
+}
+
+.review-summary.compact {
+  margin: 0;
+}
+
+.send-note {
+  margin: 12px 0 0;
+  color: var(--color-ink-muted);
 }
 
 .status-pill {
@@ -508,10 +723,6 @@ function polyPoints(poly) {
 }
 
 @media (max-width: 640px) {
-  .stack-card {
-    width: 100%;
-  }
-
   .controls {
     gap: 10px;
   }
