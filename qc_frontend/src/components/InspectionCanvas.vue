@@ -6,6 +6,7 @@ import { useDefectColor } from '../composables/useDefectColor.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { segmentDefect } from '../api/batches.js'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { normalizeBox, toImageCoords } from '../utils/canvasCoords.js'
 import { cursorForState } from '../utils/cursor.js'
 
@@ -46,6 +47,7 @@ const segmenting = ref(false)
 const samBoxStart = ref(null)
 const samBoxCurrent = ref(null)
 const pendingSource = ref('')
+const pendingDeleteDefectId = ref(null)
 const segmentRun = ref(0)
 const reshapePoints = ref(null)
 const reshapeDragIndex = ref(null)
@@ -379,12 +381,17 @@ function onPolygonClick(id) {
   selectDefect(id)
 }
 
-async function deleteSelectedDefect() {
+function deleteSelectedDefect() {
   if (!editMode.value || !selected.value || !selectedDefectId.value) return
-  if (!confirm(t('qc.confirmDeleteDefect'))) return
-  const id = selectedDefectId.value
+  pendingDeleteDefectId.value = selectedDefectId.value
+}
+
+async function confirmDeleteSelectedDefect() {
+  if (!selected.value || !pendingDeleteDefectId.value) return
+  const id = pendingDeleteDefectId.value
   await removeDefect(selected.value.id, id)
   log('DEFECT_DELETED', `Deleted defect: ${id}`)
+  pendingDeleteDefectId.value = null
   clearDefectSelection()
 }
 
@@ -630,6 +637,17 @@ onUnmounted(() => {
       <p>{{ t('qc.selectImage') }}</p>
     </div>
   </section>
+
+  <ConfirmDialog
+    :show="Boolean(pendingDeleteDefectId)"
+    :title="t('qc.deleteDefect')"
+    :message="t('qc.confirmDeleteDefect')"
+    :confirm-label="t('common.delete')"
+    :cancel-label="t('common.cancel')"
+    danger
+    @cancel="pendingDeleteDefectId = null"
+    @confirm="confirmDeleteSelectedDefect"
+  />
 </template>
 
 <style scoped>

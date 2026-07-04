@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   toggle: vi.fn(),
   remove: vi.fn(),
   refreshCameras: vi.fn(),
+  deleteCamera: vi.fn(),
   refreshSettings: vi.fn(),
   updateSettings: vi.fn(),
   showToast: vi.fn(),
@@ -30,11 +31,11 @@ vi.mock('../../composables/useCameras.js', async () => {
   const { ref } = await import('vue')
   return {
     useCameras: () => ({
-      cameras: ref([]),
+      cameras: ref([{ id: 'cam-1', name: 'Line Cam', type: 'usb', source: '0', location: 'Line 1', status: 'offline' }]),
       refresh: mocks.refreshCameras,
       addCamera: vi.fn(),
       updateCamera: vi.fn(),
-      deleteCamera: vi.fn(),
+      deleteCamera: mocks.deleteCamera,
     }),
   }
 })
@@ -94,6 +95,7 @@ describe('Settings defect classes', () => {
     mocks.update.mockResolvedValue({})
     mocks.toggle.mockResolvedValue({})
     mocks.remove.mockResolvedValue()
+    mocks.deleteCamera.mockResolvedValue()
     mocks.updateSettings.mockResolvedValue({})
   })
 
@@ -140,14 +142,14 @@ describe('Settings defect classes', () => {
     })
   })
 
-  it('adds a defect class with a new category via prompt', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('assembly')
+  it('adds a defect class with a new inline category', async () => {
     const wrapper = mount(Settings)
     await flushPromises()
 
     await wrapper.findAll('button').find((button) => button.text().includes('defectClasses.add')).trigger('click')
     await wrapper.find('input[placeholder="defectClasses.namePlaceholder"]').setValue('new flaw')
     await wrapper.find('.dialog select').setValue('__add__')
+    await wrapper.find('input[placeholder="defectClasses.newCategoryPrompt"]').setValue('assembly')
     await wrapper.find('.dialog-actions .btn-primary').trigger('click')
     await flushPromises()
 
@@ -169,5 +171,19 @@ describe('Settings defect classes', () => {
     await flushPromises()
 
     expect(mocks.remove).toHaveBeenCalledWith('dc-scratch')
+  })
+
+  it('opens a modal before deleting a camera', async () => {
+    const wrapper = mount(Settings)
+    await flushPromises()
+
+    const deleteButtons = wrapper.findAll('button').filter((button) => button.text() === 'common.delete')
+    await deleteButtons[0].trigger('click')
+
+    expect(mocks.deleteCamera).not.toHaveBeenCalled()
+    await wrapper.find('.dialog-actions .btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(mocks.deleteCamera).toHaveBeenCalledWith('cam-1')
   })
 })

@@ -5,6 +5,7 @@ import { useInspection } from '../composables/useInspection.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import QcRunDialog from './QcRunDialog.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const { batch, images, selectedId, loading, error, reviewedCount, currentBatchId, progress,
   needsRun, prepareBatch, runAndLoad, removeImage, resetAndReload, selectImage, toggleReviewed, isReviewed } = useInspection()
@@ -17,6 +18,8 @@ const search = ref('')
 const filterMode = ref('all')
 const sortBy = ref('name')
 const showRunDialog = ref(false)
+const pendingDeleteImage = ref(null)
+const pendingReset = ref(false)
 
 async function loadFor(batchId) {
   if (!batchId) return
@@ -43,19 +46,29 @@ async function onRunConfirm({ confidenceThreshold }) {
 }
 
 async function onDeleteImage(img) {
-  if (!confirm(t('qc.confirmDeleteImage'))) return
+  pendingDeleteImage.value = img
+}
+
+async function confirmDeleteImage() {
+  const img = pendingDeleteImage.value
+  if (!img) return
   await removeImage(img.id)
   log('IMAGE_DELETED', `Deleted image: ${img.filename}`)
+  pendingDeleteImage.value = null
 }
 
 function onRerun() {
   showRunDialog.value = true
 }
 
-async function onReset() {
-  if (!confirm(t('qc.confirmReset'))) return
+function onReset() {
+  pendingReset.value = true
+}
+
+async function confirmReset() {
   await resetAndReload(route.query.batch)
   log('BATCH_RESET', `Reset batch ${currentBatchId.value}`)
+  pendingReset.value = false
 }
 
 onMounted(() => loadFor(route.query.batch))
@@ -126,6 +139,27 @@ function handleToggleReviewed(img) {
     </div>
 
     <QcRunDialog :show="showRunDialog" @cancel="showRunDialog = false" @confirm="onRunConfirm" />
+
+    <ConfirmDialog
+      :show="Boolean(pendingDeleteImage)"
+      :title="t('common.delete')"
+      :message="t('qc.confirmDeleteImage')"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDeleteImage = null"
+      @confirm="confirmDeleteImage"
+    />
+    <ConfirmDialog
+      :show="pendingReset"
+      :title="t('qc.reset')"
+      :message="t('qc.confirmReset')"
+      :confirm-label="t('common.confirm')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingReset = false"
+      @confirm="confirmReset"
+    />
 
     <div v-if="images.length" class="filter-section">
       <input v-model="search" class="search-input" :placeholder="t('qc.searchPlaceholder')" />

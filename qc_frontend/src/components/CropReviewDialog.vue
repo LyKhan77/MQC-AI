@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
+import BaseModal from './BaseModal.vue'
 
 const { t } = useI18n()
 const props = defineProps({
@@ -35,7 +36,7 @@ watch(
 
 const selectedCount = computed(() => items.value.filter((c) => c.selected).length)
 
-function confirm() {
+function submit() {
   emit('confirm', {
     batchName: batchName.value,
     selectedFiles: items.value.filter((c) => c.selected).map((c) => c.name),
@@ -44,74 +45,42 @@ function confirm() {
 </script>
 
 <template>
-  <div v-if="show" class="dialog-overlay" @click.self="emit('cancel')">
-    <div class="dialog">
-      <h3 class="dialog-title">{{ t('sendToQC.title') }}</h3>
-      <div class="dialog-body">
-        <div class="form-row">
-          <label>{{ t('sendToQC.batchName') }}</label>
-          <input v-model="batchName" class="text-input" :placeholder="t('sendToQC.batchNamePlaceholder')" />
+  <BaseModal :show="show" :title="t('sendToQC.title')" size="lg" @close="emit('cancel')">
+    <div class="form-row">
+      <label>{{ t('sendToQC.batchName') }}</label>
+      <input v-model="batchName" class="text-input" :placeholder="t('sendToQC.batchNamePlaceholder')" />
+    </div>
+    <div class="form-row">
+      <div class="crop-head">
+        <label>{{ t('sendToQC.cropReview') }} ({{ selectedCount }}/{{ items.length }})</label>
+        <div class="crop-head-actions">
+          <button class="btn-ghost btn-sm" @click="items.forEach((c) => (c.selected = true))">
+            {{ t('sendToQC.selectAll') }}
+          </button>
+          <button class="btn-ghost btn-sm" @click="items.forEach((c) => (c.selected = false))">
+            {{ t('sendToQC.selectNone') }}
+          </button>
         </div>
-        <div class="form-row">
-          <div class="crop-head">
-            <label>{{ t('sendToQC.cropReview') }} ({{ selectedCount }}/{{ items.length }})</label>
-            <div class="crop-head-actions">
-              <button class="btn-ghost btn-sm" @click="items.forEach((c) => (c.selected = true))">
-                {{ t('sendToQC.selectAll') }}
-              </button>
-              <button class="btn-ghost btn-sm" @click="items.forEach((c) => (c.selected = false))">
-                {{ t('sendToQC.selectNone') }}
-              </button>
-            </div>
-          </div>
-          <p v-if="items.length === 0" class="form-hint">{{ t('sendToQC.noCrops') }}</p>
-          <div v-else class="crop-grid">
-            <label v-for="(c, i) in items" :key="i" :class="['crop-cell', { unselected: !c.selected }]">
-              <input type="checkbox" v-model="c.selected" class="crop-check" />
-              <img :src="c.url" class="crop-thumb" alt="crop" />
-            </label>
-          </div>
-        </div>
-        <p v-if="error" class="send-error">{{ error }}</p>
       </div>
-      <div class="dialog-actions">
-        <button class="btn-ghost" @click="emit('cancel')">{{ t('sendToQC.cancel') }}</button>
-        <button class="btn-primary" :disabled="!batchName.trim() || selectedCount === 0" @click="confirm">
-          {{ t('sendToQC.send') }}
-        </button>
+      <p v-if="items.length === 0" class="form-hint">{{ t('sendToQC.noCrops') }}</p>
+      <div v-else class="crop-grid">
+        <label v-for="(c, i) in items" :key="i" :class="['crop-cell', { unselected: !c.selected }]">
+          <input type="checkbox" v-model="c.selected" class="crop-check" />
+          <img :src="c.url" class="crop-thumb" alt="crop" />
+        </label>
       </div>
     </div>
-  </div>
+    <p v-if="error" class="send-error">{{ error }}</p>
+    <template #actions>
+      <button class="btn-ghost" @click="emit('cancel')">{{ t('sendToQC.cancel') }}</button>
+      <button class="btn-primary" :disabled="!batchName.trim() || selectedCount === 0" @click="submit">
+        {{ t('sendToQC.send') }}
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.dialog {
-  background: var(--color-canvas);
-  border: 1px solid var(--color-hairline);
-  width: 480px;
-  max-width: 90vw;
-}
-.dialog-title {
-  margin: 0;
-  padding: 16px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-ink);
-  border-bottom: 1px solid var(--color-hairline);
-  letter-spacing: 0.16px;
-}
-.dialog-body {
-  padding: 24px;
-}
 .form-row {
   display: flex;
   flex-direction: column;
@@ -210,13 +179,6 @@ function confirm() {
   object-fit: cover;
   border: 1px solid var(--color-hairline);
   border-radius: 0px;
-}
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-hairline);
 }
 .send-error {
   margin: 8px 0 0;

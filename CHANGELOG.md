@@ -11,6 +11,54 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-04 - Native Modal Dialogs
+
+### Summary
+
+Replaced browser-native `confirm()` / `prompt()` and custom div-based dialog overlays with shared native `<dialog>` modal elements across `qc_frontend`. Added `BaseModal.vue` (native `<dialog>` wrapper with Carbon styling, Escape/backdrop/close-button handling) and `ConfirmDialog.vue` (destructive confirmation wrapper). Destructive actions (image delete, batch reset, defect delete, camera delete, defect-class delete, batch delete, quantity-check delete) now route through `ConfirmDialog`; `DefectClassModal` adds new categories via an inline input instead of `window.prompt`; `CropReviewDialog`, `QcRunDialog`, `DefectClassModal`, and Quantity History inspect/export dialogs use `BaseModal`.
+
+### Changed
+
+- `qc_frontend/src/components/BaseModal.vue` - NEW shared native `<dialog>` wrapper; props `show`/`title`/`size`; emits `close`; `onMounted` + `watch` drive `showModal()`/`close()` with `setAttribute('open','')` jsdom fallback; `dialog::backdrop` replaces `.dialog-overlay`; shell wrapped in `v-if="show"` so hidden modals contribute no content (disambiguates `.dialog-actions` selectors).
+- `qc_frontend/src/components/ConfirmDialog.vue` - NEW destructive-confirmation wrapper over `BaseModal`; props `show`/`title`/`message`/`confirmLabel`/`cancelLabel`/`danger`; emits `cancel`/`confirm`.
+- `qc_frontend/src/components/BatchSidebar.vue` - image delete and batch reset now open `ConfirmDialog` instead of browser `confirm()`.
+- `qc_frontend/src/components/DefectPanel.vue` - defect row delete opens `ConfirmDialog`.
+- `qc_frontend/src/components/InspectionCanvas.vue` - Delete tool button and Delete key open `ConfirmDialog` before `removeDefect`.
+- `qc_frontend/src/components/DefectClassModal.vue` - migrated to `BaseModal`; `window.prompt()` replaced with inline new-category input shown when category select is `__add__`; `.dialog-overlay` CSS removed.
+- `qc_frontend/src/components/CropReviewDialog.vue` - migrated to `BaseModal`; local `confirm()` renamed to `submit()`.
+- `qc_frontend/src/components/QcRunDialog.vue` - migrated to `BaseModal`; local `confirm()` renamed to `submit()`.
+- `qc_frontend/src/views/BatchHistory.vue` - delete dialog replaced with `ConfirmDialog`; `deleteError` folded into the confirm message; `.dialog-overlay`/`.dialog*` CSS removed.
+- `qc_frontend/src/views/QuantityHistory.vue` - inspect and export dialogs migrated to `BaseModal` (class fallthrough preserves `.inspect-dialog`/`.export-dialog` hooks); delete dialog replaced with `ConfirmDialog`; `.dialog-overlay`/`.dialog*` CSS removed.
+- `qc_frontend/src/views/Settings.vue` - camera delete `confirm()` and defect-class delete div dialog both replaced with `ConfirmDialog`; `.dialog-overlay`/`.dialog*` CSS removed.
+
+### Added
+
+- `qc_frontend/src/components/__tests__/BaseModal.test.js` - native dialog render + cancel close.
+- `qc_frontend/src/components/__tests__/ConfirmDialog.test.js` - confirm/cancel emit.
+- `qc_frontend/src/components/__tests__/BatchSidebar.confirm.test.js` - image delete and reset open modal before side effects.
+
+### Fixed
+
+- `qc_frontend/src/components/__tests__/InspectionCanvas.test.js` - added delete-confirmation test.
+- `qc_frontend/src/views/__tests__/DefectClasses.test.js` - replaced `window.prompt` test with inline new-category input test; added camera delete modal test.
+- `qc_frontend/src/views/__tests__/BatchHistory.test.js` - closing assertion updated to `.dialog-actions` absence (BaseModal persists the `<dialog>` element via `v-show`).
+- `qc_frontend/src/views/__tests__/QuantityHistory.test.js` - inspect dialog selector narrowed to `.inspect-dialog`.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| UI dialog consistency | 2026-07-04 | Shared `BaseModal` (native `<dialog>`) + `ConfirmDialog`; all browser `confirm()`/`prompt()` and `.dialog-overlay` divs removed from components/views | Destructive confirmations and form/crop/QC-run/inspect/export modals are uniform native dialogs; no browser `confirm()`/`prompt()` and no `.dialog-overlay` remain under `qc_frontend/src`. |
+| Verification | 2026-07-04 | Static grep acceptance + full frontend test/build | `rg confirm(`/`prompt(` and `dialog-overlay`: no results. `<dialog>`: `BaseModal.vue`. `npm test -- --run`: 109 passed. `npm run build`: pass. |
+
+### Notes
+
+- Manual local-server browser smoke (Settings camera/defect-class delete, defect-class add new category, QC Studio image/reset/defect delete, Batch/Quantity History dialogs) was not run in this headless session; automated tests cover the open-modal-before-side-effect contract for each.
+- Session-local removals in `DirectInspection.vue`, `MediaDetection.vue`, and `QuantityDetection.vue` intentionally remain immediate (not persisted deletes).
+- `LiveMonitor.vue` retains now-dead `.dialog-overlay`/`.dialog*` scoped CSS (its `CropReviewDialog` child was migrated); out of plan scope, left untouched.
+
+---
+
 ## [Unreleased] - 2026-07-03 - Direct Inspection Persisted Defects
 
 ### Summary

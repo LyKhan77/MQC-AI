@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
 import { useSettings } from '../composables/useSettings.js'
+import BaseModal from './BaseModal.vue'
 
 const { t } = useI18n()
 const { classes, refresh: refreshClasses } = useDefectClasses()
@@ -30,82 +31,50 @@ watch(
   { immediate: true },
 )
 
-function confirm() {
+function submit() {
   emit('confirm', { confidenceThreshold: Number(confidence.value) })
 }
 </script>
 
 <template>
-  <div v-if="show" class="dialog-overlay" @click.self="emit('cancel')">
-    <div class="dialog">
-      <h3 class="dialog-title">{{ t('qc.runTitle') }}</h3>
-      <div class="dialog-body">
-        <div class="summary-row">
-          <span class="summary-label">{{ t('qc.strategy') }}</span>
-          <span class="summary-value mono">{{ strategyLabel }}</span>
-        </div>
-
-        <div class="form-row">
-          <label>{{ t('qc.confidence') }}</label>
-          <input
-            type="number"
-            min="0"
-            max="1"
-            step="0.05"
-            v-model="confidence"
-            class="text-input"
-          />
-        </div>
-
-        <div class="form-row">
-          <label>{{ t('qc.activeClasses') }} ({{ activeClasses.length }})</label>
-          <div v-if="activeClasses.length" class="class-chips">
-            <span v-for="c in activeClasses" :key="c.id" class="class-chip">
-              <span class="chip-swatch" :style="{ background: c.color }"></span>
-              {{ c.name }}
-            </span>
-          </div>
-          <p v-else class="warn-text">{{ t('qc.noActiveClasses') }}</p>
-        </div>
-      </div>
-      <div class="dialog-actions">
-        <button class="btn-ghost" @click="emit('cancel')">{{ t('common.cancel') }}</button>
-        <button class="btn-primary" :disabled="!activeClasses.length" @click="confirm">
-          {{ t('qc.runConfirm') }}
-        </button>
-      </div>
+  <BaseModal :show="show" :title="t('qc.runTitle')" @close="emit('cancel')">
+    <div class="summary-row">
+      <span class="summary-label">{{ t('qc.strategy') }}</span>
+      <span class="summary-value mono">{{ strategyLabel }}</span>
     </div>
-  </div>
+
+    <div class="form-row">
+      <label>{{ t('qc.confidence') }}</label>
+      <input
+        type="number"
+        min="0"
+        max="1"
+        step="0.05"
+        v-model="confidence"
+        class="text-input"
+      />
+    </div>
+
+    <div class="form-row">
+      <label>{{ t('qc.activeClasses') }} ({{ activeClasses.length }})</label>
+      <div v-if="activeClasses.length" class="class-chips">
+        <span v-for="c in activeClasses" :key="c.id" class="class-chip">
+          <span class="chip-swatch" :style="{ background: c.color }"></span>
+          {{ c.name }}
+        </span>
+      </div>
+      <p v-else class="warn-text">{{ t('qc.noActiveClasses') }}</p>
+    </div>
+    <template #actions>
+      <button class="btn-ghost" @click="emit('cancel')">{{ t('common.cancel') }}</button>
+      <button class="btn-primary" :disabled="!activeClasses.length" @click="submit">
+        {{ t('qc.runConfirm') }}
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.dialog {
-  background: var(--color-canvas);
-  border: 1px solid var(--color-hairline);
-  width: 460px;
-  max-width: 90vw;
-}
-.dialog-title {
-  margin: 0;
-  padding: 16px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-ink);
-  border-bottom: 1px solid var(--color-hairline);
-  letter-spacing: 0.16px;
-}
-.dialog-body {
-  padding: 24px;
-}
 .summary-row {
   display: flex;
   justify-content: space-between;
@@ -177,14 +146,7 @@ function confirm() {
   margin: 0;
   letter-spacing: 0.16px;
 }
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-hairline);
-}
-.dialog-actions .btn-ghost {
+.btn-ghost {
   padding: 8px 16px;
   background: transparent;
   border: 1px solid var(--color-hairline);
@@ -192,7 +154,7 @@ function confirm() {
   cursor: pointer;
   font-size: 15px;
 }
-.dialog-actions .btn-primary {
+.btn-primary {
   padding: 8px 16px;
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
@@ -200,7 +162,7 @@ function confirm() {
   cursor: pointer;
   font-size: 15px;
 }
-.dialog-actions .btn-primary:disabled {
+.btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

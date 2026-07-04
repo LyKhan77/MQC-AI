@@ -5,6 +5,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useDefectColor } from '../composables/useDefectColor.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
+import ConfirmDialog from './ConfirmDialog.vue'
 import JSZip from 'jszip'
 import {
   renderAnnotated,
@@ -41,6 +42,7 @@ const CROP_PAD = 40
 
 const exporting = ref(false)
 const exportMsg = ref('')
+const pendingDeleteDefect = ref(null)
 
 const coating = computed(() => selected.value?.defects.filter((d) => d.category === 'coating') ?? [])
 const welding = computed(() => selected.value?.defects.filter((d) => d.category === 'welding') ?? [])
@@ -115,9 +117,15 @@ async function exportCrop() {
 
 async function deletePanelDefect(defect) {
   if (!selected.value) return
-  if (!confirm(t('qc.confirmDeleteDefect'))) return
+  pendingDeleteDefect.value = defect
+}
+
+async function confirmDeleteDefect() {
+  if (!selected.value || !pendingDeleteDefect.value) return
+  const defect = pendingDeleteDefect.value
   await removeDefect(selected.value.id, defect.id)
   log('DEFECT_DELETED', `Deleted defect: ${defect.id}`)
+  pendingDeleteDefect.value = null
 }
 
 async function relabelDefect(defect, classId) {
@@ -252,6 +260,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </button>
       </div>
     </footer>
+
+    <ConfirmDialog
+      :show="Boolean(pendingDeleteDefect)"
+      :title="t('qc.deleteDefect')"
+      :message="t('qc.confirmDeleteDefect')"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDeleteDefect = null"
+      @confirm="confirmDeleteDefect"
+    />
   </aside>
 </template>
 

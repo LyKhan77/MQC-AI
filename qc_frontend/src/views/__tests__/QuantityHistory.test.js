@@ -89,9 +89,9 @@ describe('QuantityHistory', () => {
     const wrapper = mountView()
     await flushPromises()
     await wrapper.findAll('button').find((b) => b.text().includes('quantity.inspect')).trigger('click')
-    expect(wrapper.find('.dialog').exists()).toBe(true)
-    expect(wrapper.find('.dialog').text()).toContain('m.pt')
-    expect(wrapper.find('.dialog').text()).toContain('5')
+    expect(wrapper.find('.inspect-dialog').exists()).toBe(true)
+    expect(wrapper.find('.inspect-dialog').text()).toContain('m.pt')
+    expect(wrapper.find('.inspect-dialog').text()).toContain('5')
   })
 
   it('inspect shows a combined gallery of all crops', async () => {

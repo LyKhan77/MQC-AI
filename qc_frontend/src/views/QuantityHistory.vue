@@ -7,6 +7,8 @@ import { checkToQc, patchQuantityCheck } from '../api/quantity.js'
 import { checksToCsv } from '../utils/quantity.js'
 import { downloadBlob } from '../utils/export.js'
 import EditableCell from '../components/EditableCell.vue'
+import BaseModal from '../components/BaseModal.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const { t } = useI18n()
 const { checks, refresh, remove } = useQuantityHistory()
@@ -263,58 +265,51 @@ function formatDate(iso) {
       <p v-if="!filtered.length" class="empty-state">{{ t('quantity.noChecks') }}</p>
     </div>
 
-    <div v-if="inspecting" class="dialog-overlay" @click.self="inspecting = null">
-      <div class="dialog">
-        <h3>{{ t('quantity.inspectTitle') }}</h3>
-        <div class="detail-grid mono">
-          <span>{{ t('quantity.colModel') }}</span><span>{{ inspecting.model_used }}</span>
-          <span>{{ t('quantity.total') }}</span><span>{{ inspecting.total_count }}</span>
-          <span>{{ t('quantity.expectedTotal') }}</span><span>{{ inspecting.expected_total ?? '-' }} +/- {{ inspecting.tolerance }}</span>
-          <span>{{ t('quantity.colVerdict') }}</span><span>{{ inspecting.verdict }}</span>
-        </div>
-        <div class="gallery" v-if="inspectCrops.length">
-          <img v-for="(u, i) in inspectCrops" :key="i" :src="u" class="gallery-crop" :alt="`crop ${i + 1}`" />
-        </div>
-        <p v-else class="empty-state">{{ t('quantity.noCrops') }}</p>
-        <div class="dialog-actions">
-          <button class="btn-sm" @click="sendToQc(inspecting)">{{ t('quantity.sendToQc') }}</button>
-          <router-link v-if="sentBatchId" :to="{ name: 'qc', query: { batch: sentBatchId } }" class="btn-sm">{{ t('quantity.openInQc') }}</router-link>
-          <button class="btn-sm" @click="inspecting = null">{{ t('common.close') }}</button>
-        </div>
+    <BaseModal class="inspect-dialog" :show="Boolean(inspecting)" :title="t('quantity.inspectTitle')" size="lg" @close="inspecting = null">
+      <div class="detail-grid mono">
+        <span>{{ t('quantity.colModel') }}</span><span>{{ inspecting?.model_used }}</span>
+        <span>{{ t('quantity.total') }}</span><span>{{ inspecting?.total_count }}</span>
+        <span>{{ t('quantity.expectedTotal') }}</span><span>{{ inspecting?.expected_total ?? '-' }} +/- {{ inspecting?.tolerance }}</span>
+        <span>{{ t('quantity.colVerdict') }}</span><span>{{ inspecting?.verdict }}</span>
       </div>
-    </div>
+      <div class="gallery" v-if="inspectCrops.length">
+        <img v-for="(u, i) in inspectCrops" :key="i" :src="u" class="gallery-crop" :alt="`crop ${i + 1}`" />
+      </div>
+      <p v-else class="empty-state">{{ t('quantity.noCrops') }}</p>
+      <template #actions>
+        <button class="btn-sm" @click="sendToQc(inspecting)">{{ t('quantity.sendToQc') }}</button>
+        <router-link v-if="sentBatchId" :to="{ name: 'qc', query: { batch: sentBatchId } }" class="btn-sm">{{ t('quantity.openInQc') }}</router-link>
+        <button class="btn-sm" @click="inspecting = null">{{ t('common.close') }}</button>
+      </template>
+    </BaseModal>
 
-    <div v-if="pendingDelete" class="dialog-overlay" @click.self="pendingDelete = null">
-      <div class="dialog">
-        <h3>{{ t('quantity.deleteTitle') }}</h3>
-        <p>{{ t('quantity.confirmDelete') }} {{ pendingDelete.id }}?</p>
-        <p v-if="deleteError" class="status-line error">{{ deleteError }}</p>
-        <div class="dialog-actions">
-          <button class="btn-sm" @click="pendingDelete = null">{{ t('common.cancel') }}</button>
-          <button class="btn-sm btn-primary" @click="confirmDelete">{{ t('common.delete') }}</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      :show="Boolean(pendingDelete)"
+      :title="t('quantity.deleteTitle')"
+      :message="pendingDelete ? `${t('quantity.confirmDelete')} ${pendingDelete.id}?${deleteError ? ' ' + deleteError : ''}` : ''"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDelete = null"
+      @confirm="confirmDelete"
+    />
 
-    <div v-if="showExport" class="dialog-overlay export-dialog" @click.self="showExport = false">
-      <div class="dialog">
-        <h3>{{ t('quantity.exportTitle') }}</h3>
-        <div class="export-format">
-          <label><input type="radio" value="csv" v-model="exportFormat" /> CSV</label>
-          <label><input type="radio" value="pdf" v-model="exportFormat" /> PDF</label>
-        </div>
-        <div class="export-list">
-          <label v-for="c in filtered" :key="c.id" class="export-row">
-            <input type="checkbox" v-model="exportSel[c.id]" />
-            <span class="mono">{{ c.id }}</span> - {{ c.total_count }} - {{ c.verdict }}
-          </label>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn-sm" @click="showExport = false">{{ t('common.cancel') }}</button>
-          <button class="btn-sm btn-primary" @click="runExport">{{ t('quantity.export') }}</button>
-        </div>
+    <BaseModal class="export-dialog" :show="showExport" :title="t('quantity.exportTitle')" @close="showExport = false">
+      <div class="export-format">
+        <label><input type="radio" value="csv" v-model="exportFormat" /> CSV</label>
+        <label><input type="radio" value="pdf" v-model="exportFormat" /> PDF</label>
       </div>
-    </div>
+      <div class="export-list">
+        <label v-for="c in filtered" :key="c.id" class="export-row">
+          <input type="checkbox" v-model="exportSel[c.id]" />
+          <span class="mono">{{ c.id }}</span> - {{ c.total_count }} - {{ c.verdict }}
+        </label>
+      </div>
+      <template #actions>
+        <button class="btn-sm" @click="showExport = false">{{ t('common.cancel') }}</button>
+        <button class="btn-sm btn-primary" @click="runExport">{{ t('quantity.export') }}</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -406,15 +401,10 @@ function formatDate(iso) {
 }
 .verdict-pass { background: var(--color-success); color: var(--color-on-primary); }
 .verdict-fail { background: var(--color-error); color: var(--color-on-primary); }
-.dialog-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.dialog { background: var(--color-canvas); border: 1px solid var(--color-hairline); padding: 20px; min-width: 360px; max-width: 520px; }
-.dialog h3 { margin: 0 0 12px; font-weight: 400; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
 .detail-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin-bottom: 12px; font-size: 13px; }
 .gallery { display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow: auto; }
 .gallery-crop { width: 96px; height: 80px; object-fit: contain; border: 1px solid var(--color-hairline); background: var(--color-surface-1); }
-.status-line.error { color: var(--color-error); }
 .mono { font-family: var(--font-mono); }
 .export-format { display: flex; gap: 16px; margin-bottom: 12px; font-size: 14px; }
 .export-list { max-height: 280px; overflow: auto; display: flex; flex-direction: column; gap: 6px; }

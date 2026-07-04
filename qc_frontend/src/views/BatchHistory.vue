@@ -5,6 +5,7 @@ import { useI18n } from '../composables/useI18n.js'
 import { useBatchHistory } from '../composables/useBatchHistory.js'
 import { patchBatch } from '../api/batches.js'
 import EditableCell from '../components/EditableCell.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -128,19 +129,16 @@ const statusClass = (s) => `status-${s}`
       <p v-if="!filtered.length" class="empty-state">{{ t('batches.noBatches') }}</p>
     </div>
 
-    <div v-if="pendingDelete" class="dialog-overlay" @click.self="pendingDelete = null">
-      <div class="dialog">
-        <h3 class="dialog-title">{{ t('batches.deleteTitle') }}</h3>
-        <div class="dialog-body">
-          <p>{{ t('batches.confirmDelete') }} <span class="mono">{{ pendingDelete.name }}</span>?</p>
-          <p v-if="deleteError" class="error-msg">{{ deleteError }}</p>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn-ghost" @click="pendingDelete = null">{{ t('common.cancel') }}</button>
-          <button class="btn-primary" @click="confirmDelete">{{ t('common.delete') }}</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      :show="Boolean(pendingDelete)"
+      :title="t('batches.deleteTitle')"
+      :message="pendingDelete ? `${t('batches.confirmDelete')} ${pendingDelete.name}?${deleteError ? ' ' + deleteError : ''}` : ''"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDelete = null"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -258,70 +256,6 @@ const statusClass = (s) => `status-${s}`
 }
 .btn-danger-sm:hover {
   background: var(--color-surface-1);
-}
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.dialog {
-  background: var(--color-canvas);
-  border: 1px solid var(--color-hairline);
-  width: 480px;
-  max-width: 90vw;
-}
-.dialog-title {
-  margin: 0;
-  padding: 16px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-ink);
-  border-bottom: 1px solid var(--color-hairline);
-  letter-spacing: 0.16px;
-}
-.dialog-body {
-  padding: 24px;
-  color: var(--color-ink);
-  font-size: 15px;
-  letter-spacing: 0.16px;
-}
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-hairline);
-}
-.dialog-actions .btn-ghost {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid var(--color-hairline);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  cursor: pointer;
-  letter-spacing: 0.16px;
-}
-.dialog-actions .btn-ghost:hover { background: var(--color-surface-1); }
-.dialog-actions .btn-primary {
-  padding: 8px 16px;
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: var(--color-on-primary);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  cursor: pointer;
-  letter-spacing: 0.16px;
-}
-.dialog-actions .btn-primary:hover { background: var(--color-primary-hover); }
-.error-msg {
-  color: var(--color-error);
-  font-size: 13px;
-  margin-top: 8px;
 }
 .empty-state {
   padding: 32px 16px;

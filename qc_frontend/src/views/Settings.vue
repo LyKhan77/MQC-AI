@@ -7,6 +7,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 import { useToast } from '../composables/useToast.js'
 import { useDefectClasses } from '../composables/useDefectClasses.js'
 import DefectClassModal from '../components/DefectClassModal.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { listModels } from '../api/models.js'
 
 const { t, locale, setLocale } = useI18n()
@@ -31,6 +32,7 @@ function isGroupExpanded(key) {
 const showClassModal = ref(false)
 const editingClass = ref(null)
 const pendingDeleteClass = ref(null)
+const pendingDeleteCamera = ref(null)
 
 const categoryOptions = computed(() => [...new Set(classes.value.map((c) => c.category).filter(Boolean))])
 const classGroups = computed(() =>
@@ -86,11 +88,16 @@ async function saveCamera() {
   showForm.value = false
 }
 
-async function removeCamera(cam) {
-  if (confirm(t('settings.confirmDelete'))) {
-    await deleteCamera(cam.id)
-    log('CAMERA_DELETED', `Deleted camera: ${cam.name} (${cam.id})`)
-  }
+function removeCamera(cam) {
+  pendingDeleteCamera.value = cam
+}
+
+async function confirmDeleteCamera() {
+  const cam = pendingDeleteCamera.value
+  if (!cam) return
+  await deleteCamera(cam.id)
+  log('CAMERA_DELETED', `Deleted camera: ${cam.name} (${cam.id})`)
+  pendingDeleteCamera.value = null
 }
 
 async function saveSettings() {
@@ -345,18 +352,27 @@ async function confirmDeleteClass() {
       @save="saveClass"
     />
 
-    <div v-if="pendingDeleteClass" class="dialog-overlay" @click.self="pendingDeleteClass = null">
-      <div class="dialog">
-        <h3 class="dialog-title">{{ t('defectClasses.deleteTitle') }}</h3>
-        <div class="dialog-body">
-          <p>{{ t('defectClasses.confirmDelete') }} <span class="mono">{{ pendingDeleteClass.name }}</span>?</p>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn-ghost" @click="pendingDeleteClass = null">{{ t('common.cancel') }}</button>
-          <button class="btn-primary" @click="confirmDeleteClass">{{ t('common.delete') }}</button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      :show="Boolean(pendingDeleteClass)"
+      :title="t('defectClasses.deleteTitle')"
+      :message="pendingDeleteClass ? `${t('defectClasses.confirmDelete')} ${pendingDeleteClass.name}?` : ''"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDeleteClass = null"
+      @confirm="confirmDeleteClass"
+    />
+
+    <ConfirmDialog
+      :show="Boolean(pendingDeleteCamera)"
+      :title="t('settings.confirmDelete')"
+      :message="pendingDeleteCamera ? `${t('settings.confirmDelete')} ${pendingDeleteCamera.name}?` : ''"
+      :confirm-label="t('common.delete')"
+      :cancel-label="t('common.cancel')"
+      danger
+      @cancel="pendingDeleteCamera = null"
+      @confirm="confirmDeleteCamera"
+    />
   </div>
 </template>
 
@@ -639,60 +655,5 @@ async function confirmDeleteClass() {
   background: var(--color-primary);
   color: var(--color-on-primary);
   font-weight: 600;
-}
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.dialog {
-  background: var(--color-canvas);
-  border: 1px solid var(--color-hairline);
-  width: 420px;
-  max-width: 90vw;
-}
-.dialog-title {
-  margin: 0;
-  padding: 16px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-ink);
-  border-bottom: 1px solid var(--color-hairline);
-  letter-spacing: 0.16px;
-}
-.dialog-body {
-  padding: 24px;
-  color: var(--color-ink);
-  font-size: 15px;
-}
-.dialog-body p {
-  margin: 0;
-}
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--color-hairline);
-}
-.dialog-actions .btn-ghost {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid var(--color-hairline);
-  color: var(--color-ink);
-  cursor: pointer;
-  font-size: 15px;
-}
-.dialog-actions .btn-primary {
-  padding: 8px 16px;
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  color: var(--color-on-primary);
-  cursor: pointer;
-  font-size: 15px;
 }
 </style>

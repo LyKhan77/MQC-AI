@@ -261,3 +261,25 @@ describe('InspectionCanvas vertex reshaping', () => {
     expect(mocks.clearDefectSelection).toHaveBeenCalled()
   })
 })
+
+describe('InspectionCanvas defect delete confirmation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.state.selected.value.defects = [
+      { id: 'd-1', type: 'scratch', category: 'coating', confidence: 1, polygon: [[10, 10], [20, 10], [20, 20]] },
+    ]
+    mocks.state.selectedDefectId.value = 'd-1'
+    HTMLDialogElement.prototype.showModal = vi.fn(function () { this.open = true })
+    HTMLDialogElement.prototype.close = vi.fn(function () { this.open = false })
+  })
+
+  it('opens a modal before deleting a selected defect', async () => {
+    const wrapper = mount(InspectionCanvas)
+    await wrapper.get('button[aria-label="Delete"]').trigger('click')
+
+    expect(mocks.removeDefect).not.toHaveBeenCalled()
+    await wrapper.find('.dialog-actions .btn-primary').trigger('click')
+
+    expect(mocks.removeDefect).toHaveBeenCalledWith('img-1', 'd-1')
+  })
+})

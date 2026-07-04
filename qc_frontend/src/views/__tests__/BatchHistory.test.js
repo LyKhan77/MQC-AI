@@ -59,6 +59,6 @@ describe('BatchHistory delete flow', () => {
     await flushPromises()
 
     expect(mocks.remove).toHaveBeenCalledWith('batch-1')
-    expect(wrapper.find('.dialog').exists()).toBe(false)
+    expect(wrapper.find('.dialog-actions').exists()).toBe(false)
   })
 })
