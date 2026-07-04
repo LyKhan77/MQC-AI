@@ -67,6 +67,22 @@ const verdict = computed(() => computeVerdict({
   tolerance: tolerance.value,
 }))
 
+const detectedSessionTotal = computed(() =>
+  results.value.reduce((n, r) => n + Number(r.detected || 0), 0),
+)
+
+const saveStateLabel = computed(() => {
+  if (!results.value.length) return t('quantity.waitingForEvidence')
+  return t('quantity.readyToSave')
+})
+
+const modelContext = computed(() => ({
+  model: settings.value.quantityModel || '-',
+  confidence: Number(settings.value.quantityConfidenceThreshold || 0).toFixed(2),
+  nms: Number(settings.value.quantityNmsIou || 0).toFixed(2),
+  agnostic: !!settings.value.quantityAgnosticNms,
+}))
+
 async function addFiles(files) {
   errorMsg.value = ''
   running.value = true
@@ -223,11 +239,29 @@ defineExpose({
     </div>
 
     <template v-else>
+      <div class="context-strip" aria-label="Quantity detection context">
+        <div class="context-item">
+          <span class="context-label">{{ t('quantity.model') }}</span>
+          <span class="context-value mono">{{ modelContext.model }}</span>
+        </div>
+        <div class="context-item">
+          <span class="context-label">{{ t('quantity.confidence') }}</span>
+          <span class="context-value mono">{{ modelContext.confidence }}</span>
+        </div>
+        <div class="context-item">
+          <span class="context-label">{{ t('quantity.nmsIou') }}</span>
+          <span class="context-value mono">{{ modelContext.nms }}</span>
+        </div>
+        <div class="context-item">
+          <span class="context-label">{{ t('quantity.agnosticMerge') }}</span>
+          <span class="context-value">{{ modelContext.agnostic ? t('quantity.on') : t('quantity.off') }}</span>
+        </div>
+      </div>
+
       <div class="segmented" role="group" :aria-label="t('quantity.source')">
         <button class="segment-btn" :class="{ active: source === 'image' }" :aria-label="t('quantity.sourceImage')" :aria-pressed="source === 'image'" @click="source = 'image'">{{ t('quantity.sourceImage') }}</button>
         <button class="segment-btn" :class="{ active: source === 'video' }" :aria-label="t('quantity.sourceVideo')" :aria-pressed="source === 'video'" @click="source = 'video'">{{ t('quantity.sourceVideo') }}</button>
         <button class="segment-btn" :class="{ active: source === 'camera' }" :aria-label="t('quantity.sourceCamera')" :aria-pressed="source === 'camera'" @click="source = 'camera'">{{ t('quantity.sourceCamera') }}</button>
-        <span class="ctx mono">{{ settings.quantityModel }} - {{ Number(settings.quantityConfidenceThreshold).toFixed(2) }}</span>
       </div>
 
       <div class="capture-bar" v-if="source === 'video'">
@@ -247,10 +281,81 @@ defineExpose({
         <button class="btn-sm primary" :disabled="!selectedCameraId || capturing" :aria-label="t('quantity.capture')" @click="captureCamera">{{ capturing ? t('quantity.running') : t('quantity.capture') }}</button>
       </div>
 
+      <p v-if="running" class="mono status-line">{{ t('quantity.running') }}</p>
+      <p v-if="errorMsg" class="status-line error">{{ errorMsg }}</p>
+
+      <div v-if="results.length" class="workbench">
+        <section class="vision-panel" aria-label="Selected detection image">
+          <div class="anno-wrap" v-if="selectedResult">
+            <img :src="selectedResult.url" :alt="selectedResult.name" class="anno-img" draggable="false" />
+            <svg class="anno-overlay" :viewBox="`0 0 ${selectedResult.width} ${selectedResult.height}`" preserveAspectRatio="none">
+              <rect
+                v-for="(c, i) in selectedResult.crops"
+                :key="i"
+                class="det-box"
+                :x="c.box[0]"
+                :y="c.box[1]"
+                :width="c.box[2] - c.box[0]"
+                :height="c.box[3] - c.box[1]"
+              />
+            </svg>
+            <span class="count-badge mono">{{ selectedResult.crops.length }}</span>
+          </div>
+
+          <div class="filmstrip">
+            <button
+              v-for="(r, idx) in results"
+              :key="idx"
+              class="film-thumb"
+              :class="{ active: idx === selectedIdx }"
+              :aria-pressed="idx === selectedIdx"
+              @click="selectedIdx = idx"
+            >
+              <img :src="r.url" :alt="r.name" />
+              <span class="film-count mono">{{ r.crops.length }}</span>
+              <span class="film-remove" @click.stop="removeResult(idx)" :title="t('quantity.removeInput')">x</span>
+            </button>
+            <label v-if="source === 'image'" class="film-add btn-sm primary">
+              {{ t('quantity.addImages') }}
+              <input type="file" accept="image/*" multiple hidden @change="onPick" />
+            </label>
+          </div>
+        </section>
+
+        <aside class="evidence-panel" aria-label="Detected object evidence">
+          <div class="evidence-head">
+            <span class="evidence-title">{{ t('quantity.evidence') }} - {{ selectedResult ? selectedResult.crops.length : 0 }}</span>
+          </div>
+          <div class="evi-grid">
+            <figure v-for="(c, i) in (selectedResult ? selectedResult.crops : [])" :key="i" class="evi-card">
+              <img :src="c.url" :alt="c.label" class="evi-crop" />
+              <figcaption class="mono">{{ c.label }}</figcaption>
+              <button class="evi-del" :aria-label="t('quantity.removeObject')" :title="t('quantity.removeObject')" @click="removeCrop(i)">x</button>
+            </figure>
+          </div>
+        </aside>
+      </div>
+
+      <div v-else class="empty-workbench">
+        <p>{{ t('quantity.emptyEvidence') }}</p>
+        <label v-if="source === 'image'" class="btn-sm primary">
+          {{ t('quantity.addImages') }}
+          <input type="file" accept="image/*" multiple hidden @change="onPick" />
+        </label>
+      </div>
+
       <div class="result-band">
-        <div class="total-block">
-          <div class="total-num mono">{{ sessionTotal }}</div>
-          <div class="total-label">{{ t('quantity.total') }}</div>
+        <div class="audit-metric">
+          <span class="audit-number mono">{{ detectedSessionTotal }}</span>
+          <span class="audit-label">{{ t('quantity.detectedTotal') }}</span>
+        </div>
+        <div class="audit-metric">
+          <span class="audit-number mono">{{ removedCount }}</span>
+          <span class="audit-label">{{ t('quantity.removedObjects') }}</span>
+        </div>
+        <div class="audit-metric strong">
+          <span class="audit-number mono">{{ sessionTotal }}</span>
+          <span class="audit-label">{{ t('quantity.correctedTotal') }}</span>
         </div>
         <div class="verdict-block">
           <span v-if="verdict !== 'none'" class="status-pill" :class="verdict === 'pass' ? 'verdict-pass' : 'verdict-fail'">
@@ -259,6 +364,7 @@ defineExpose({
           <div v-if="hasTarget" class="target-readout mono">
             {{ t('quantity.expectedTotal') }} {{ expectedTotal }} +/- {{ tolerance }} - Delta {{ totalDelta > 0 ? '+' : '' }}{{ totalDelta }}
           </div>
+          <div class="save-state">{{ saveStateLabel }}</div>
         </div>
         <div class="target-inputs">
           <label class="field">
@@ -276,71 +382,12 @@ defineExpose({
         </div>
       </div>
 
-      <p v-if="running" class="mono status-line">{{ t('quantity.running') }}</p>
-      <p v-if="errorMsg" class="status-line error">{{ errorMsg }}</p>
-
       <table class="data-table" v-if="Object.keys(sessionPerClass).length">
         <thead><tr><th>{{ t('quantity.class') }}</th><th>{{ t('quantity.count') }}</th></tr></thead>
         <tbody>
           <tr v-for="(n, label) in sessionPerClass" :key="label"><td>{{ label }}</td><td class="mono count-val">{{ n }}</td></tr>
         </tbody>
       </table>
-
-      <div v-if="results.length" class="inference">
-        <div class="anno-wrap" v-if="selectedResult">
-          <img :src="selectedResult.url" :alt="selectedResult.name" class="anno-img" draggable="false" />
-          <svg class="anno-overlay" :viewBox="`0 0 ${selectedResult.width} ${selectedResult.height}`" preserveAspectRatio="none">
-            <rect
-              v-for="(c, i) in selectedResult.crops"
-              :key="i"
-              class="det-box"
-              :x="c.box[0]"
-              :y="c.box[1]"
-              :width="c.box[2] - c.box[0]"
-              :height="c.box[3] - c.box[1]"
-            />
-          </svg>
-          <span class="count-badge mono">{{ selectedResult.crops.length }}</span>
-        </div>
-
-        <div class="filmstrip">
-          <button
-            v-for="(r, idx) in results"
-            :key="idx"
-            class="film-thumb"
-            :class="{ active: idx === selectedIdx }"
-            :aria-pressed="idx === selectedIdx"
-            @click="selectedIdx = idx"
-          >
-            <img :src="r.url" :alt="r.name" />
-            <span class="film-count mono">{{ r.crops.length }}</span>
-            <span class="film-remove" @click.stop="removeResult(idx)" :title="t('quantity.removeInput')">x</span>
-          </button>
-          <label v-if="source === 'image'" class="film-add btn-sm primary">
-            {{ t('quantity.addImages') }}
-            <input type="file" accept="image/*" multiple hidden @change="onPick" />
-          </label>
-        </div>
-
-        <div class="evidence-head">
-          <span class="evidence-title">{{ t('quantity.evidence') }} - {{ selectedResult ? selectedResult.crops.length : 0 }}</span>
-        </div>
-        <div class="evi-grid">
-          <figure v-for="(c, i) in (selectedResult ? selectedResult.crops : [])" :key="i" class="evi-card">
-            <img :src="c.url" :alt="c.label" class="evi-crop" />
-            <figcaption class="mono">{{ c.label }}</figcaption>
-            <button class="evi-del" :aria-label="t('quantity.removeObject')" :title="t('quantity.removeObject')" @click="removeCrop(i)">x</button>
-          </figure>
-        </div>
-      </div>
-
-      <div v-else class="evidence-head">
-        <label v-if="source === 'image'" class="btn-sm primary">
-          {{ t('quantity.addImages') }}
-          <input type="file" accept="image/*" multiple hidden @change="onPick" />
-        </label>
-        <p class="empty-state">{{ t('quantity.emptyEvidence') }}</p>
-      </div>
     </template>
   </div>
 </template>
@@ -357,9 +404,11 @@ defineExpose({
 .cam-select { min-width: 200px; width: auto; }
 
 .result-band { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 20px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); margin-bottom: 16px; }
-.total-block { display: flex; flex-direction: column; }
-.total-num { font-size: 48px; line-height: 1; color: var(--color-ink); }
-.total-label { font-size: 13px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); margin-top: 4px; }
+.audit-metric { display: flex; flex-direction: column; }
+.audit-number { font-size: 32px; line-height: 1; color: var(--color-ink); }
+.audit-label { font-size: 11px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); margin-top: 4px; }
+.audit-metric.strong .audit-number { color: var(--color-primary); }
+.save-state { font-size: 13px; color: var(--color-ink-muted); }
 .verdict-block { display: flex; flex-direction: column; gap: 6px; }
 .target-readout { font-size: 13px; color: var(--color-ink-muted); }
 .target-inputs { display: flex; gap: 16px; margin-left: auto; }
@@ -410,4 +459,13 @@ defineExpose({
 .btn-danger-sm { color: var(--color-error); border-color: var(--color-error); }
 .empty-state { padding: 24px 16px; text-align: center; color: var(--color-ink-subtle); font-size: 15px; }
 .mono { font-family: var(--font-mono); }
+
+.context-strip { display: flex; gap: 24px; flex-wrap: wrap; padding: 12px 16px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); margin-bottom: 16px; }
+.context-item { display: flex; flex-direction: column; gap: 2px; }
+.context-label { font-size: 11px; letter-spacing: 0.32px; text-transform: uppercase; color: var(--color-ink-muted); }
+.context-value { font-size: 15px; color: var(--color-ink); }
+.workbench { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.vision-panel { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.evidence-panel { flex: 0 1 300px; display: flex; flex-direction: column; gap: 12px; }
+.empty-workbench { padding: 32px 16px; text-align: center; color: var(--color-ink-subtle); font-size: 15px; display: flex; flex-direction: column; gap: 12px; align-items: center; border: 1px dashed var(--color-hairline); margin-bottom: 16px; }
 </style>

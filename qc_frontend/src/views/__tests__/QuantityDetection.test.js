@@ -12,7 +12,17 @@ vi.mock('../../composables/useAuditLog.js', () => ({ useAuditLog: () => ({ log: 
 vi.mock('../../composables/useToast.js', () => ({ useToast: () => ({ showToast: vi.fn() }) }))
 vi.mock('../../composables/useSettings.js', async () => {
   const { ref } = await import('vue')
-  return { useSettings: () => ({ settings: ref({ quantityModel: 'count.pt', quantityConfidenceThreshold: 0.5 }), refresh: vi.fn() }) }
+  return {
+    useSettings: () => ({
+      settings: ref({
+        quantityModel: 'count.pt',
+        quantityConfidenceThreshold: 0.5,
+        quantityNmsIou: 0.4,
+        quantityAgnosticNms: true,
+      }),
+      refresh: vi.fn(),
+    }),
+  }
 })
 vi.mock('../../composables/useCameras.js', async () => {
   const { ref } = await import('vue')
@@ -99,5 +109,30 @@ describe('QuantityDetection', () => {
 
     expect(wrapper.vm.sessionTotal).toBe(2)
     expect(wrapper.vm.selectedResult.url).toBe('/api/quantity/crops/_tmp/k9/frame.jpg')
+  })
+
+  it('shows quantity model context before capture', () => {
+    const wrapper = mount(QuantityDetection)
+
+    expect(wrapper.text()).toContain('count.pt')
+    expect(wrapper.text()).toContain('0.50')
+    expect(wrapper.text()).toContain('0.40')
+    expect(wrapper.text()).toContain('quantity.agnosticMerge')
+  })
+
+  it('shows detected, removed, corrected, and save readiness after correction', async () => {
+    const wrapper = mount(QuantityDetection)
+
+    await wrapper.vm.addFiles([file('a.png')])
+    await flushPromises()
+    await wrapper.findAll('button[aria-label="quantity.removeObject"]')[0].trigger('click')
+
+    expect(wrapper.text()).toContain('quantity.detectedTotal')
+    expect(wrapper.text()).toContain('3')
+    expect(wrapper.text()).toContain('quantity.removedObjects')
+    expect(wrapper.text()).toContain('1')
+    expect(wrapper.text()).toContain('quantity.correctedTotal')
+    expect(wrapper.text()).toContain('2')
+    expect(wrapper.text()).toContain('quantity.readyToSave')
   })
 })
