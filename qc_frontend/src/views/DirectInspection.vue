@@ -55,6 +55,7 @@ async function pushDetect(opts) {
   errorMsg.value = ''
   try {
     stack.value.push(await detectInspection({ ...opts, cropMode: cropMode.value }))
+    selectedIdx.value = stack.value.length - 1
   } catch (err) {
     errorMsg.value = err?.message || 'error'
   } finally {

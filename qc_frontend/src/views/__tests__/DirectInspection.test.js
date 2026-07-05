@@ -75,6 +75,18 @@ describe('DirectInspection', () => {
     expect(wrapper.findAll('.capture-thumb')).toHaveLength(1)
   })
 
+  it('selects the newest capture after multiple uploads', async () => {
+    mocks.detectInspection
+      .mockResolvedValueOnce(sample('ins-1'))
+      .mockResolvedValueOnce(sample('ins-2'))
+    const wrapper = mount(DirectInspection)
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' }), new File(['y'], 'b.png', { type: 'image/png' })] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(wrapper.find('.selected-capture img').attributes('src')).toBe('/f/ins-2')
+  })
+
   it('summarizes captures and defects for review', async () => {
     mocks.detectInspection.mockResolvedValue(sample())
     const wrapper = mount(DirectInspection)
