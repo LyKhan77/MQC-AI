@@ -302,6 +302,18 @@ export default {
     cameraInUse: 'Camera is in use by another app.',
     cameraInsecure: 'Camera needs a secure (HTTPS) connection.',
     cameraError: 'Camera error',
+    qcModel: 'QC Model',
+    confidence: 'Confidence',
+    strategy: 'Strategy',
+    uploadHint: 'Upload one or more inspection images for immediate defect preview.',
+    serverHint: 'Capture the current frame from a registered server camera.',
+    mobileHint: 'Open this page over HTTPS to use a mobile device camera.',
+    captures: 'Captures',
+    defects: 'Defect captures',
+    cleanCaptures: 'Clean captures',
+    defectPolygons: 'Defect polygons',
+    sendReviewTitle: 'Review QC handoff',
+    sendReviewNote: 'Captured images and current defect polygons will be sent to QC Studio.',
   },
 
   reports: {
