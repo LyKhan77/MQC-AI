@@ -11,6 +11,40 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-06 - Sidebar Icon Redesign
+
+### Summary
+
+Aligned the dashboard sidebar to the current layout token and replaced inline path-string icons with reusable Vue SVG components. The collapsed rail now uses native icon labels, active child routes tint their parent group, and sidebar controls support focus-visible rings, reduced motion, and arrow-key navigation.
+
+### Added
+
+- `qc_frontend/src/components/icons/*.vue` - reusable nav icon components plus shared `IconBase.vue`.
+- `qc_frontend/src/components/__tests__/AppSidebar.test.js` - sidebar width contract, active group, native collapsed labels, Enter toggle, arrow-key focus, and settings gear icon coverage.
+
+### Changed
+
+- `qc_frontend/src/components/AppSidebar.vue` - nav data now references icon components, expanded width uses `var(--sidebar-left)` (`280px`) and collapsed width is `64px`, active groups are tinted, focus-visible rings were added, collapsed links use native `title`/`aria-label` labels, and reduced-motion disables sidebar/chevron transitions.
+- `qc_frontend/src/components/icons/SettingsIcon.vue` - changed from a sun-like radial mark to a cog gear.
+- `README.md` and `AGENTS.md` - documented the 280px/64px sidebar, componentized icon strategy, tooltips, and keyboard navigation.
+
+### Fixed
+
+- Collapsed rail horizontal scrollbar by replacing flat-list tooltip wrappers with native link labels and `overflow-x: hidden`.
+- Active icon background clipping by giving collapsed `.nav-item` `width: 100%` and `min-height: 48px`.
+- Collapsed rail group rhythm by adding `.collapsed-group`/`.collapsed-single` wrappers with hairline separators.
+- Collapsed icon links now expose `title` and `aria-label` without extra tooltip DOM.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Sidebar navigation | 2026-07-06 | Componentized nav icons, 280px expanded width, 64px collapsed rail, native collapsed labels, active parent tint, focus-visible rings, reduced-motion support, and arrow-key/Enter/Space handling | `AppSidebar.vue` keeps the grouped nav model but renders Vue icon components and keyboard-accessible controls; collapsed icons have native `title`/`aria-label` labels without tooltip DOM. |
+| Collapsed rail repair | 2026-07-06 | Grouped collapsed rendering with separators, full-width active states, native labels on icon links, horizontal scroll fix, and cog gear Settings icon | Active highlight fills the 64px rail; groups are visually separated; accessible labels are present; Settings uses a gear icon. Final horizontal-scroll confirmation is pending local-server device smoke. |
+| Verification | 2026-07-06 | 8 AppSidebar tests plus full frontend suite and production build | Focused and full verification recorded in session response. Browser smoke deferred to local-server device check. |
+
+---
+
 ## [Unreleased] - 2026-07-04 - Native Modal Dialogs
 
 ### Summary

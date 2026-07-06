@@ -1,81 +1,128 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
+import InferenceIcon from './icons/InferenceIcon.vue'
+import LiveMonitorIcon from './icons/LiveMonitorIcon.vue'
+import MediaDetectionIcon from './icons/MediaDetectionIcon.vue'
+import QuantityIcon from './icons/QuantityIcon.vue'
+import QuantityDetectionIcon from './icons/QuantityDetectionIcon.vue'
+import QuantityHistoryIcon from './icons/QuantityHistoryIcon.vue'
+import QualityControlIcon from './icons/QualityControlIcon.vue'
+import DirectInspectionIcon from './icons/DirectInspectionIcon.vue'
+import QcStudioIcon from './icons/QcStudioIcon.vue'
+import BatchHistoryIcon from './icons/BatchHistoryIcon.vue'
+import ReportsIcon from './icons/ReportsIcon.vue'
+import AuditLogIcon from './icons/AuditLogIcon.vue'
+import SettingsIcon from './icons/SettingsIcon.vue'
+import ChevronRightIcon from './icons/ChevronRightIcon.vue'
+import PanelCollapseIcon from './icons/PanelCollapseIcon.vue'
+import PanelExpandIcon from './icons/PanelExpandIcon.vue'
 
 const { t } = useI18n()
 const route = useRoute()
 
-defineProps({
+const props = defineProps({
   collapsed: Boolean,
 })
 
 const emit = defineEmits(['toggle'])
 
-// Grouped navigation. A group entry has `children`; a leaf entry has `name`.
-// When the sidebar is collapsed we flatten to leaf icons (see collapsedItems).
 const nav = [
   {
     key: 'inference',
     labelKey: 'nav.inference',
-    icon: 'M2 12h4l3 8 4-16 3 8h6',
+    icon: InferenceIcon,
     children: [
-      { name: 'live', icon: 'M8 5v14l11-7z', labelKey: 'nav.liveMonitor' },
-      { name: 'media', icon: 'M4 4h16v12H4z M8 20h8 M10 16v4 M8 8h8 M8 12h4', labelKey: 'nav.mediaDetection' },
+      { name: 'live', icon: LiveMonitorIcon, labelKey: 'nav.liveMonitor' },
+      { name: 'media', icon: MediaDetectionIcon, labelKey: 'nav.mediaDetection' },
     ],
   },
   {
     key: 'quantity',
     labelKey: 'nav.quantity',
-    icon: 'M6 4v16M14 4v16M4 9h16M4 15h16',
+    icon: QuantityIcon,
     children: [
-      { name: 'quantity', icon: 'M4 5h6v6H4z M14 5h6v6h-6z M4 15h6v6H4z', labelKey: 'nav.quantityDetection' },
-      { name: 'quantity-history', icon: 'M12 8v4l3 2 M21 12a9 9 0 1 1-9-9', labelKey: 'nav.quantityHistory' },
+      { name: 'quantity', icon: QuantityDetectionIcon, labelKey: 'nav.quantityDetection' },
+      { name: 'quantity-history', icon: QuantityHistoryIcon, labelKey: 'nav.quantityHistory' },
     ],
   },
   {
     key: 'quality',
     labelKey: 'nav.qualityControl',
-    icon: 'M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7z M9 12l2 2 4-4',
+    icon: QualityControlIcon,
     children: [
-      { name: 'direct-inspection', icon: 'M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7z M9 12l2 2 4-4', labelKey: 'nav.directInspection' },
-      { name: 'qc', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', labelKey: 'nav.qcStudio' },
-      { name: 'batches', icon: 'M12 8v4l3 2 M21 12a9 9 0 1 1-9-9', labelKey: 'nav.batchHistory' },
+      { name: 'direct-inspection', icon: DirectInspectionIcon, labelKey: 'nav.directInspection' },
+      { name: 'qc', icon: QcStudioIcon, labelKey: 'nav.qcStudio' },
+      { name: 'batches', icon: BatchHistoryIcon, labelKey: 'nav.batchHistory' },
     ],
   },
   {
     key: 'records',
     labelKey: 'nav.records',
-    icon: 'M3 7h18v4H3z M5 11h14v9H5z M9 15h6',
+    icon: AuditLogIcon,
     children: [
-      { name: 'reports', icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M8 13h8M8 17h5', labelKey: 'nav.reports' },
-      { name: 'audit', icon: 'M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11', labelKey: 'nav.auditLog' },
+      { name: 'reports', icon: ReportsIcon, labelKey: 'nav.reports' },
+      { name: 'audit', icon: AuditLogIcon, labelKey: 'nav.auditLog' },
     ],
   },
-  { name: 'settings', icon: 'M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z', labelKey: 'nav.settings' },
+  { name: 'settings', icon: SettingsIcon, labelKey: 'nav.settings' },
 ]
 
 const groups = nav.filter((n) => n.children)
-
-// Flattened leaves, in visual order, for the collapsed (icon-only) rail.
-const collapsedItems = computed(() =>
-  nav.flatMap((entry) => (entry.children ? entry.children : [entry])),
-)
+const sidebarNav = ref(null)
+const focusedIndex = ref(-1)
 
 function groupActive(group) {
   return group.children.some((c) => c.name === route.name)
 }
 
-// Track which groups are open. Start with the group holding the active route open.
-const expanded = ref(
-  Object.fromEntries(groups.map((g) => [g.key, groupActive(g)])),
-)
+const expanded = ref(Object.fromEntries(groups.map((g) => [g.key, groupActive(g)])))
 
 function toggleGroup(key) {
   expanded.value = { ...expanded.value, [key]: !expanded.value[key] }
 }
 
-// Navigating into a group's page always reveals that group.
+function focusableElements() {
+  const items = sidebarNav.value?.querySelectorAll('.nav-item, .nav-group-header')
+  return Array.from(items ?? []).filter((item) => {
+    const parent = item.closest('.nav-children')
+    return !parent || parent.style.display !== 'none'
+  })
+}
+
+function focusItem(index) {
+  const items = focusableElements()
+  if (index < 0 || index >= items.length) return
+  focusedIndex.value = index
+  items[index].focus()
+}
+
+function syncFocusedIndex(event) {
+  const items = focusableElements()
+  focusedIndex.value = items.indexOf(event.target)
+}
+
+function onKeydown(event) {
+  const items = focusableElements()
+  if (!items.length) return
+
+  const targetIndex = items.indexOf(event.target)
+  if (targetIndex >= 0) focusedIndex.value = targetIndex
+  if (focusedIndex.value < 0) focusedIndex.value = 0
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    focusItem(Math.min(focusedIndex.value + 1, items.length - 1))
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    focusItem(Math.max(focusedIndex.value - 1, 0))
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    items[focusedIndex.value]?.click()
+  }
+}
+
 watch(
   () => route.name,
   () => {
@@ -84,51 +131,81 @@ watch(
         expanded.value = { ...expanded.value, [g.key]: true }
       }
     }
+
+    nextTick(() => {
+      if (focusedIndex.value >= 0) return
+      const items = focusableElements()
+      const activeIndex = items.findIndex((el) => el.classList.contains('router-link-active'))
+      if (activeIndex >= 0) focusedIndex.value = activeIndex
+    })
   },
+  { immediate: true },
 )
 </script>
 
 <template>
-  <aside class="app-sidebar" :class="{ collapsed }">
+  <aside class="app-sidebar" :class="{ collapsed: props.collapsed }">
     <div class="sidebar-header">
       <span class="brand-mark">GSPE</span>
-      <span v-if="!collapsed" class="brand-divider" aria-hidden="true"></span>
-      <span v-if="!collapsed" class="brand-text">MQC-AI</span>
+      <span v-if="!props.collapsed" class="brand-divider" aria-hidden="true"></span>
+      <span v-if="!props.collapsed" class="brand-text">MQC-AI</span>
     </div>
 
-    <nav class="sidebar-nav">
-      <!-- Collapsed: flat icon rail (quick access). -->
-      <template v-if="collapsed">
-        <router-link
-          v-for="item in collapsedItems"
-          :key="item.name"
-          :to="{ name: item.name }"
-          class="nav-item"
-          :title="t(item.labelKey)"
-        >
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path :d="item.icon" />
-          </svg>
-        </router-link>
+    <nav
+      ref="sidebarNav"
+      class="sidebar-nav"
+      @focus.capture="syncFocusedIndex"
+      @focusin="syncFocusedIndex"
+      @keydown="onKeydown"
+    >
+      <template v-if="props.collapsed">
+        <template v-for="entry in nav" :key="entry.key || entry.name">
+          <div v-if="entry.children" class="collapsed-group" :class="{ active: groupActive(entry) }">
+            <router-link
+              v-for="item in entry.children"
+              :key="item.name"
+              :to="{ name: item.name }"
+              class="nav-item"
+              :title="t(item.labelKey)"
+              :aria-label="t(item.labelKey)"
+              @focus="syncFocusedIndex"
+            >
+              <component :is="item.icon" class="nav-icon" />
+            </router-link>
+          </div>
+
+          <div v-else class="collapsed-single">
+            <router-link
+              :to="{ name: entry.name }"
+              class="nav-item"
+              :title="t(entry.labelKey)"
+              :aria-label="t(entry.labelKey)"
+              @focus="syncFocusedIndex"
+            >
+              <component :is="entry.icon" class="nav-icon" />
+            </router-link>
+          </div>
+        </template>
       </template>
 
-      <!-- Expanded: grouped dropdowns + standalone leaves. -->
       <template v-else>
         <template v-for="entry in nav" :key="entry.key || entry.name">
-          <div v-if="entry.children" class="nav-group" :class="{ active: groupActive(entry), open: expanded[entry.key] }">
+          <div
+            v-if="entry.children"
+            class="nav-group"
+            :class="{ active: groupActive(entry), open: expanded[entry.key] }"
+          >
             <button
               type="button"
               class="nav-item nav-group-header"
+              tabindex="0"
               :aria-expanded="!!expanded[entry.key]"
+              @focus="syncFocusedIndex"
               @click="toggleGroup(entry.key)"
             >
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path :d="entry.icon" />
-              </svg>
+              <component :is="entry.icon" class="nav-icon" />
               <span class="nav-label">{{ t(entry.labelKey) }}</span>
-              <svg class="nav-chevron" :class="{ rot: expanded[entry.key] }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
+              <ChevronRightIcon class="nav-chevron" :class="{ rot: expanded[entry.key] }" />
             </button>
 
             <div v-show="expanded[entry.key]" class="nav-children">
@@ -138,10 +215,9 @@ watch(
                 :to="{ name: child.name }"
                 class="nav-item nav-child"
                 :title="t(child.labelKey)"
+                @focus="syncFocusedIndex"
               >
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path :d="child.icon" />
-                </svg>
+                <component :is="child.icon" class="nav-icon" />
                 <span class="nav-label">{{ t(child.labelKey) }}</span>
               </router-link>
             </div>
@@ -152,28 +228,29 @@ watch(
             :to="{ name: entry.name }"
             class="nav-item"
             :title="t(entry.labelKey)"
+            @focus="syncFocusedIndex"
           >
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path :d="entry.icon" />
-            </svg>
+            <component :is="entry.icon" class="nav-icon" />
             <span class="nav-label">{{ t(entry.labelKey) }}</span>
           </router-link>
         </template>
       </template>
     </nav>
 
-    <button class="collapse-btn" @click="emit('toggle')" :title="collapsed ? t('topbar.expand') : t('topbar.collapse')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path v-if="collapsed" d="M9 18l6-6-6-6" />
-        <path v-else d="M15 18l-6-6 6-6" />
-      </svg>
+    <button
+      class="collapse-btn"
+      :title="props.collapsed ? t('topbar.expand') : t('topbar.collapse')"
+      @click="emit('toggle')"
+    >
+      <PanelExpandIcon v-if="props.collapsed" class="nav-icon" />
+      <PanelCollapseIcon v-else class="nav-icon" />
     </button>
   </aside>
 </template>
 
 <style scoped>
 .app-sidebar {
-  width: 220px;
+  width: var(--sidebar-left);
   flex-shrink: 0;
   background: var(--color-canvas);
   border-right: 1px solid var(--color-hairline);
@@ -184,7 +261,8 @@ watch(
 }
 
 .app-sidebar.collapsed {
-  width: 56px;
+  width: 64px;
+  overflow: visible;
 }
 
 .sidebar-header {
@@ -249,6 +327,15 @@ watch(
   color: var(--color-ink);
 }
 
+.nav-item:focus-visible,
+.nav-group-header:focus-visible,
+.collapse-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
 .nav-item.router-link-active {
   background: var(--color-surface-1);
   border-left-color: var(--color-primary);
@@ -257,8 +344,8 @@ watch(
 }
 
 .nav-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -268,25 +355,39 @@ watch(
   flex: 1;
 }
 
-/* Group header (dropdown toggle) */
 .nav-group-header {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  font-size: 15px;
+  letter-spacing: 0.16px;
+  border-left: 3px solid transparent;
   background: transparent;
   border: none;
-  border-left: 3px solid transparent;
   cursor: pointer;
   font-family: inherit;
 }
 
-.nav-group.active .nav-group-header {
+.nav-group-header:hover {
+  background: var(--color-surface-1);
   color: var(--color-ink);
+}
+
+.nav-group.active .nav-group-header {
+  background: var(--color-surface-1);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .nav-chevron {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--color-ink-subtle);
+  color: currentColor;
   transition: transform 0.15s ease;
 }
 
@@ -295,24 +396,52 @@ watch(
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-sidebar,
   .nav-chevron {
     transition: none;
   }
 }
 
-/* Child links inside an open group */
 .nav-children {
   display: flex;
   flex-direction: column;
 }
 
 .nav-child {
-  padding-left: 32px;
+  padding-left: 44px;
 }
 
 .nav-child .nav-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+}
+
+.app-sidebar.collapsed .nav-item {
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 0;
+}
+
+.app-sidebar.collapsed .nav-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.app-sidebar.collapsed .sidebar-nav {
+  overflow-x: hidden;
+}
+
+.app-sidebar.collapsed .collapsed-group,
+.app-sidebar.collapsed .collapsed-single {
+  width: 100%;
+}
+
+.app-sidebar.collapsed .collapsed-group + .collapsed-group,
+.app-sidebar.collapsed .collapsed-group + .collapsed-single {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-hairline);
 }
 
 .collapse-btn {
