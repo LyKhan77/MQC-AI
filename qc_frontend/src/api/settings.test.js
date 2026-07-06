@@ -96,4 +96,19 @@ describe('settings api', () => {
       body: JSON.stringify({ quantity_nms_iou: 0.4, quantity_agnostic_nms: false }),
     })
   })
+
+  it('maps quantity target classes both directions', async () => {
+    vi.stubGlobal('fetch', ok({ quantity_classes: 'bolt, bracket' }))
+    const s = await getSettings()
+    expect(s.quantityClasses).toBe('bolt, bracket')
+
+    const f = ok({ quantity_classes: 'bolt, bracket' })
+    vi.stubGlobal('fetch', f)
+    await updateSettings({ quantityClasses: 'bolt, bracket' })
+    expect(f).toHaveBeenCalledWith('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity_classes: 'bolt, bracket' }),
+    })
+  })
 })

@@ -23,14 +23,39 @@ from .settings import get_or_create_setting
 router = APIRouter(prefix="/api/quantity", tags=["quantity"])
 
 
+def parse_classes(value: str | None) -> list[str]:
+    out = []
+    seen = set()
+    for item in (value or "").split(","):
+        name = item.strip()
+        if name and name not in seen:
+            out.append(name)
+            seen.add(name)
+    return out
+
+
 def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
-    detections = detect(
-        frame,
-        setting.quantity_confidence_threshold,
-        model_path,
-        iou=setting.quantity_nms_iou,
-        agnostic_nms=setting.quantity_agnostic_nms,
-    )
+    prompts = parse_classes(getattr(setting, "quantity_classes", ""))
+    try:
+        detections = detect(
+            frame,
+            setting.quantity_confidence_threshold,
+            model_path,
+            iou=setting.quantity_nms_iou,
+            agnostic_nms=setting.quantity_agnostic_nms,
+            prompts=prompts or None,
+        )
+    except ValueError as exc:
+        if str(exc) == "model does not support class prompts":
+            raise HTTPException(
+                409,
+                "selected model does not support class prompts; clear the target classes field",
+            ) from exc
+        raise
+    except Exception as exc:
+        if not prompts:
+            raise HTTPException(409, "enter target classes for this model") from exc
+        raise
     h, w = frame.shape[:2]
     crop_key = gen_id("qtmp")
     tmp_dir = os.path.join(app_settings.data_dir, "quantity", "_tmp", crop_key)

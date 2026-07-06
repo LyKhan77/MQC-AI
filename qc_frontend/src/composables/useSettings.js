@@ -13,6 +13,7 @@ const settings = ref({
   quantityConfidenceThreshold: 0.5,
   quantityNmsIou: 0.45,
   quantityAgnosticNms: true,
+  quantityClasses: '',
 })
 
 async function refresh() {

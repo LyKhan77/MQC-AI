@@ -19,6 +19,7 @@ vi.mock('../../composables/useSettings.js', async () => {
         quantityConfidenceThreshold: 0.5,
         quantityNmsIou: 0.4,
         quantityAgnosticNms: true,
+        quantityClasses: 'bolt, bracket',
       }),
       refresh: vi.fn(),
     }),
@@ -117,6 +118,7 @@ describe('QuantityDetection', () => {
     expect(wrapper.text()).toContain('count.pt')
     expect(wrapper.text()).toContain('0.50')
     expect(wrapper.text()).toContain('0.40')
+    expect(wrapper.text()).toContain('bolt, bracket')
     expect(wrapper.text()).toContain('quantity.agnosticMerge')
   })
 
