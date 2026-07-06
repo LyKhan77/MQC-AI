@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
 import SidebarTooltip from './SidebarTooltip.vue'
@@ -73,10 +73,6 @@ const nav = [
 const groups = nav.filter((n) => n.children)
 const sidebarNav = ref(null)
 const focusedIndex = ref(-1)
-
-const collapsedItems = computed(() =>
-  nav.flatMap((entry) => (entry.children ? entry.children : [entry])),
-)
 
 function groupActive(group) {
   return group.children.some((c) => c.name === route.name)
@@ -164,20 +160,37 @@ watch(
       @keydown="onKeydown"
     >
       <template v-if="props.collapsed">
-        <SidebarTooltip
-          v-for="item in collapsedItems"
-          :key="item.name"
-          :label="t(item.labelKey)"
-        >
-          <router-link
-            :to="{ name: item.name }"
-            class="nav-item"
-            :title="t(item.labelKey)"
-            @focus="syncFocusedIndex"
-          >
-            <component :is="item.icon" class="nav-icon" />
-          </router-link>
-        </SidebarTooltip>
+        <template v-for="entry in nav" :key="entry.key || entry.name">
+          <div v-if="entry.children" class="collapsed-group" :class="{ active: groupActive(entry) }">
+            <SidebarTooltip
+              v-for="item in entry.children"
+              :key="item.name"
+              :label="t(item.labelKey)"
+            >
+              <router-link
+                :to="{ name: item.name }"
+                class="nav-item"
+                :title="t(item.labelKey)"
+                :aria-label="t(item.labelKey)"
+                @focus="syncFocusedIndex"
+              >
+                <component :is="item.icon" class="nav-icon" />
+              </router-link>
+            </SidebarTooltip>
+          </div>
+
+          <SidebarTooltip v-else class="collapsed-single" :label="t(entry.labelKey)">
+            <router-link
+              :to="{ name: entry.name }"
+              class="nav-item"
+              :title="t(entry.labelKey)"
+              :aria-label="t(entry.labelKey)"
+              @focus="syncFocusedIndex"
+            >
+              <component :is="entry.icon" class="nav-icon" />
+            </router-link>
+          </SidebarTooltip>
+        </template>
       </template>
 
       <template v-else>
@@ -410,12 +423,30 @@ watch(
 
 .app-sidebar.collapsed .nav-item {
   justify-content: center;
-  padding: 14px 0;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 0;
 }
 
 .app-sidebar.collapsed .nav-icon {
   width: 24px;
   height: 24px;
+}
+
+.app-sidebar.collapsed .sidebar-nav {
+  overflow-x: visible;
+}
+
+.app-sidebar.collapsed .collapsed-group,
+.app-sidebar.collapsed .collapsed-single {
+  width: 100%;
+}
+
+.app-sidebar.collapsed .collapsed-group + .collapsed-group,
+.app-sidebar.collapsed .collapsed-group + .collapsed-single {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-hairline);
 }
 
 .collapse-btn {

@@ -95,4 +95,21 @@ describe('AppSidebar', () => {
 
     expect(document.activeElement).toBe(items[1].element)
   })
+
+  it('adds accessible labels to collapsed rail links', () => {
+    const wrapper = mountSidebar({ collapsed: true })
+
+    const liveLink = wrapper.find('a[href="#live"]')
+    const mediaLink = wrapper.find('a[href="#media"]')
+
+    expect(liveLink.attributes('aria-label')).toBe('nav.liveMonitor')
+    expect(mediaLink.attributes('aria-label')).toBe('nav.mediaDetection')
+  })
+
+  it('keeps grouped structure in the collapsed rail', () => {
+    const wrapper = mountSidebar({ collapsed: true })
+
+    expect(wrapper.findAll('.collapsed-group').length).toBeGreaterThanOrEqual(4)
+    expect(wrapper.find('.collapsed-single').exists()).toBe(true)
+  })
 })

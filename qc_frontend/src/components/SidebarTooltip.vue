@@ -15,6 +15,7 @@ defineProps({
 .tooltip-wrapper {
   position: relative;
   display: flex;
+  width: 100%;
 }
 
 .tooltip {

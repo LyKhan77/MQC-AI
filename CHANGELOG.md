@@ -28,12 +28,20 @@ Aligned the dashboard sidebar to the current layout token and replaced inline pa
 - `qc_frontend/src/components/AppSidebar.vue` - nav data now references icon components, expanded width uses `var(--sidebar-left)` (`280px`) and collapsed width is `64px`, active groups are tinted, focus-visible rings were added, and reduced-motion disables sidebar/chevron transitions.
 - `README.md` and `AGENTS.md` - documented the 280px/64px sidebar, componentized icon strategy, tooltips, and keyboard navigation.
 
+### Fixed
+
+- Collapsed rail horizontal scrollbar by replacing flat-list rendering with grouped collapsed rendering (`overflow-x: visible`, full-width tooltip wrappers).
+- Active icon background clipping by giving collapsed `.nav-item` `width: 100%` and `min-height: 48px`.
+- Collapsed rail group rhythm by adding `.collapsed-group`/`.collapsed-single` wrappers with hairline separators.
+- Collapsed icon links now expose `aria-label` for screen-reader accessible names.
+
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
 |---|---|---|---|
 | Sidebar navigation | 2026-07-06 | Componentized nav icons, 280px expanded width, 64px collapsed rail, collapsed tooltips, active parent tint, focus-visible rings, reduced-motion support, and arrow-key/Enter/Space handling | `AppSidebar.vue` keeps the grouped nav model but renders Vue icon components and keyboard-accessible controls; collapsed icons have custom labels without a new dependency. |
-| Verification | 2026-07-06 | Focused sidebar tests plus full frontend test/build run | Focused `AppSidebar` suite passes; final full verification is recorded in this session response. |
+| Collapsed rail repair | 2026-07-06 | Grouped collapsed rendering with separators, full-width active states, `aria-label` on icon links, horizontal scroll fix | Active highlight fills the 64px rail; groups are visually separated; accessible labels are present. Final horizontal-scroll confirmation is pending local-server device smoke. |
+| Verification | 2026-07-06 | 7 AppSidebar tests plus full 122-test suite and production build | All tests pass; build succeeds. Browser smoke deferred to manual check. |
 
 ---
 
