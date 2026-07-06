@@ -254,6 +254,7 @@ watch(
 
 .app-sidebar.collapsed {
   width: 64px;
+  overflow: visible;
 }
 
 .sidebar-header {
