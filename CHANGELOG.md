@@ -11,6 +11,32 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-06 - Sidebar Icon Redesign
+
+### Summary
+
+Aligned the dashboard sidebar to the current layout token and replaced inline path-string icons with reusable Vue SVG components. The collapsed rail now has custom tooltips, active child routes tint their parent group, and sidebar controls support focus-visible rings, reduced motion, and arrow-key navigation.
+
+### Added
+
+- `qc_frontend/src/components/icons/*.vue` - reusable nav icon components plus shared `IconBase.vue`.
+- `qc_frontend/src/components/SidebarTooltip.vue` - collapsed rail hover/focus tooltip wrapper.
+- `qc_frontend/src/components/__tests__/AppSidebar.test.js` - sidebar width contract, active group, tooltip, Enter toggle, and arrow-key focus coverage.
+
+### Changed
+
+- `qc_frontend/src/components/AppSidebar.vue` - nav data now references icon components, expanded width uses `var(--sidebar-left)` (`280px`) and collapsed width is `64px`, active groups are tinted, focus-visible rings were added, and reduced-motion disables sidebar/chevron transitions.
+- `README.md` and `AGENTS.md` - documented the 280px/64px sidebar, componentized icon strategy, tooltips, and keyboard navigation.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Sidebar navigation | 2026-07-06 | Componentized nav icons, 280px expanded width, 64px collapsed rail, collapsed tooltips, active parent tint, focus-visible rings, reduced-motion support, and arrow-key/Enter/Space handling | `AppSidebar.vue` keeps the grouped nav model but renders Vue icon components and keyboard-accessible controls; collapsed icons have custom labels without a new dependency. |
+| Verification | 2026-07-06 | Focused sidebar tests plus full frontend test/build run | Focused `AppSidebar` suite passes; final full verification is recorded in this session response. |
+
+---
+
 ## [Unreleased] - 2026-07-04 - Native Modal Dialogs
 
 ### Summary
