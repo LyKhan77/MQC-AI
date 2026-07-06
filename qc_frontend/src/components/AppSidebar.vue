@@ -2,7 +2,6 @@
 import { ref, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from '../composables/useI18n.js'
-import SidebarTooltip from './SidebarTooltip.vue'
 import InferenceIcon from './icons/InferenceIcon.vue'
 import LiveMonitorIcon from './icons/LiveMonitorIcon.vue'
 import MediaDetectionIcon from './icons/MediaDetectionIcon.vue'
@@ -162,24 +161,20 @@ watch(
       <template v-if="props.collapsed">
         <template v-for="entry in nav" :key="entry.key || entry.name">
           <div v-if="entry.children" class="collapsed-group" :class="{ active: groupActive(entry) }">
-            <SidebarTooltip
+            <router-link
               v-for="item in entry.children"
               :key="item.name"
-              :label="t(item.labelKey)"
+              :to="{ name: item.name }"
+              class="nav-item"
+              :title="t(item.labelKey)"
+              :aria-label="t(item.labelKey)"
+              @focus="syncFocusedIndex"
             >
-              <router-link
-                :to="{ name: item.name }"
-                class="nav-item"
-                :title="t(item.labelKey)"
-                :aria-label="t(item.labelKey)"
-                @focus="syncFocusedIndex"
-              >
-                <component :is="item.icon" class="nav-icon" />
-              </router-link>
-            </SidebarTooltip>
+              <component :is="item.icon" class="nav-icon" />
+            </router-link>
           </div>
 
-          <SidebarTooltip v-else class="collapsed-single" :label="t(entry.labelKey)">
+          <div v-else class="collapsed-single">
             <router-link
               :to="{ name: entry.name }"
               class="nav-item"
@@ -189,7 +184,7 @@ watch(
             >
               <component :is="entry.icon" class="nav-icon" />
             </router-link>
-          </SidebarTooltip>
+          </div>
         </template>
       </template>
 
@@ -434,7 +429,7 @@ watch(
 }
 
 .app-sidebar.collapsed .sidebar-nav {
-  overflow-x: visible;
+  overflow-x: hidden;
 }
 
 .app-sidebar.collapsed .collapsed-group,

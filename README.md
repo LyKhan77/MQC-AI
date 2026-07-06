@@ -102,7 +102,7 @@ targets Linux; on the Windows dev laptop use the per-workspace commands below.
 
 - **Bilingual i18n** (Bahasa Indonesia / English) dengan toggle, persisted di localStorage
 - **Light/Dark mode toggle** dengan Carbon Gray-100 dark theme, persisted di localStorage
-- **Collapsible sidebar navigation** dengan 10 pages, reusable Vue SVG icon components, 280px expanded / 64px collapsed rail, collapsed tooltips, active parent-group tint, arrow-key navigation, and a refined `GSPE | MQC-AI` wordmark (centered `GSPE` when collapsed)
+- **Collapsible sidebar navigation** dengan 10 pages, reusable Vue SVG icon components, 280px expanded / 64px collapsed rail, native `title`/`aria-label` labels on collapsed icons, active parent-group tint, arrow-key navigation, and a refined `GSPE | MQC-AI` wordmark (centered `GSPE` when collapsed)
 - **Batch History delete**: batches can be deleted from the dashboard after a confirmation modal via `DELETE /api/batches/{id}`
 - **Pending raw QC batches**: submitted batches pre-create raw image rows so QC Studio shows the image list and canvas before segmentation
 - **QC Studio image delete**: bad crops can be removed from a batch and from disk via per-image delete before/after loading

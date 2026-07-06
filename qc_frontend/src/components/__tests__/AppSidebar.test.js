@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { h, reactive } from 'vue'
 import AppSidebar from '../AppSidebar.vue'
 import sidebarSource from '../AppSidebar.vue?raw'
+import settingsIconSource from '../icons/SettingsIcon.vue?raw'
 
 const route = reactive({ name: 'live' })
 
@@ -64,12 +65,14 @@ describe('AppSidebar', () => {
     expect(activeGroup.text()).toContain('nav.quantity')
   })
 
-  it('shows collapsed rail tooltips for leaf links', () => {
+  it('uses native labels instead of custom tooltip DOM in the collapsed rail', () => {
     const wrapper = mountSidebar({ collapsed: true })
 
-    const tooltip = wrapper.find('.tooltip-wrapper .tooltip')
-    expect(tooltip.exists()).toBe(true)
-    expect(tooltip.text()).toBe('nav.liveMonitor')
+    const liveLink = wrapper.find('a[href="#live"]')
+
+    expect(wrapper.find('.tooltip-wrapper').exists()).toBe(false)
+    expect(liveLink.attributes('title')).toBe('nav.liveMonitor')
+    expect(liveLink.attributes('aria-label')).toBe('nav.liveMonitor')
   })
 
   it('toggles a group with Enter from the keyboard', async () => {
@@ -111,5 +114,9 @@ describe('AppSidebar', () => {
 
     expect(wrapper.findAll('.collapsed-group').length).toBeGreaterThanOrEqual(4)
     expect(wrapper.find('.collapsed-single').exists()).toBe(true)
+  })
+
+  it('uses a cog gear path for the settings icon', () => {
+    expect(settingsIconSource).toContain('a2.34 2.34')
   })
 })
