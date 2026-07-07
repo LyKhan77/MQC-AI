@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
+from fastapi.testclient import TestClient
 
+from app.main import app
 from app.services.object_detection import Detection
 
 
@@ -88,7 +90,7 @@ def test_detect_image_rejects_non_prompt_model_with_classes(client, monkeypatch)
     )
 
 
-def test_detect_image_rejects_promptable_model_without_classes(client, monkeypatch):
+def test_detect_image_plain_mode_error_not_masked(client, monkeypatch):
     q = _quantity_router()
     monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
     monkeypatch.setattr(
@@ -98,11 +100,12 @@ def test_detect_image_rejects_promptable_model_without_classes(client, monkeypat
     )
     client.put("/api/settings", json={"quantity_model": "m.pt", "quantity_classes": ""})
 
-    resp = client.post("/api/quantity/detect/image",
-                       files={"file": ("a.png", _png_bytes(), "image/png")})
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.post("/api/quantity/detect/image",
+                      files={"file": ("a.png", _png_bytes(), "image/png")})
 
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == "enter target classes for this model"
+    assert resp.status_code == 500
+    assert resp.status_code != 409
 
 
 def test_detect_image_writes_crops_and_serves(client, monkeypatch):

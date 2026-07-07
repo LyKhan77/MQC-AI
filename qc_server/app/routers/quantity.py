@@ -52,10 +52,7 @@ def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
                 "selected model does not support class prompts; clear the target classes field",
             ) from exc
         raise
-    except Exception as exc:
-        if not prompts:
-            raise HTTPException(409, "enter target classes for this model") from exc
-        raise
+
     h, w = frame.shape[:2]
     crop_key = gen_id("qtmp")
     tmp_dir = os.path.join(app_settings.data_dir, "quantity", "_tmp", crop_key)
