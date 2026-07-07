@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
+from fastapi.testclient import TestClient
 
+from app.main import app
 from app.services.object_detection import Detection
 
 
@@ -43,7 +45,67 @@ def test_detect_image_returns_counts(client, monkeypatch):
     assert body["per_class"] == {"bolt": 2, "nut": 1}
     assert len(body["detections"]) == 3
     assert body["width"] == 10 and body["height"] == 10
-    assert captured == {"iou": 0.4, "agnostic_nms": False}
+    assert captured == {"iou": 0.4, "agnostic_nms": False, "prompts": None}
+
+
+def test_detect_image_passes_parsed_quantity_classes(client, monkeypatch):
+    q = _quantity_router()
+    captured = {}
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
+
+    def fake_detect(frame, conf, mp, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(q, "detect", fake_detect)
+    client.put("/api/settings", json={
+        "quantity_model": "m.pt",
+        "quantity_classes": " bolt, nut, bolt,, bracket ",
+    })
+    resp = client.post("/api/quantity/detect/image",
+                       files={"file": ("a.png", _png_bytes(), "image/png")})
+
+    assert resp.status_code == 200
+    assert captured["prompts"] == ["bolt", "nut", "bracket"]
+
+
+def test_detect_image_rejects_non_prompt_model_with_classes(client, monkeypatch):
+    q = _quantity_router()
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
+    monkeypatch.setattr(
+        q,
+        "detect",
+        lambda *a, **k: (_ for _ in ()).throw(
+            ValueError("model does not support class prompts")
+        ),
+    )
+    client.put("/api/settings", json={"quantity_model": "m.pt", "quantity_classes": "bolt"})
+
+    resp = client.post("/api/quantity/detect/image",
+                       files={"file": ("a.png", _png_bytes(), "image/png")})
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == (
+        "selected model does not support class prompts; clear the target classes field"
+    )
+
+
+def test_detect_image_plain_mode_error_not_masked(client, monkeypatch):
+    q = _quantity_router()
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
+    monkeypatch.setattr(
+        q,
+        "detect",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("classes required")),
+    )
+    client.put("/api/settings", json={"quantity_model": "m.pt", "quantity_classes": ""})
+
+    with TestClient(app, raise_server_exceptions=False) as c:
+        resp = c.post("/api/quantity/detect/image",
+                      files={"file": ("a.png", _png_bytes(), "image/png")})
+
+    assert resp.status_code == 500
+    assert resp.status_code != 409
 
 
 def test_detect_image_writes_crops_and_serves(client, monkeypatch):

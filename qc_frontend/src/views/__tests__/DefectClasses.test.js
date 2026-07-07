@@ -46,9 +46,15 @@ vi.mock('../../composables/useSettings.js', async () => {
     useSettings: () => ({
       settings: ref({
         confidenceThreshold: 0.5,
+        qcConfidenceThreshold: 0.5,
         defectStrategy: 'mock',
         activeModel: '',
         qcModel: 'sam3.pt',
+        quantityModel: 'count.pt',
+        quantityConfidenceThreshold: 0.5,
+        quantityNmsIou: 0.45,
+        quantityAgnosticNms: true,
+        quantityClasses: 'bolt',
       }),
       refresh: mocks.refreshSettings,
       update: mocks.updateSettings,
@@ -108,6 +114,19 @@ describe('Settings defect classes', () => {
 
     expect(mocks.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
       qcModel: 'sam3.pt',
+    }))
+  })
+
+  it('saves quantity target classes', async () => {
+    const wrapper = mount(Settings)
+    await flushPromises()
+
+    await wrapper.find('input[aria-label="settings.quantityClasses"]').setValue('bolt, bracket')
+    await wrapper.findAll('.form-actions .btn-sm.primary').at(0).trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      quantityClasses: 'bolt, bracket',
     }))
   })
 

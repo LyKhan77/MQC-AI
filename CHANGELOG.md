@@ -11,6 +11,36 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-06 - Quantity YOLOE Switchable Mode
+
+### Summary
+
+Quantity Detection can now switch between the existing plain/custom-trained YOLO path and YOLOE-26 open-vocabulary counting through one `quantity_classes` setting. Empty classes preserve the shared detector path; filled classes use a separate YOLOE cache and `set_classes()`.
+
+### Added
+
+- `Setting.quantity_classes` with startup migration, Pydantic settings schema fields, API mapping, Settings input, and Quantity Detection active-class context.
+- Isolated prompt-model cache in `qc_server/app/services/object_detection.py` using lazy `YOLOE(model_path)` and cached `set_classes()` calls.
+- Quantity router class parsing, duplicate-preserving-order cleanup, and 409 errors for invalid prompt/model combinations.
+- `qc_server/models/README.md` note for `yoloe-26l-seg.pt` placement and no-weights commit policy.
+- Backend and frontend tests for settings round-trip, prompt routing, prompt errors, API mapping, Settings persistence, and Quantity Detection class context.
+
+### Changed
+
+- `qc_server/app/routers/quantity.py` now passes `prompts=...` only for non-empty target classes while keeping empty target classes on the existing plain model path.
+- `qc_frontend/src/views/Settings.vue` adds Quantity target classes and notes that YOLOE-26 ignores NMS controls because it is NMS-free.
+- `README.md` and `AGENTS.md` document `quantity_classes`, plain/open-vocab mode, and pending YOLOE GPU smoke.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Quantity model switching | 2026-07-06 | Added `quantity_classes`, prompt parsing, and an isolated YOLOE prompt-model cache | Empty target classes use the existing `YOLO`/`get_model()` path; filled classes use `YOLOE` + `set_classes()` without mutating the shared object-detection cache. |
+| Settings / Quantity UI | 2026-07-06 | Target classes input, NMS-free note, and active-class context chip | Operators can choose custom-trained/prompt-free counting by leaving classes empty, or force open-vocab YOLOE by entering comma-separated class names. |
+| Verification | 2026-07-06 | Focused plan checks plus full backend/frontend suites | Backend focused: 17 passed. Frontend focused: 11 passed. Full backend: 147 passed. Full frontend: 125 passed. Frontend build succeeded. YOLOE-26 GPU smoke remains pending user verification. |
+
+---
+
 ## [Unreleased] - 2026-07-06 - Sidebar Icon Redesign
 
 ### Summary

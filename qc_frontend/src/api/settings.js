@@ -14,6 +14,7 @@ export function mapSettings(s) {
     quantityConfidenceThreshold: s.quantity_confidence_threshold,
     quantityNmsIou: s.quantity_nms_iou,
     quantityAgnosticNms: s.quantity_agnostic_nms,
+    quantityClasses: s.quantity_classes ?? '',
   }
 }
 
@@ -35,5 +36,6 @@ export async function updateSettings(patch) {
   if (patch.quantityConfidenceThreshold !== undefined) body.quantity_confidence_threshold = Number(patch.quantityConfidenceThreshold)
   if (patch.quantityNmsIou !== undefined) body.quantity_nms_iou = Number(patch.quantityNmsIou)
   if (patch.quantityAgnosticNms !== undefined) body.quantity_agnostic_nms = patch.quantityAgnosticNms
+  if (patch.quantityClasses !== undefined) body.quantity_classes = patch.quantityClasses
   return mapSettings(await apiPut('/settings', body))
 }

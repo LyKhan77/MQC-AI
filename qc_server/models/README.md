@@ -10,3 +10,8 @@ Drop your trained model weight files here (e.g. `metal_sheet.pt`).
   Active Model** (lists the files found in this folder).
 - Path is configurable via `MQC_MODELS_DIR` (defaults to `./models`, relative to
   `qc_server/`).
+- Quantity open-vocab mode needs a YOLOE-26 prompt checkpoint such as
+  `yoloe-26l-seg.pt` in this directory, selected as the Quantity Detection
+  model, with target classes filled in Settings. Ultralytics can auto-download
+  that checkpoint on first `YOLOE("yoloe-26l-seg.pt")` load if it has been
+  fetched once on the GPU server. Do not commit the weight file.

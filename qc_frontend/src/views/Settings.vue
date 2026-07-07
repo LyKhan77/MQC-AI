@@ -111,6 +111,7 @@ async function saveSettings() {
     quantityConfidenceThreshold: Number(settings.value.quantityConfidenceThreshold),
     quantityNmsIou: Number(settings.value.quantityNmsIou),
     quantityAgnosticNms: settings.value.quantityAgnosticNms,
+    quantityClasses: settings.value.quantityClasses,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
   showToast(t('settings.saved'))
@@ -271,6 +272,10 @@ async function confirmDeleteClass() {
             <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
           </div>
           <div class="form-row">
+            <label>{{ t('settings.quantityClasses') }}<span class="info-i" :title="t('settings.tip.quantityClasses')">i</span></label>
+            <input v-model="settings.quantityClasses" class="text-input" :aria-label="t('settings.quantityClasses')" />
+          </div>
+          <div class="form-row">
             <label>{{ t('settings.quantityConfidence') }}<span class="info-i" :title="t('settings.tip.quantityConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.quantityConfidenceThreshold" class="text-input" />
           </div>
@@ -284,6 +289,7 @@ async function confirmDeleteClass() {
               {{ t('settings.quantityMergeOverlap') }}
               <span class="info-i" :title="t('settings.tip.quantityMergeOverlap')">i</span>
             </label>
+            <p class="form-hint">{{ t('settings.quantityNmsFreeNote') }}</p>
           </div>
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>

@@ -69,3 +69,53 @@ def test_detect_forwards_nms_params(monkeypatch):
     assert captured["conf"] == 0.5
     assert captured["iou"] == 0.45
     assert captured["agnostic_nms"] is True
+
+
+def test_detect_prompts_none_uses_shared_model(monkeypatch):
+    used = []
+    model = _Model()
+    monkeypatch.setattr(object_detection, "get_model", lambda _: used.append("plain") or model)
+    monkeypatch.setattr(
+        object_detection,
+        "get_prompt_model",
+        lambda _: (_ for _ in ()).throw(AssertionError("prompt model used")),
+        raising=False,
+    )
+
+    object_detection.detect(object(), 0.2, "m.pt", prompts=None)
+
+    assert used == ["plain"]
+
+
+def test_detect_prompt_sets_classes_only_when_changed(monkeypatch):
+    calls = []
+
+    class _PromptModel(_Model):
+        def set_classes(self, prompts):
+            calls.append(list(prompts))
+
+    model = _PromptModel()
+    monkeypatch.setattr(object_detection, "get_prompt_model", lambda _: model, raising=False)
+    monkeypatch.setattr(object_detection, "_pmodel_classes", None, raising=False)
+
+    object_detection.detect(object(), 0.2, "m.pt", prompts=["bolt", "nut"])
+    object_detection.detect(object(), 0.2, "m.pt", prompts=["bolt", "nut"])
+    object_detection.detect(object(), 0.2, "m.pt", prompts=["bolt"])
+
+    assert calls == [["bolt", "nut"], ["bolt"]]
+
+
+def test_detect_prompt_rejects_models_without_class_prompts(monkeypatch):
+    class _BadPromptModel(_Model):
+        def set_classes(self, prompts):
+            raise AttributeError("nope")
+
+    monkeypatch.setattr(object_detection, "get_prompt_model", lambda _: _BadPromptModel(), raising=False)
+    monkeypatch.setattr(object_detection, "_pmodel_classes", None, raising=False)
+
+    try:
+        object_detection.detect(object(), 0.2, "m.pt", prompts=["bolt"])
+    except ValueError as exc:
+        assert str(exc) == "model does not support class prompts"
+    else:
+        raise AssertionError("expected ValueError")

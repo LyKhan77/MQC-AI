@@ -81,6 +81,7 @@ const modelContext = computed(() => ({
   confidence: Number(settings.value.quantityConfidenceThreshold || 0).toFixed(2),
   nms: Number(settings.value.quantityNmsIou || 0).toFixed(2),
   agnostic: !!settings.value.quantityAgnosticNms,
+  classes: (settings.value.quantityClasses || '').trim() || t('quantity.modelDefault'),
 }))
 
 async function addFiles(files) {
@@ -255,6 +256,10 @@ defineExpose({
         <div class="context-item">
           <span class="context-label">{{ t('quantity.agnosticMerge') }}</span>
           <span class="context-value">{{ modelContext.agnostic ? t('quantity.on') : t('quantity.off') }}</span>
+        </div>
+        <div class="context-item">
+          <span class="context-label">{{ t('quantity.activeClasses') }}</span>
+          <span class="context-value mono">{{ modelContext.classes }}</span>
         </div>
       </div>
 
