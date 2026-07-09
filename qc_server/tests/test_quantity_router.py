@@ -108,6 +108,31 @@ def test_detect_image_plain_mode_error_not_masked(client, monkeypatch):
     assert resp.status_code != 409
 
 
+def test_detect_image_promptable_yoloe_without_classes_409(client, monkeypatch):
+    q = _quantity_router()
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "yoloe-26l-seg.pt")
+    client.put("/api/settings", json={"quantity_model": "yoloe-26l-seg.pt", "quantity_classes": ""})
+
+    resp = client.post("/api/quantity/detect/image",
+                       files={"file": ("a.png", _png_bytes(), "image/png")})
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "enter target classes for this model"
+
+
+def test_detect_image_promptfree_yoloe_empty_classes_not_guarded(client, monkeypatch):
+    q = _quantity_router()
+    monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "yoloe-26l-seg-pf.pt")
+    monkeypatch.setattr(q, "detect", lambda *a, **k: [])
+    client.put("/api/settings", json={"quantity_model": "yoloe-26l-seg-pf.pt", "quantity_classes": ""})
+
+    resp = client.post("/api/quantity/detect/image",
+                       files={"file": ("a.png", _png_bytes(), "image/png")})
+
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 0
+
+
 def test_detect_image_writes_crops_and_serves(client, monkeypatch):
     q = _quantity_router()
     monkeypatch.setattr(q, "resolve_named_model_path", lambda name: "m.pt")
