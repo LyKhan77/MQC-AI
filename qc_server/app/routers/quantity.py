@@ -34,8 +34,15 @@ def parse_classes(value: str | None) -> list[str]:
     return out
 
 
+def _is_promptable_yoloe(model_name):
+    name = (model_name or "").lower()
+    return "yoloe" in name and "-seg" in name and "-pf" not in name
+
+
 def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
     prompts = parse_classes(getattr(setting, "quantity_classes", ""))
+    if _is_promptable_yoloe(setting.quantity_model) and not prompts:
+        raise HTTPException(409, "enter target classes for this model")
     try:
         detections = detect(
             frame,
