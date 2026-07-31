@@ -5,7 +5,7 @@
 # [BE] or [FE] tag so the two streams stay distinguishable. Ctrl+C stops both.
 #
 # Usage:   bash scripts/dev.sh
-# Env:     BE_PORT=8787   FE_PORT=5757   (override ports)
+# Env:     BE_PORT=8787   FE_PORT=5757   MQC_TLS_KEY=... MQC_TLS_CERT=...
 #
 set -euo pipefail
 
@@ -14,6 +14,17 @@ BE_DIR="$ROOT/qc_server"
 FE_DIR="$ROOT/qc_frontend"
 BE_PORT="${BE_PORT:-8787}"
 FE_PORT="${FE_PORT:-5757}"
+TLS_KEY="${MQC_TLS_KEY:-$FE_DIR/.certs/server-key.pem}"
+TLS_CERT="${MQC_TLS_CERT:-$FE_DIR/.certs/server-cert.pem}"
+
+if [[ -f "$TLS_KEY" && -f "$TLS_CERT" ]]; then
+  export MQC_TLS_KEY="$TLS_KEY"
+  export MQC_TLS_CERT="$TLS_CERT"
+  FE_SCHEME="https"
+else
+  unset MQC_TLS_KEY MQC_TLS_CERT
+  FE_SCHEME="http"
+fi
 
 C_BE='\033[1;36m'   # cyan
 C_FE='\033[1;35m'   # magenta
@@ -49,7 +60,7 @@ fi
 echo "============================================================"
 echo " MQC-AI dev"
 echo "   backend  [BE] -> http://0.0.0.0:$BE_PORT  (docs: /docs)"
-echo "   frontend [FE] -> http://0.0.0.0:$FE_PORT"
+echo "   frontend [FE] -> $FE_SCHEME://0.0.0.0:$FE_PORT"
 echo "   Ctrl+C to stop both."
 echo "============================================================"
 

@@ -69,6 +69,8 @@ bash scripts/setup.sh    # backend venv + deps, frontend deps, runs backend test
 bash scripts/dev.sh      # runs BE (:8787) + FE (:5757) together, combined [BE]/[FE] logs
 ```
 
+When `qc_frontend/.certs/server-key.pem` and `server-cert.pem` exist, `scripts/dev.sh` enables HTTPS automatically. Open `https://<server-ip>:5757`; trust the mkcert `rootCA.pem` on each client device. Certificate files stay server-only and are gitignored.
+
 Override ports with `BE_PORT=... FE_PORT=... bash scripts/dev.sh`. The setup script
 targets Linux; on the Windows dev laptop use the per-workspace commands below.
 

@@ -255,6 +255,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 |---|---|
 | `npm install` | Install dependencies |
 | `npm run dev` | Start Vite dev server (`http://localhost:5757`) |
+| `bash scripts/dev.sh` | Start backend + frontend together; enables HTTPS when `qc_frontend/.certs/` contains server certificates |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm test` | Run unit tests (Vitest) |

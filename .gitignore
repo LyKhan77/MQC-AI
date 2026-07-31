@@ -16,6 +16,7 @@ docs/superpowers/specs/
 .env
 .env.local
 .DS_Store
+qc_frontend/.certs/
 
 # MCP / browser testing artifacts
 .playwright-mcp/

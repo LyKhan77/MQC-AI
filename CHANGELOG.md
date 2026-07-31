@@ -11,6 +11,28 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-07-31 - LAN HTTPS Development Mode
+
+### Summary
+
+Development launcher now enables Vite HTTPS automatically when server-local mkcert files exist, allowing browser webcam permission through the server IP.
+
+### Added
+
+- `qc_frontend/.certs/` is gitignored so server TLS certificates and private keys never enter Git.
+- `qc_frontend/vite.config.js` reads optional `MQC_TLS_KEY` and `MQC_TLS_CERT` paths for Vite HTTPS.
+- `scripts/dev.sh` detects certificates, exports TLS paths, and reports HTTP/HTTPS endpoint.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| LAN browser webcam access | 2026-07-31 | Vite served HTTP only, blocking `getUserMedia()` on a server IP | mkcert-backed HTTPS is enabled automatically when `.certs/server-key.pem` and `.certs/server-cert.pem` exist; backend remains behind the same-origin Vite `/api` proxy. |
+| Certificate safety | 2026-07-31 | Runtime certificate files were untracked | `qc_frontend/.certs/` is ignored; private key stays on the server. |
+| Verification | 2026-07-31 | HTTPS config and launcher changes | Frontend: 125 tests passed; production build passed; `git diff --check` passed. |
+
+---
+
 ## [Unreleased] - 2026-07-06 - Quantity YOLOE Switchable Mode
 
 ### Summary
