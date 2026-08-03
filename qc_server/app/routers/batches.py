@@ -277,7 +277,13 @@ def segment_image(batch_id: str, image_id: str, payload: SegmentRequest,
 
     try:
         polygon = sam_interactive.segment(
-            image_path, image.width, image.height, payload.point, payload.box, model_path
+            image_path,
+            image.width,
+            image.height,
+            payload.point,
+            payload.box,
+            model_path,
+            setting.qc_device,
         )
     except ValueError as e:
         raise HTTPException(409, str(e)) from e

@@ -14,6 +14,9 @@ const settings = ref({
   quantityNmsIou: 0.45,
   quantityAgnosticNms: true,
   quantityClasses: '',
+  objectDetectionDevice: 'auto',
+  qcDevice: 'auto',
+  quantityDevice: 'auto',
 })
 
 async function refresh() {

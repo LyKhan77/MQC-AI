@@ -58,6 +58,7 @@ def run_batch(batch_id: str, session_factory, confidence_override=None) -> None:
         params = {
             "confidence_threshold": threshold,
             "qc_model_path": qc_model_path,
+            "qc_device": setting.qc_device if setting else "auto",
         }
 
         images = db.query(Image).filter(Image.batch_id == batch_id).all()

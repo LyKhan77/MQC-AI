@@ -42,6 +42,9 @@ class Setting(Base):
     quantity_nms_iou: Mapped[float] = mapped_column(Float, default=0.45)
     quantity_agnostic_nms: Mapped[bool] = mapped_column(Boolean, default=True)
     quantity_classes: Mapped[str] = mapped_column(String, default="")
+    object_detection_device: Mapped[str] = mapped_column(String, default="auto")
+    qc_device: Mapped[str] = mapped_column(String, default="auto")
+    quantity_device: Mapped[str] = mapped_column(String, default="auto")
 
 
 class AuditLog(Base):

@@ -52,6 +52,7 @@ def annotated_mjpeg(
     max_fps=15,
     crop_sink=None,
     counter=None,
+    device="auto",
 ):
     tracker = None
     seen_ids = set()
@@ -75,7 +76,8 @@ def annotated_mjpeg(
         original = frame
         frame = downscale(original, max_width)
         scale = original.shape[1] / frame.shape[1] if frame.shape[1] else 1.0
-        detections = detect(frame, conf_threshold, model_path)
+        detect_kwargs = {} if device == "auto" else {"device": device}
+        detections = detect(frame, conf_threshold, model_path, **detect_kwargs)
         if counter is not None:
             count = counter(original, detections, scale)
         elif tracker is not None:

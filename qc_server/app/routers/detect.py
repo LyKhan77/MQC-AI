@@ -34,7 +34,10 @@ async def detect_image(file: UploadFile = File(...), db: Session = Depends(get_d
     if frame is None:
         raise HTTPException(400, "invalid image")
 
-    detections = detect(frame, setting.confidence_threshold, model_path)
+    detect_kwargs = {} if setting.object_detection_device == "auto" else {
+        "device": setting.object_detection_device,
+    }
+    detections = detect(frame, setting.confidence_threshold, model_path, **detect_kwargs)
     annotate(frame, detections, len(detections))
     ok, buf = cv2.imencode(".jpg", frame)
     if not ok:
@@ -73,6 +76,9 @@ def video_stream(video_id: str, db: Session = Depends(get_db)):
 
     def stream():
         try:
+            stream_kwargs = {}
+            if setting.object_detection_device != "auto":
+                stream_kwargs["device"] = setting.object_detection_device
             yield from annotated_mjpeg(
                 grabber,
                 "single",
@@ -81,6 +87,7 @@ def video_stream(video_id: str, db: Session = Depends(get_db)):
                 lambda count, fps: None,
                 app_settings.stream_max_width,
                 app_settings.stream_max_fps,
+                **stream_kwargs,
             )
         finally:
             grabber.stop()
@@ -103,7 +110,10 @@ async def process_image(files: list[UploadFile] = File(...), db: Session = Depen
         frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
         if frame is None:
             continue
-        detections = detect(frame, setting.confidence_threshold, model_path)
+        detect_kwargs = {} if setting.object_detection_device == "auto" else {
+            "device": setting.object_detection_device,
+        }
+        detections = detect(frame, setting.confidence_threshold, model_path, **detect_kwargs)
         session.add_captured(frame, detections, 1.0)
         valid_count += 1
     if valid_count == 0:
@@ -131,6 +141,7 @@ def extract_video(video_id: str, background: BackgroundTasks, db: Session = Depe
         setting.confidence_threshold,
         model_path,
         app_settings.stream_max_width,
+        device=setting.object_detection_device,
     )
     return {"video_id": video_id, "status": "processing"}
 

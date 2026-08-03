@@ -43,6 +43,9 @@ def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
     prompts = parse_classes(getattr(setting, "quantity_classes", ""))
     if _is_promptable_yoloe(setting.quantity_model) and not prompts:
         raise HTTPException(409, "enter target classes for this model")
+    detect_kwargs = {} if setting.quantity_device == "auto" else {
+        "device": setting.quantity_device,
+    }
     try:
         detections = detect(
             frame,
@@ -51,6 +54,7 @@ def run_quantity_snapshot(frame, setting, model_path, save_frame=False):
             iou=setting.quantity_nms_iou,
             agnostic_nms=setting.quantity_agnostic_nms,
             prompts=prompts or None,
+            **detect_kwargs,
         )
     except ValueError as exc:
         if str(exc) == "model does not support class prompts":

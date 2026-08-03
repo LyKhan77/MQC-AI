@@ -89,6 +89,9 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
 
     def stream():
         try:
+            stream_kwargs = {}
+            if setting.object_detection_device != "auto":
+                stream_kwargs["device"] = setting.object_detection_device
             yield from annotated_mjpeg(
                 grabber,
                 cam.count_mode,
@@ -98,6 +101,7 @@ def detect_stream(camera_id: str, db: Session = Depends(get_db)):
                 app_settings.stream_max_width,
                 app_settings.stream_max_fps,
                 counter=counter.update,
+                **stream_kwargs,
             )
         finally:
             grabber.stop()
@@ -150,7 +154,10 @@ def capture(camera_id: str, db: Session = Depends(get_db)):
 
     small = downscale(frame, app_settings.stream_max_width)
     scale = frame.shape[1] / small.shape[1] if small.shape[1] else 1.0
-    detections = detect(small, setting.confidence_threshold, model_path)
+    detect_kwargs = {} if setting.object_detection_device == "auto" else {
+        "device": setting.object_detection_device,
+    }
+    detections = detect(small, setting.confidence_threshold, model_path, **detect_kwargs)
 
     session = get_session(camera_id)
     written = session.add_captured(frame, detections, scale)

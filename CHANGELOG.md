@@ -11,6 +11,28 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-03 - Per-Task GPU Selection
+
+### Summary
+
+Settings can now inspect server GPUs and assign Object Detection, QC/Segmentation, and Quantity Detection to `auto`, `cpu`, or a detected GPU index.
+
+### Added
+
+- `GET /api/system/gpus` inventory endpoint backed by `nvidia-smi`.
+- Persisted `object_detection_device`, `qc_device`, and `quantity_device` settings with index validation.
+- Settings GPU selectors showing GPU name and free VRAM, plus refresh action.
+- Device-aware YOLO, YOLOE, SAM3, and interactive SAM model caches.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| GPU task routing | 2026-08-03 | Inference used Ultralytics auto device only | Each task type can use `auto`, `cpu`, or a detected GPU index; explicit device reaches image, stream, Quantity, batch SAM3, and interactive SAM paths. |
+| Verification | 2026-08-03 | No GPU inventory/settings coverage | Backend: 154 tests passed; frontend: 126 tests passed; production build passed. |
+
+---
+
 ## [Unreleased] - 2026-08-03 - Direct Inspection Auto-Crop Debug Overlay
 
 ### Summary

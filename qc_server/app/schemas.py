@@ -52,6 +52,9 @@ class SettingOut(BaseModel):
     quantity_agnostic_nms: bool
     quantity_classes: str
     input_mode_enabled: bool
+    object_detection_device: str
+    qc_device: str
+    quantity_device: str
 
 
 class SettingUpdate(BaseModel):
@@ -68,6 +71,9 @@ class SettingUpdate(BaseModel):
     quantity_agnostic_nms: bool | None = None
     quantity_classes: str | None = None
     input_mode_enabled: bool | None = None
+    object_detection_device: str | None = None
+    qc_device: str | None = None
+    quantity_device: str | None = None
 
 
 class QuantityDetectOut(BaseModel):

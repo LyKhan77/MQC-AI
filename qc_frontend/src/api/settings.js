@@ -15,6 +15,9 @@ export function mapSettings(s) {
     quantityNmsIou: s.quantity_nms_iou,
     quantityAgnosticNms: s.quantity_agnostic_nms,
     quantityClasses: s.quantity_classes ?? '',
+    objectDetectionDevice: s.object_detection_device ?? 'auto',
+    qcDevice: s.qc_device ?? 'auto',
+    quantityDevice: s.quantity_device ?? 'auto',
   }
 }
 
@@ -37,5 +40,8 @@ export async function updateSettings(patch) {
   if (patch.quantityNmsIou !== undefined) body.quantity_nms_iou = Number(patch.quantityNmsIou)
   if (patch.quantityAgnosticNms !== undefined) body.quantity_agnostic_nms = patch.quantityAgnosticNms
   if (patch.quantityClasses !== undefined) body.quantity_classes = patch.quantityClasses
+  if (patch.objectDetectionDevice !== undefined) body.object_detection_device = patch.objectDetectionDevice
+  if (patch.qcDevice !== undefined) body.qc_device = patch.qcDevice
+  if (patch.quantityDevice !== undefined) body.quantity_device = patch.quantityDevice
   return mapSettings(await apiPut('/settings', body))
 }

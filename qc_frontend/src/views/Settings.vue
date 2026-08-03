@@ -9,6 +9,7 @@ import { useDefectClasses } from '../composables/useDefectClasses.js'
 import DefectClassModal from '../components/DefectClassModal.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { listModels } from '../api/models.js'
+import { listGpus } from '../api/system.js'
 
 const { t, locale, setLocale } = useI18n()
 const { cameras, refresh: refreshCameras, addCamera, updateCamera, deleteCamera } = useCameras()
@@ -21,12 +22,30 @@ const editingId = ref(null)
 const showForm = ref(false)
 const form = ref({ name: '', type: 'rpi', source: '', location: '', status: 'offline' })
 const availableModels = ref([])
+const availableGpus = ref([])
+const gpuError = ref('')
 const expandedGroups = ref({ coating: true, welding: true })
 function toggleGroup(key) {
   expandedGroups.value[key] = !expandedGroups.value[key]
 }
 function isGroupExpanded(key) {
   return expandedGroups.value[key] !== false
+}
+
+function gpuLabel(gpu) {
+  const free = (gpu.memory_free_mb / 1024).toFixed(1)
+  return `GPU ${gpu.index} — ${gpu.name} — ${free} GB free — ${gpu.utilization_percent}% util`
+}
+
+async function refreshGpus() {
+  try {
+    const result = await listGpus()
+    availableGpus.value = result.gpus || []
+    gpuError.value = result.error || ''
+  } catch {
+    availableGpus.value = []
+    gpuError.value = t('settings.gpuUnavailable')
+  }
 }
 
 const showClassModal = ref(false)
@@ -58,6 +77,7 @@ onMounted(async () => {
   refreshCameras()
   refreshSettings()
   refreshClasses()
+  refreshGpus()
   try {
     availableModels.value = (await listModels()).models
   } catch {
@@ -112,6 +132,9 @@ async function saveSettings() {
     quantityNmsIou: Number(settings.value.quantityNmsIou),
     quantityAgnosticNms: settings.value.quantityAgnosticNms,
     quantityClasses: settings.value.quantityClasses,
+    objectDetectionDevice: settings.value.objectDetectionDevice,
+    qcDevice: settings.value.qcDevice,
+    quantityDevice: settings.value.quantityDevice,
   })
   log('SETTINGS_CHANGED', 'Updated model configuration')
   showToast(t('settings.saved'))
@@ -227,6 +250,7 @@ async function confirmDeleteClass() {
             <h3>{{ t('settings.models') }}</h3>
             <p class="section-desc">{{ t('settings.modelConfigDesc') }}</p>
           </div>
+          <button class="btn-sm" type="button" @click="refreshGpus">{{ t('settings.refreshGpu') }}</button>
         </div>
         <div class="config-grid">
           <h4 class="model-block-title">{{ t('settings.objectDetection') }}</h4>
@@ -242,6 +266,14 @@ async function confirmDeleteClass() {
             <label>{{ t('settings.objectDetectionConfidence') }}<span class="info-i" :title="t('settings.tip.objectDetectionConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.confidenceThreshold" class="text-input" />
           </div>
+          <div class="form-row">
+            <label>{{ t('settings.device') }}</label>
+            <select v-model="settings.objectDetectionDevice" class="text-input">
+              <option value="auto">{{ t('settings.deviceAuto') }}</option>
+              <option value="cpu">CPU</option>
+              <option v-for="gpu in availableGpus" :key="`od-${gpu.index}`" :value="String(gpu.index)">{{ gpuLabel(gpu) }}</option>
+            </select>
+          </div>
           <h4 class="model-block-title">{{ t('settings.qcSegmentation') }}</h4>
           <div class="form-row">
             <label>{{ t('settings.qcModel') }}<span class="info-i" :title="t('settings.tip.qcModel')">i</span></label>
@@ -254,6 +286,14 @@ async function confirmDeleteClass() {
           <div class="form-row">
             <label>{{ t('settings.qcConfidence') }}<span class="info-i" :title="t('settings.tip.qcConfidence')">i</span></label>
             <input type="number" min="0" max="1" step="0.05" v-model="settings.qcConfidenceThreshold" class="text-input" />
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.device') }}</label>
+            <select v-model="settings.qcDevice" class="text-input">
+              <option value="auto">{{ t('settings.deviceAuto') }}</option>
+              <option value="cpu">CPU</option>
+              <option v-for="gpu in availableGpus" :key="`qc-${gpu.index}`" :value="String(gpu.index)">{{ gpuLabel(gpu) }}</option>
+            </select>
           </div>
           <div class="form-row">
             <label>{{ t('settings.defectStrategy') }}<span class="info-i" :title="t('settings.tip.defectStrategy')">i</span></label>
@@ -270,6 +310,14 @@ async function confirmDeleteClass() {
               <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
             </select>
             <p v-else class="form-hint">{{ t('settings.noModels') }}</p>
+          </div>
+          <div class="form-row">
+            <label>{{ t('settings.device') }}</label>
+            <select v-model="settings.quantityDevice" class="text-input">
+              <option value="auto">{{ t('settings.deviceAuto') }}</option>
+              <option value="cpu">CPU</option>
+              <option v-for="gpu in availableGpus" :key="`qty-${gpu.index}`" :value="String(gpu.index)">{{ gpuLabel(gpu) }}</option>
+            </select>
           </div>
           <div class="form-row">
             <label>{{ t('settings.quantityClasses') }}<span class="info-i" :title="t('settings.tip.quantityClasses')">i</span></label>
@@ -294,6 +342,7 @@ async function confirmDeleteClass() {
           <div class="form-actions">
             <button class="btn-sm primary" @click="saveSettings">{{ t('settings.save') }}</button>
           </div>
+          <p v-if="gpuError" class="form-hint grid-note">{{ gpuError }}</p>
         </div>
       </section>
 
@@ -489,6 +538,9 @@ async function confirmDeleteClass() {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+.grid-note {
+  grid-column: 1 / -1;
 }
 .config-grid {
   padding: 24px;

@@ -71,6 +71,23 @@ def test_detect_forwards_nms_params(monkeypatch):
     assert captured["agnostic_nms"] is True
 
 
+def test_detect_forwards_selected_device(monkeypatch):
+    captured = {}
+
+    class _Results:
+        boxes = None
+        names = {}
+
+    def fake_model(frame, **kwargs):
+        captured.update(kwargs)
+        return [_Results()]
+
+    monkeypatch.setattr(object_detection, "get_model", lambda *_: fake_model)
+    object_detection.detect("frame", 0.5, "m.pt", device="1")
+
+    assert captured["device"] == "1"
+
+
 def test_detect_prompts_none_uses_shared_model(monkeypatch):
     used = []
     model = _Model()

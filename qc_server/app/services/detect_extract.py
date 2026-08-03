@@ -23,7 +23,15 @@ def status(video_id):
         return dict(_status.get(video_id, {"status": "idle", "count": 0}))
 
 
-def run_video_extract(video_id, path, conf_threshold, model_path, max_width, capture_factory=cv2.VideoCapture):
+def run_video_extract(
+    video_id,
+    path,
+    conf_threshold,
+    model_path,
+    max_width,
+    capture_factory=cv2.VideoCapture,
+    device="auto",
+):
     session = reset_session(video_id)
     counter = PresenceCounter(session)
     cap = capture_factory(path)
@@ -36,7 +44,8 @@ def run_video_extract(video_id, path, conf_threshold, model_path, max_width, cap
                 break
             small = downscale(frame, max_width)
             scale = frame.shape[1] / small.shape[1] if small.shape[1] else 1.0
-            detections = detect(small, conf_threshold, model_path)
+            detect_kwargs = {} if device == "auto" else {"device": device}
+            detections = detect(small, conf_threshold, model_path, **detect_kwargs)
             counter.update(frame, detections, scale)
             job_queue.increment(video_id)
         result = session.finalize()

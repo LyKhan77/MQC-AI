@@ -3,11 +3,9 @@ from dataclasses import dataclass
 
 from ..config import settings
 
-_model = None
-_model_path = None
-_pmodel = None
-_pmodel_path = None
-_pmodel_classes = None
+_models = {}
+_prompt_models = {}
+_prompt_classes = {}
 
 
 @dataclass
@@ -49,25 +47,23 @@ def resolve_named_model_path(name):
     return path if os.path.isfile(path) else None
 
 
-def get_model(model_path):
-    global _model, _model_path
-    if _model is None or _model_path != model_path:
+def get_model(model_path, device="auto"):
+    cache_key = (model_path, device)
+    if cache_key not in _models:
         from ultralytics import YOLO  # lazy, server-only
 
-        _model = YOLO(model_path)
-        _model_path = model_path
-    return _model
+        _models[cache_key] = YOLO(model_path)
+    return _models[cache_key]
 
 
-def get_prompt_model(model_path):
-    global _pmodel, _pmodel_path, _pmodel_classes
-    if _pmodel is None or _pmodel_path != model_path:
+def get_prompt_model(model_path, device="auto"):
+    cache_key = (model_path, device)
+    if cache_key not in _prompt_models:
         from ultralytics import YOLOE  # lazy, server-only
 
-        _pmodel = YOLOE(model_path)
-        _pmodel_path = model_path
-        _pmodel_classes = None
-    return _pmodel
+        _prompt_models[cache_key] = YOLOE(model_path)
+        _prompt_classes.pop(cache_key, None)
+    return _prompt_models[cache_key]
 
 
 def _detections_from_result(results):
@@ -97,23 +93,33 @@ def _detections_from_result(results):
     return out
 
 
-def detect(frame, conf_threshold, model_path, iou=None, agnostic_nms=False, prompts=None):
+def detect(
+    frame,
+    conf_threshold,
+    model_path,
+    iou=None,
+    agnostic_nms=False,
+    prompts=None,
+    device="auto",
+):
     # Smoke-verified on the GPU server. Unit tests avoid ML deps.
     if prompts is None:
-        model = get_model(model_path)
+        model = get_model(model_path) if device == "auto" else get_model(model_path, device)
     else:
-        global _pmodel_classes
-        model = get_prompt_model(model_path)
+        model = get_prompt_model(model_path) if device == "auto" else get_prompt_model(model_path, device)
         prompt_list = list(prompts)
-        if _pmodel_classes != prompt_list:
+        cache_key = (model_path, device)
+        if _prompt_classes.get(cache_key) != (id(model), prompt_list):
             try:
                 model.set_classes(prompt_list)
             except Exception as exc:
                 raise ValueError("model does not support class prompts") from exc
-            _pmodel_classes = prompt_list
+            _prompt_classes[cache_key] = (id(model), prompt_list)
 
     kwargs = {"conf": conf_threshold, "verbose": False, "agnostic_nms": agnostic_nms}
     if iou is not None:
         kwargs["iou"] = iou
+    if device != "auto":
+        kwargs["device"] = device
     results = model(frame, **kwargs)[0]
     return _detections_from_result(results)

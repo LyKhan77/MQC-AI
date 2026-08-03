@@ -17,6 +17,7 @@ from .routers import (
     models as models_router,
     quantity,
     settings as settings_router,
+    system,
 )
 
 app = FastAPI(title="MQC-AI qc_server")
@@ -45,6 +46,9 @@ def on_startup():
     ensure_column(engine, "settings", "quantity_nms_iou", "FLOAT DEFAULT 0.45")
     ensure_column(engine, "settings", "quantity_agnostic_nms", "BOOLEAN DEFAULT 1")
     ensure_column(engine, "settings", "quantity_classes", "VARCHAR DEFAULT ''")
+    ensure_column(engine, "settings", "object_detection_device", "VARCHAR DEFAULT 'auto'")
+    ensure_column(engine, "settings", "qc_device", "VARCHAR DEFAULT 'auto'")
+    ensure_column(engine, "settings", "quantity_device", "VARCHAR DEFAULT 'auto'")
     ensure_column(engine, "quantity_checks", "inputs", "JSON DEFAULT '[]'")
     ensure_column(engine, "quantity_checks", "name", "VARCHAR DEFAULT ''")
     shutil.rmtree(os.path.join(settings.data_dir, "quantity", "_tmp"), ignore_errors=True)
@@ -74,6 +78,7 @@ app.include_router(detect.router)
 app.include_router(quantity.router)
 app.include_router(inspection.router)
 app.include_router(settings_router.router)
+app.include_router(system.router)
 app.include_router(audit.router)
 app.include_router(batches.router)
 app.include_router(images.router)

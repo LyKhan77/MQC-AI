@@ -47,16 +47,15 @@ def simplify_polygon(points, epsilon, width, height):
     return out
 
 
-_predictor = None
-_predictor_path = None
+_predictors = {}
 
 
-def get_predictor(model_path):
-    global _predictor, _predictor_path
-    if _predictor is None or _predictor_path != model_path:
+def get_predictor(model_path, device="auto"):
+    cache_key = (model_path, device)
+    if cache_key not in _predictors:
         from ultralytics.models.sam import SAM3SemanticPredictor
 
-        _predictor = SAM3SemanticPredictor(overrides=dict(
+        overrides = dict(
             conf=0.01,
             task="segment",
             mode="predict",
@@ -64,9 +63,11 @@ def get_predictor(model_path):
             half=True,       # FP16 on GPU
             save=False,       # don't write runs/segment/* annotated crops per image
             verbose=False,    # quiet per-image logging during a batch
-        ))
-        _predictor_path = model_path
-    return _predictor
+        )
+        if device != "auto":
+            overrides["device"] = device
+        _predictors[cache_key] = SAM3SemanticPredictor(overrides=overrides)
+    return _predictors[cache_key]
 
 
 class Sam3Strategy:
@@ -80,7 +81,8 @@ class Sam3Strategy:
             )
         threshold = params.get("confidence_threshold", 0.5)
 
-        predictor = get_predictor(model_path)
+        device = params.get("qc_device", "auto")
+        predictor = get_predictor(model_path) if device == "auto" else get_predictor(model_path, device)
         predictor.set_image(image_path)
 
         detections: list[Detection] = []
