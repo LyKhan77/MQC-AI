@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   loadBatch: vi.fn(),
   log: vi.fn(),
   pdf: null,
+  batch: null,
 }))
 
 class FakePdf {
@@ -47,17 +48,22 @@ vi.mock('../../composables/useBatchHistory.js', async () => {
 })
 vi.mock('../../composables/useInspection.js', async () => {
   const { ref } = await import('vue')
+  const batch = ref({
+    id: 'batch-1',
+    batch_name: 'Batch 1',
+    images: [
+      { id: 'image-1', filename: 'pcb-1.png', url: '/pcb-1.png', width: 100, height: 80, status: 'defect', defects: [{ id: 'd-1', type: 'scratch', category: 'coating', confidence: 0.91, polygon: [[10, 10], [30, 10], [30, 25]] }] },
+      { id: 'image-2', filename: 'pcb-2.png', url: '/pcb-2.png', width: 100, height: 80, status: 'clean', defects: [] },
+    ],
+  })
+  mocks.batch = batch
   return {
     useInspection: () => ({
-      batch: ref({
-        id: 'batch-1',
-        batch_name: 'Batch 1',
-        images: [
-          { id: 'image-1', filename: 'pcb-1.png', url: '/pcb-1.png', width: 100, height: 80, status: 'defect', defects: [{ id: 'd-1', type: 'scratch', category: 'coating', confidence: 0.91, polygon: [[10, 10], [30, 10], [30, 25]] }] },
-          { id: 'image-2', filename: 'pcb-2.png', url: '/pcb-2.png', width: 100, height: 80, status: 'clean', defects: [] },
-        ],
-      }),
-      loadBatch: mocks.loadBatch,
+      batch,
+      loadBatch: async (id) => {
+        mocks.loadBatch(id)
+        if (!id) batch.value = null
+      },
     }),
   }
 })
@@ -75,6 +81,14 @@ describe('Reports', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.pdf = null
+    mocks.batch.value = {
+      id: 'batch-1',
+      batch_name: 'Batch 1',
+      images: [
+        { id: 'image-1', filename: 'pcb-1.png', url: '/pcb-1.png', width: 100, height: 80, status: 'defect', defects: [{ id: 'd-1', type: 'scratch', category: 'coating', confidence: 0.91, polygon: [[10, 10], [30, 10], [30, 25]] }] },
+        { id: 'image-2', filename: 'pcb-2.png', url: '/pcb-2.png', width: 100, height: 80, status: 'clean', defects: [] },
+      ],
+    }
   })
 
   it('offers both report formats', () => {
@@ -84,8 +98,24 @@ describe('Reports', () => {
     expect(wrapper.text()).toContain('reports.fullImage')
   })
 
+  it('keeps summary empty when no batch is selected', async () => {
+    const wrapper = mount(Reports)
+    await flushPromises()
+    expect(wrapper.find('.report-preview').exists()).toBe(false)
+    expect(wrapper.text()).toContain('reports.selectBatch')
+  })
+
   it('generates full-image report with annotated image and per-image defect list', async () => {
     const wrapper = mount(Reports)
+    mocks.batch.value = {
+      id: 'batch-1',
+      batch_name: 'Batch 1',
+      images: [
+        { id: 'image-1', filename: 'pcb-1.png', url: '/pcb-1.png', width: 100, height: 80, status: 'defect', defects: [{ id: 'd-1', type: 'scratch', category: 'coating', confidence: 0.91, polygon: [[10, 10], [30, 10], [30, 25]] }] },
+        { id: 'image-2', filename: 'pcb-2.png', url: '/pcb-2.png', width: 100, height: 80, status: 'clean', defects: [] },
+      ],
+    }
+    await wrapper.vm.$nextTick()
     await wrapper.find('input[value="full-image"]').setValue()
     await wrapper.find('.btn-primary').trigger('click')
     await flushPromises()

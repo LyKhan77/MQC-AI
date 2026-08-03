@@ -17,7 +17,10 @@ const selectedBatchId = ref('')
 const generating = ref(false)
 const reportMode = ref('defect-only')
 
-onMounted(refresh)
+onMounted(() => {
+  refresh()
+  loadBatch('')
+})
 
 const selectedBatch = computed(() =>
   batches.value.find((b) => b.id === selectedBatchId.value),
@@ -34,9 +37,7 @@ const summary = computed(() => {
 
 async function selectBatch(id) {
   selectedBatchId.value = id
-  if (id) {
-    await loadBatch(id)
-  }
+  await loadBatch(id || '')
 }
 
 async function generatePDF() {

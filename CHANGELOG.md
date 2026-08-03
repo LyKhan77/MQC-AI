@@ -23,6 +23,10 @@ Each entry contains:
 
 - Existing Defect Only report remains crop-focused and unchanged in purpose.
 
+### Fixed
+
+- Audit Reports now clears the previously loaded batch when the selector is at `No Results`, so Summary stays hidden until a batch is selected.
+
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
