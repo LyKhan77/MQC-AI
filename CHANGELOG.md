@@ -11,6 +11,27 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-03 - Production Report Formats
+
+### Added
+
+- Report generation mode selector with `Defect Only` and `Full Image` options.
+- Full Image PDF pages include the full annotated image, status, defect count, and a readable per-image defect table with type, category, confidence, and location.
+- Full Image reports reuse QC Studio defect colors and add report mode plus page numbering to the PDF footer.
+
+### Changed
+
+- Existing Defect Only report remains crop-focused and unchanged in purpose.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| PDF reports | 2026-08-03 | Reports supported defect crop output only | Inspector chooses report format per generation; Full Image includes annotated full frames and per-image defect details. |
+| Verification | 2026-08-03 | No report-format regression coverage | Frontend: 128 tests passed; build passed; Playwright report/settings checks passed. |
+
+---
+
 ## [Unreleased] - 2026-08-03 - Direct Inspection Live Auto-Crop Guidance
 
 ### Added

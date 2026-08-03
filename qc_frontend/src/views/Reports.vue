@@ -15,6 +15,7 @@ const { colorFor } = useDefectColor()
 
 const selectedBatchId = ref('')
 const generating = ref(false)
+const reportMode = ref('defect-only')
 
 onMounted(refresh)
 
@@ -49,6 +50,9 @@ async function generatePDF() {
     const right = 190
     const bottom = 277
     const usableWidth = 170
+    const modeLabel = reportMode.value === 'full-image'
+      ? t('reports.fullImage')
+      : t('reports.defectOnly')
     const cropPad = 40
     const cropColWidth = 40
     const cropMaxHeight = 26
@@ -64,120 +68,247 @@ async function generatePDF() {
       }
     }
 
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text(t('reports.reportTitle'), margin, y)
-    y += 10
-
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.setDrawColor(200)
-    doc.line(margin, y, right, y)
-    y += 10
-
-    doc.text(`${t('batches.columnName')}: ${batch.value.batch_name}`, margin, y)
-    y += 6
-    doc.text(`${t('reports.date')}: ${new Date().toLocaleString('id-ID')}`, margin, y)
-    y += 6
-    if (selectedBatch.value) {
-      doc.text(`${t('batches.columnCamera')}: ${selectedBatch.value.cameraName}`, margin, y)
-      y += 6
-      doc.text(`${t('settings.detectionModel')}: ${selectedBatch.value.modelInfo.detection}`, margin, y)
-      y += 6
+    function newPage() {
+      doc.addPage()
+      y = margin
     }
 
-    y += 6
-    doc.setFont('helvetica', 'bold')
-    doc.text(t('reports.summary'), margin, y)
-    y += 8
-    doc.setFont('helvetica', 'normal')
+    function getAnnotated(img) {
+      return imageEls.get(img.id) || loadImage(img.url).then((imgEl) => {
+        const annotated = renderAnnotated(imgEl, img, colorFor)
+        imageEls.set(img.id, annotated)
+        return annotated
+      })
+    }
 
-    if (summary.value) {
+    function setBodyFont(size = 10, bold = false) {
+      doc.setFontSize(size)
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setTextColor(22, 22, 22)
+    }
+
+    function hexRgb(color) {
+      const value = String(color || '').replace('#', '')
+      if (!/^[0-9a-f]{6}$/i.test(value)) return [22, 22, 22]
+      return [0, 2, 4].map((index) => parseInt(value.slice(index, index + 2), 16))
+    }
+
+    function drawDefectTable(img) {
+      const columns = [
+        { label: t('reports.no'), x: margin, width: 8 },
+        { label: t('reports.defectType'), x: margin + 8, width: 47 },
+        { label: t('reports.category'), x: margin + 55, width: 38 },
+        { label: t('reports.confidence'), x: margin + 93, width: 25 },
+        { label: t('reports.location'), x: margin + 118, width: 52 },
+      ]
+      const rowHeight = 7
+
+      function header() {
+        doc.setFillColor(22, 22, 22)
+        doc.rect(margin, y - 4.5, usableWidth, rowHeight, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        columns.forEach((column) => doc.text(column.label, column.x + 2, y))
+        y += rowHeight
+      }
+
+      if (!img.defects.length) {
+        setBodyFont(9)
+        doc.text(t('reports.noDefectsOnImage'), margin, y)
+        y += 7
+        return
+      }
+
+      ensureSpace(rowHeight * 2)
+      header()
+      img.defects.forEach((defect, index) => {
+        if (y + rowHeight > bottom) {
+          newPage()
+          header()
+        }
+        if (index % 2 === 0) {
+          doc.setFillColor(244, 244, 244)
+          doc.rect(margin, y - 4.5, usableWidth, rowHeight, 'F')
+        }
+        const box = defectCropBox(defect.polygon, 0, img.width, img.height)
+        const location = `${Math.round(box.x)},${Math.round(box.y)} ${Math.round(box.w)}x${Math.round(box.h)}`
+        const [r, g, b] = hexRgb(colorFor(defect.type))
+        doc.setFillColor(r, g, b)
+        doc.rect(margin + 2, y - 3.2, 2.5, 2.5, 'F')
+        setBodyFont(8)
+        doc.text(String(index + 1), margin + 2, y)
+        doc.text(String(defect.type || '-').slice(0, 26), margin + 12, y)
+        doc.text(String(defect.category || '-').slice(0, 20), margin + 57, y)
+        doc.text(`${Math.round(Number(defect.confidence || 0) * 100)}%`, margin + 95, y)
+        doc.text(location, margin + 120, y)
+        y += rowHeight
+      })
+    }
+
+    function writeReportHeader() {
+      setBodyFont(18, true)
+      doc.text(t('reports.reportTitle'), margin, y)
+      y += 10
+
+      setBodyFont(10)
+      doc.setDrawColor(200)
+      doc.line(margin, y, right, y)
+      y += 10
+
+      doc.text(`${t('batches.columnName')}: ${batch.value.batch_name}`, margin, y)
+      y += 6
+      doc.text(`${t('reports.date')}: ${new Date().toLocaleString('id-ID')}`, margin, y)
+      y += 6
+      doc.text(`${t('reports.reportMode')}: ${modeLabel}`, margin, y)
+      y += 6
+      if (selectedBatch.value) {
+        doc.text(`${t('batches.columnCamera')}: ${selectedBatch.value.cameraName}`, margin, y)
+        y += 6
+        doc.text(`${t('settings.detectionModel')}: ${selectedBatch.value.modelInfo.detection}`, margin, y)
+        y += 6
+      }
+
+      y += 6
+      setBodyFont(10, true)
+      doc.text(t('reports.summary'), margin, y)
+      y += 8
+      setBodyFont(10)
+      const defectTotal = batch.value.images.reduce((total, img) => total + img.defects.length, 0)
       doc.text(`${t('reports.totalImages')}: ${summary.value.total}`, margin, y)
-      y += 6
-      doc.text(`${t('reports.clean')}: ${summary.value.clean}`, margin, y)
-      y += 6
-      doc.text(`${t('reports.defective')}: ${summary.value.defective}`, margin, y)
+      doc.text(`${t('reports.clean')}: ${summary.value.clean}`, margin + 45, y)
+      doc.text(`${t('reports.defective')}: ${summary.value.defective}`, margin + 85, y)
+      doc.text(`${t('reports.defectCount')}: ${defectTotal}`, margin + 130, y)
       y += 6
       doc.text(`${t('reports.defectRate')}: ${summary.value.rate}%`, margin, y)
       y += 10
     }
 
-    doc.setFont('helvetica', 'bold')
-    doc.text(t('reports.defectDetails'), margin, y)
-    y += 8
-    doc.setFont('helvetica', 'normal')
-
-    const imagesWithDefects = batch.value.images.filter((img) => img.defects.length > 0)
-    if (!imagesWithDefects.length) {
-      ensureSpace(8)
-      doc.text(t('qc.noDefects'), margin, y)
+    async function writeDefectOnly() {
+      setBodyFont(10, true)
+      doc.text(t('reports.defectDetails'), margin, y)
       y += 8
-    }
+      setBodyFont(10)
 
-    for (const img of imagesWithDefects) {
-      let imgEl = imageEls.get(img.id)
-      if (!imgEl) {
+      const imagesWithDefects = batch.value.images.filter((img) => img.defects.length > 0)
+      if (!imagesWithDefects.length) {
+        ensureSpace(8)
+        doc.text(t('qc.noDefects'), margin, y)
+        y += 8
+      }
+
+      for (const img of imagesWithDefects) {
+        let annotated
         try {
-          imgEl = await loadImage(img.url)
-          imageEls.set(img.id, imgEl)
+          annotated = await getAnnotated(img)
         } catch (e) {
           console.warn('Report image skipped:', img.url, e)
           continue
         }
-      }
 
-      const annotated = renderAnnotated(imgEl, img, colorFor)
-      ensureSpace(12)
-      doc.setFont('helvetica', 'bold')
-      doc.text(`${img.filename}  (${img.defects.length})`, margin, y, { maxWidth: usableWidth })
-      y += 7
-      doc.setFont('helvetica', 'normal')
+        ensureSpace(12)
+        setBodyFont(10, true)
+        doc.text(`${img.filename}  (${img.defects.length})`, margin, y, { maxWidth: usableWidth })
+        y += 7
+        setBodyFont(10)
 
-      let x = margin
-      let rowHeight = 0
-      for (const d of img.defects) {
-        const box = defectCropBox(d.polygon, cropPad, img.width, img.height)
-        if (box.w <= 0 || box.h <= 0) continue
-        const { w, h } = fitDimensions(box.w, box.h, cropColWidth, cropMaxHeight)
+        let x = margin
+        let rowHeight = 0
+        for (const defect of img.defects) {
+          const box = defectCropBox(defect.polygon, cropPad, img.width, img.height)
+          if (box.w <= 0 || box.h <= 0) continue
+          const { w, h } = fitDimensions(box.w, box.h, cropColWidth, cropMaxHeight)
 
-        if (x !== margin && x + cropColWidth > right) {
-          y += rowHeight + captionHeight + cropGap
-          x = margin
-          rowHeight = 0
+          if (x !== margin && x + cropColWidth > right) {
+            y += rowHeight + captionHeight + cropGap
+            x = margin
+            rowHeight = 0
+          }
+          if (y + h + captionHeight > bottom) {
+            newPage()
+            x = margin
+            rowHeight = 0
+          }
+
+          const cropCanvas = renderDefectCrop(annotated, box)
+          doc.addImage(cropCanvas, 'PNG', x, y, w, h)
+          setBodyFont(8)
+          doc.text(`${defect.type} ${Math.round(defect.confidence * 100)}%`, x, y + h + 4, { maxWidth: cropColWidth })
+          rowHeight = Math.max(rowHeight, h)
+          x += cropColWidth + cropGap
         }
-        if (y + h + captionHeight > bottom) {
-          doc.addPage()
-          y = margin
-          x = margin
-          rowHeight = 0
-        }
 
-        const cropCanvas = renderDefectCrop(annotated, box)
-        doc.addImage(cropCanvas, 'PNG', x, y, w, h)
-        doc.setFontSize(8)
-        doc.text(`${d.type} ${Math.round(d.confidence * 100)}%`, x, y + h + 4, { maxWidth: cropColWidth })
-        doc.setFontSize(10)
-        rowHeight = Math.max(rowHeight, h)
-        x += cropColWidth + cropGap
+        y += rowHeight ? rowHeight + captionHeight + 7 : 2
+        ensureSpace(4)
+        doc.setDrawColor(200)
+        doc.line(margin, y, right, y)
+        y += 8
       }
-
-      y += rowHeight ? rowHeight + captionHeight + 7 : 2
-      ensureSpace(4)
-      doc.line(margin, y, right, y)
-      y += 8
     }
+
+    async function writeFullImage() {
+      setBodyFont(10, true)
+      doc.text(t('reports.annotatedImages'), margin, y)
+      y += 8
+
+      for (const [index, img] of batch.value.images.entries()) {
+        let annotated
+        try {
+          annotated = await getAnnotated(img)
+        } catch (e) {
+          console.warn('Report image skipped:', img.url, e)
+          continue
+        }
+
+        ensureSpace(36)
+        setBodyFont(12, true)
+        doc.text(`${index + 1}. ${img.filename}`, margin, y, { maxWidth: usableWidth })
+        y += 6
+        setBodyFont(9)
+        doc.text(`${t('reports.imageStatus')}: ${img.defects.length ? t('reports.defective') : t('reports.clean')}    ${t('reports.defectCount')}: ${img.defects.length}`, margin, y)
+        y += 6
+
+        const dimensions = fitDimensions(img.width, img.height, usableWidth, 105)
+        ensureSpace(dimensions.h + 15)
+        doc.addImage(annotated, 'PNG', margin, y, dimensions.w, dimensions.h)
+        y += dimensions.h + 7
+
+        setBodyFont(9, true)
+        doc.text(t('reports.defectList'), margin, y)
+        y += 5
+        drawDefectTable(img)
+        y += 6
+        doc.setDrawColor(200)
+        doc.line(margin, y, right, y)
+        y += 9
+      }
+    }
+
+    writeReportHeader()
+    if (reportMode.value === 'full-image') await writeFullImage()
+    else await writeDefectOnly()
 
     y += 7
     ensureSpace(20)
+    setBodyFont(10)
     doc.text(`${t('reports.reviewedBy')}: ____________________`, margin, y)
     doc.text(`${t('reports.approvedBy')}: ____________________`, margin + 80, y)
     y += 10
     doc.text(`[  ] ${t('reports.pass')}     [  ] ${t('reports.fail')}`, margin, y)
 
-    const filename = `${batch.value.batch_name}_report.pdf`
+    const pageCount = doc.getNumberOfPages()
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page)
+      setBodyFont(8)
+      doc.setDrawColor(220)
+      doc.line(margin, 284, right, 284)
+      doc.text(`${batch.value.batch_name} · ${modeLabel}`, margin, 290)
+      doc.text(`${page} / ${pageCount}`, right, 290, { align: 'right' })
+    }
+
+    const filename = `${batch.value.batch_name}_${reportMode.value}_report.pdf`
     doc.save(filename)
-    log('REPORT_GENERATED', `Generated PDF report: ${filename}`)
+    log('REPORT_GENERATED', `Generated ${modeLabel} PDF report: ${filename}`)
   } catch (e) {
     console.error('Report generation failed:', e)
   } finally {
@@ -200,6 +331,24 @@ async function generatePDF() {
           <option value="">-- {{ t('common.noResults') }} --</option>
           <option v-for="b in batches" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
+
+        <fieldset class="mode-fieldset">
+          <legend>{{ t('reports.modeLabel') }}</legend>
+          <label class="mode-option" :class="{ active: reportMode === 'defect-only' }">
+            <input v-model="reportMode" type="radio" value="defect-only" />
+            <span>
+              <strong>{{ t('reports.defectOnly') }}</strong>
+              <small>{{ t('reports.defectOnlyHint') }}</small>
+            </span>
+          </label>
+          <label class="mode-option" :class="{ active: reportMode === 'full-image' }">
+            <input v-model="reportMode" type="radio" value="full-image" />
+            <span>
+              <strong>{{ t('reports.fullImage') }}</strong>
+              <small>{{ t('reports.fullImageHint') }}</small>
+            </span>
+          </label>
+        </fieldset>
 
         <div v-if="batch" class="report-preview">
           <h3>{{ t('reports.summary') }}</h3>
@@ -274,6 +423,50 @@ async function generatePDF() {
 }
 .text-input:focus {
   border-bottom-color: var(--color-primary);
+}
+.mode-fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+}
+.mode-fieldset legend {
+  margin-bottom: 4px;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.mode-option.active {
+  border-color: var(--color-primary);
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+.mode-option input {
+  margin-top: 3px;
+  accent-color: var(--color-primary);
+}
+.mode-option span {
+  display: grid;
+  gap: 3px;
+}
+.mode-option strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.mode-option small {
+  color: var(--color-ink-muted);
+  font-size: 13px;
+  line-height: 1.35;
 }
 .report-preview {
   border: 1px solid var(--color-hairline);
