@@ -11,6 +11,23 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-03 - GPU Settings Feedback Fixes
+
+### Fixed
+
+- Settings model grid now constrains long GPU selectors instead of overflowing into neighboring fields.
+- Empty QC checkpoint files now return `409 QC model file is empty` instead of an Ultralytics `500` traceback.
+- Added Playwright layout regression coverage with mocked GPU inventory.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Settings layout | 2026-08-03 | Long GPU labels could widen grid tracks and overlap fields | Grid uses zero-minimum tracks and width-constrained controls; Playwright layout test passes. |
+| SAM diagnostics | 2026-08-03 | Empty `sam3.pt` reached PyTorch and produced `EOFError: Ran out of input` | Backend identifies empty checkpoint immediately; valid SAM weights still required for inference. |
+
+---
+
 ## [Unreleased] - 2026-08-03 - Per-Task GPU Selection
 
 ### Summary

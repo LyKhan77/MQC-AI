@@ -79,6 +79,8 @@ class Sam3Strategy:
             raise ValueError(
                 "No QC model selected (Settings -> QC / Segmentation Model)"
             )
+        if os.path.getsize(model_path) == 0:
+            raise ValueError(f"QC model file is empty: {os.path.basename(model_path)}")
         threshold = params.get("confidence_threshold", 0.5)
 
         device = params.get("qc_device", "auto")

@@ -259,6 +259,7 @@ Frontend commands run from `qc_frontend/`. Backend commands run from `qc_server/
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview production build locally |
 | `npm test` | Run unit tests (Vitest) |
+| `npm run test:e2e` | Run Playwright browser smoke tests |
 | `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8787` | Start backend API |
 | `.\.venv\Scripts\python.exe -m pytest -v` | Run backend tests |
 

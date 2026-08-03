@@ -52,6 +52,26 @@ def test_detect_rejects_bad_image(client):
     assert resp.status_code == 400
 
 
+def test_detect_rejects_empty_sam_model(client, tmp_path, monkeypatch):
+    from app.config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "models_dir", str(tmp_path))
+    (tmp_path / "sam3.pt").write_bytes(b"")
+    client.put("/api/settings", json={
+        "defect_strategy": "sam3_prompt",
+        "qc_model": "sam3.pt",
+    })
+
+    resp = client.post(
+        "/api/inspection/detect",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+        data={"crop_mode": "full"},
+    )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "QC model file is empty: sam3.pt"
+
+
 def test_to_qc_creates_done_batch_from_captures(client):
     captures = []
     for _ in range(2):

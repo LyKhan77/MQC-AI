@@ -46,7 +46,12 @@ def _detect_frame(frame, setting, db, debug_frame=None):
         "qc_model_path": os.path.join(app_settings.models_dir, qc_model) if qc_model else "",
         "qc_device": setting.qc_device,
     }
-    detections = get_strategy(setting.defect_strategy).detect(str(frame_path), int(w), int(h), specs, params)
+    try:
+        detections = get_strategy(setting.defect_strategy).detect(
+            str(frame_path), int(w), int(h), specs, params
+        )
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     defects = [
         {
             "type": det.type,

@@ -441,6 +441,7 @@ async function confirmDeleteClass() {
 .settings-section {
   border: 1px solid var(--color-hairline);
   background: var(--color-canvas);
+  min-width: 0;
 }
 .section-header {
   display: flex;
@@ -499,6 +500,7 @@ async function confirmDeleteClass() {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 .form-row label {
   font-size: 13px;
@@ -520,6 +522,9 @@ async function confirmDeleteClass() {
   letter-spacing: 0.16px;
 }
 .text-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   padding: 8px 12px;
   background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
@@ -545,7 +550,7 @@ async function confirmDeleteClass() {
 .config-grid {
   padding: 24px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 .model-block-title {
