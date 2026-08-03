@@ -32,6 +32,20 @@ def test_detect_auto_crop_mode_ok(client):
     assert resp.json()["crop_mode"] == "auto"
 
 
+def test_detect_auto_crop_debug_returns_original_frame_overlay(client):
+    files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
+    resp = client.post(
+        "/api/inspection/detect",
+        files=files,
+        data={"crop_mode": "auto", "debug_crop": "true"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["debug_frame_url"].endswith("/debug.jpg")
+    debug = cv2.imdecode(np.frombuffer(client.get(body["debug_frame_url"]).content, np.uint8), cv2.IMREAD_COLOR)
+    assert debug.shape[:2] == (40, 40)
+
+
 def test_detect_rejects_bad_image(client):
     files = {"file": ("x.png", io.BytesIO(b"not an image"), "image/png")}
     resp = client.post("/api/inspection/detect", files=files, data={"crop_mode": "full"})

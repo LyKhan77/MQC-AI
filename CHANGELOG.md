@@ -11,6 +11,48 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-03 - Direct Inspection Auto-Crop Debug Overlay
+
+### Summary
+
+Direct Inspection now exposes the model-free auto-crop decision visually for debugging without changing the crop sent to defect inference.
+
+### Added
+
+- debug_crop flag on POST /api/inspection/detect.
+- Debug frame endpoint /api/inspection/frame/{key}/debug.jpg with AUTO-CROP or FULL FRAME FALLBACK overlay.
+- Direct Inspection toggle and bilingual label for auto-crop overlay.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Auto-crop debugging | 2026-08-03 | Auto-crop returned only the cropped inference frame | Optional debug frame preserves original image and draws selected crop rectangle; inference still uses cropped frame. |
+| Verification | 2026-08-03 | Backend and frontend coverage for Direct Inspection | Frontend: 126 tests passed; production build passed. Backend focused test runs in server .venv. |
+
+---
+
+## [Unreleased] - 2026-08-03 - Direct Inspection Auto-Crop Debug Overlay
+
+### Summary
+
+Direct Inspection now exposes the model-free auto-crop decision visually for debugging without changing the crop sent to defect inference.
+
+### Added
+
+- debug_crop flag on POST /api/inspection/detect.
+- Debug frame endpoint /api/inspection/frame/{key}/debug.jpg with AUTO-CROP or FULL FRAME FALLBACK overlay.
+- Direct Inspection toggle and bilingual label for auto-crop overlay.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Auto-crop debugging | 2026-08-03 | Auto-crop returned only the cropped inference frame | Optional debug frame preserves original image and draws selected crop rectangle; inference still uses cropped frame. |
+| Verification | 2026-08-03 | Backend and frontend coverage for Direct Inspection | Frontend: 126 tests passed; production build passed. Backend focused test runs in server .venv. |
+
+---
+
 ## [Unreleased] - 2026-07-31 - LAN HTTPS Development Mode
 
 ### Summary

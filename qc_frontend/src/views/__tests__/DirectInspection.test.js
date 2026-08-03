@@ -87,6 +87,19 @@ describe('DirectInspection', () => {
     expect(wrapper.find('.selected-capture img').attributes('src')).toBe('/f/ins-2')
   })
 
+  it('sends auto-crop debug flag and shows debug frame', async () => {
+    mocks.detectInspection.mockResolvedValue({ ...sample(), debug_frame_url: '/debug/ins-1.jpg' })
+    const wrapper = mount(DirectInspection)
+    await wrapper.findAll('.seg-btn').at(4).trigger('click')
+    await wrapper.find('input[type="checkbox"]').setValue(true)
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
+    await input.trigger('change')
+    await flushPromises()
+    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.objectContaining({ cropMode: 'auto', debugCrop: true }))
+    expect(wrapper.find('.auto-crop-debug img').attributes('src')).toBe('/debug/ins-1.jpg')
+  })
+
   it('summarizes captures and defects for review', async () => {
     mocks.detectInspection.mockResolvedValue(sample())
     const wrapper = mount(DirectInspection)

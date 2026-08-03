@@ -289,6 +289,7 @@ export default {
     cropMode: 'Crop',
     cropFull: 'Full frame',
     cropAuto: 'Auto-crop',
+    debugCrop: 'Show auto-crop overlay',
     openCamera: 'Open Camera',
     capture: 'Capture',
     selectCamera: 'Select camera',

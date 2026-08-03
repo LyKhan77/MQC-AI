@@ -14,6 +14,7 @@ const { settings } = useSettings()
 
 const source = ref('upload')
 const cropMode = ref('full')
+const debugCrop = ref(false)
 const selectedCameraId = ref('')
 const stack = ref([])
 const busy = ref(false)
@@ -54,7 +55,7 @@ async function pushDetect(opts) {
   busy.value = true
   errorMsg.value = ''
   try {
-    stack.value.push(await detectInspection({ ...opts, cropMode: cropMode.value }))
+    stack.value.push(await detectInspection({ ...opts, cropMode: cropMode.value, debugCrop: debugCrop.value }))
     selectedIdx.value = stack.value.length - 1
   } catch (err) {
     errorMsg.value = err?.message || 'error'
@@ -202,6 +203,10 @@ function polyPoints(poly) {
         <button class="seg-btn" :class="{ active: cropMode === 'auto' }" @click="cropMode = 'auto'">
           {{ t('inspection.cropAuto') }}
         </button>
+        <label class="debug-toggle">
+          <input v-model="debugCrop" type="checkbox" :disabled="cropMode !== 'auto'" />
+          <span>{{ t('inspection.debugCrop') }}</span>
+        </label>
       </div>
     </div>
 
@@ -300,6 +305,10 @@ function polyPoints(poly) {
             />
           </svg>
         </div>
+        <div v-if="selectedCapture.debug_frame_url" class="auto-crop-debug">
+          <div class="debug-title">{{ t('inspection.debugCrop') }}</div>
+          <img :src="selectedCapture.debug_frame_url" class="frame-img" :alt="t('inspection.debugCrop')" />
+        </div>
         <div class="selected-meta">
           <span class="status-pill" :class="selectedCapture.verdict === 'defect' ? 'verdict-fail' : 'verdict-pass'">
             {{ selectedCapture.verdict === 'defect' ? t('inspection.defect') : t('inspection.clean') }}
@@ -378,6 +387,20 @@ function polyPoints(poly) {
   margin-right: 4px;
   color: var(--color-ink-muted);
   font-size: 13px;
+}
+
+.debug-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  font-size: 13px;
+}
+
+.debug-toggle input:disabled {
+  cursor: default;
 }
 
 .seg-btn,
@@ -636,6 +659,20 @@ function polyPoints(poly) {
   max-width: 760px;
   border: 1px solid var(--color-hairline);
   background: var(--color-surface-1);
+}
+
+.auto-crop-debug {
+  max-width: 760px;
+  margin-top: 12px;
+  border: 1px solid var(--color-warning);
+  background: var(--color-surface-1);
+}
+
+.debug-title {
+  padding: 6px 10px;
+  color: var(--color-warning);
+  font-size: 12px;
+  font-family: var(--font-mono);
 }
 
 .capture-strip {

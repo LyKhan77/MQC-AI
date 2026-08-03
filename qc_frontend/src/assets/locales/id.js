@@ -296,6 +296,7 @@ export default {
     cropMode: 'Pangkas',
     cropFull: 'Bingkai penuh',
     cropAuto: 'Pangkas otomatis',
+    debugCrop: 'Tampilkan overlay crop otomatis',
     openCamera: 'Buka Kamera',
     capture: 'Ambil',
     selectCamera: 'Pilih kamera',

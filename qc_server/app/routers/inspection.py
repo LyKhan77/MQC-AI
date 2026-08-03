@@ -29,12 +29,14 @@ def _tmp_base() -> Path:
     return Path(app_settings.data_dir, _INSPECTION, "_tmp").resolve()
 
 
-def _detect_frame(frame, setting, db):
+def _detect_frame(frame, setting, db, debug_frame=None):
     key = gen_id("ins")
     tmp_dir = _tmp_base() / key
     os.makedirs(tmp_dir, exist_ok=True)
     frame_path = tmp_dir / "frame.jpg"
     cv2.imwrite(str(frame_path), frame)
+    if debug_frame is not None:
+        cv2.imwrite(str(tmp_dir / "debug.jpg"), debug_frame)
 
     h, w = frame.shape[:2]
     specs = [DefectClassSpec(c.name, c.category, c.enabled) for c in db.query(DefectClass).all()]
@@ -60,6 +62,7 @@ def _detect_frame(frame, setting, db):
         "verdict": "defect" if defects else "clean",
         "defects": defects,
         "frame_url": f"/api/inspection/frame/{key}/frame.jpg",
+        "debug_frame_url": f"/api/inspection/frame/{key}/debug.jpg" if debug_frame is not None else None,
     }
 
 
@@ -68,6 +71,7 @@ async def detect_inspection(
     file: UploadFile | None = File(default=None),
     camera_id: str | None = Form(default=None),
     crop_mode: str = Form(default="full"),
+    debug_crop: bool = Form(default=False),
     db: Session = Depends(get_db),
 ):
     if crop_mode not in {"full", "auto"}:
@@ -88,18 +92,30 @@ async def detect_inspection(
     else:
         raise HTTPException(400, "file or camera_id required")
 
+    debug_frame = None
     if crop_mode == "auto":
-        frame, _ = autocrop(frame)
+        original = frame.copy()
+        frame, box = autocrop(frame)
+        if debug_crop:
+            debug_frame = original
+            if box:
+                x1, y1, x2, y2 = box
+                thickness = max(2, min(original.shape[:2]) // 200)
+                cv2.rectangle(debug_frame, (x1, y1), (max(x1, x2 - 1), max(y1, y2 - 1)), (0, 255, 255), thickness)
+                cv2.putText(debug_frame, "AUTO-CROP", (x1, max(24, y1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(debug_frame, "FULL FRAME FALLBACK", (16, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2, cv2.LINE_AA)
 
-    result = _detect_frame(frame, get_or_create_setting(db), db)
+    result = _detect_frame(frame, get_or_create_setting(db), db, debug_frame)
     result["crop_mode"] = crop_mode
     return result
 
 
-@router.get("/frame/{key}/frame.jpg")
-def serve_frame(key: str):
+def _serve_frame_file(key: str, filename: str):
+    if filename not in {"frame.jpg", "debug.jpg"}:
+        raise HTTPException(404, "not found")
     base = Path(app_settings.data_dir, _INSPECTION).resolve()
-    path = (base / "_tmp" / os.path.basename(key) / "frame.jpg").resolve()
+    path = (base / "_tmp" / os.path.basename(key) / filename).resolve()
     try:
         path.relative_to(base)
     except ValueError:
@@ -107,6 +123,16 @@ def serve_frame(key: str):
     if not path.is_file():
         raise HTTPException(404, "not found")
     return FileResponse(path)
+
+
+@router.get("/frame/{key}/frame.jpg")
+def serve_frame(key: str):
+    return _serve_frame_file(key, "frame.jpg")
+
+
+@router.get("/frame/{key}/debug.jpg")
+def serve_debug_frame(key: str):
+    return _serve_frame_file(key, "debug.jpg")
 
 
 class ToQcIn(BaseModel):
