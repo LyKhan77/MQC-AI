@@ -32,6 +32,24 @@ def test_detect_auto_crop_mode_ok(client):
     assert resp.json()["crop_mode"] == "auto"
 
 
+def test_autocrop_preview_returns_box_and_quality(client):
+    files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
+    resp = client.post("/api/inspection/autocrop-preview", files=files)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["width"] == 40
+    assert body["height"] == 40
+    assert body["quality"]["status"] in {"ok", "review", "reject"}
+    assert body["quality"]["candidate_count"] >= 1
+
+
+def test_auto_crop_result_includes_quality_gate(client):
+    files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
+    body = client.post("/api/inspection/detect", files=files, data={"crop_mode": "auto"}).json()
+    assert body["crop_quality"]["status"] in {"ok", "review", "reject"}
+    assert body["source_width"] == 40
+
+
 def test_detect_auto_crop_debug_returns_original_frame_overlay(client):
     files = {"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")}
     resp = client.post(

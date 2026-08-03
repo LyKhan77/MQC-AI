@@ -13,7 +13,7 @@ from .. import storage
 from ..config import settings as app_settings
 from ..database import get_db
 from ..models import Batch, Camera, Defect, DefectClass, Image
-from ..services.autocrop import autocrop
+from ..services.autocrop import analyze_autocrop, assess_crop
 from ..services.inference.base import DefectClassSpec, get_strategy
 from ..services.pipeline import prepare_images
 from ..services.streaming import grab_one
@@ -98,10 +98,15 @@ async def detect_inspection(
     else:
         raise HTTPException(400, "file or camera_id required")
 
+    source_height, source_width = frame.shape[:2]
+    crop_box = None
+    crop_quality = {"status": "not_applicable", "reason": "full_frame", "coverage": 1.0, "edge_margin": 0.0}
     debug_frame = None
     if crop_mode == "auto":
         original = frame.copy()
-        frame, box = autocrop(frame)
+        frame, box, candidate_count = analyze_autocrop(frame)
+        crop_box = box
+        crop_quality = assess_crop(original, box, candidate_count)
         if debug_crop:
             debug_frame = original
             if box:
@@ -114,7 +119,28 @@ async def detect_inspection(
 
     result = _detect_frame(frame, get_or_create_setting(db), db, debug_frame)
     result["crop_mode"] = crop_mode
+    result["source_width"] = int(source_width)
+    result["source_height"] = int(source_height)
+    result["crop_box"] = crop_box
+    result["crop_quality"] = crop_quality
     return result
+
+
+@router.post("/autocrop-preview")
+async def preview_autocrop(file: UploadFile = File(...)):
+    raw = await file.read()
+    frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if frame is None:
+        raise HTTPException(400, "invalid image")
+    cropped, box, candidate_count = analyze_autocrop(frame)
+    return {
+        "width": int(frame.shape[1]),
+        "height": int(frame.shape[0]),
+        "crop_width": int(cropped.shape[1]),
+        "crop_height": int(cropped.shape[0]),
+        "box": box,
+        "quality": assess_crop(frame, box, candidate_count),
+    }
 
 
 def _serve_frame_file(key: str, filename: str):

@@ -13,6 +13,14 @@ export async function detectInspection({ file, cameraId, cropMode = 'full', debu
   return res.json()
 }
 
+export async function previewAutocrop(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch(`${BASE}/inspection/autocrop-preview`, { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 export function inspectionToQc(captures) {
   return apiPost('/inspection/to-qc', { captures })
 }

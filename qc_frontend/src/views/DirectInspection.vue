@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { detectInspection, inspectionToQc } from '../api/inspection.js'
+import { detectInspection, inspectionToQc, previewAutocrop } from '../api/inspection.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useSettings } from '../composables/useSettings.js'
@@ -22,8 +22,16 @@ const errorMsg = ref('')
 const videoEl = ref(null)
 const selectedIdx = ref(0)
 const showSendDialog = ref(false)
+const liveOverlayEnabled = ref(true)
+const liveOverlayBox = ref(null)
+const liveOverlaySize = ref({ width: 4, height: 3 })
+const livePreviewQuality = ref(null)
+const liveResolution = ref('')
+const liveVideoAspect = ref('4 / 3')
 
 let mediaStream = null
+let previewTimer = null
+let previewInFlight = false
 
 const selectedCamera = computed(() => cameras.value.find((c) => c.id === selectedCameraId.value))
 const rawStreamUrl = computed(() =>
@@ -40,6 +48,10 @@ const modelContext = computed(() => ({
   confidence: Number(settings.value.qcConfidenceThreshold || 0).toFixed(2),
   strategy: settings.value.defectStrategy || '-',
 }))
+const allCropsReady = computed(() => stack.value.every((item) => (
+  item.crop_mode !== 'auto' || item.crop_quality?.status === 'ok' || item.cropConfirmed
+)))
+const liveOverlayActive = computed(() => liveOverlayEnabled.value && cropMode.value === 'auto')
 
 let statusTimer = null
 onMounted(() => {
@@ -55,7 +67,9 @@ async function pushDetect(opts) {
   busy.value = true
   errorMsg.value = ''
   try {
-    stack.value.push(await detectInspection({ ...opts, cropMode: cropMode.value, debugCrop: debugCrop.value }))
+    const result = await detectInspection({ ...opts, cropMode: cropMode.value, debugCrop: debugCrop.value })
+    result.cropConfirmed = result.crop_mode !== 'auto' || result.crop_quality?.status === 'ok'
+    stack.value.push(result)
     selectedIdx.value = stack.value.length - 1
   } catch (err) {
     errorMsg.value = err?.message || 'error'
@@ -83,10 +97,24 @@ async function openCamera() {
     return
   }
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 },
+      },
+    })
     if (videoEl.value) {
       videoEl.value.srcObject = mediaStream
       await videoEl.value.play()
+      const trackSettings = mediaStream.getVideoTracks()[0]?.getSettings?.() || {}
+      if (trackSettings.width && trackSettings.height) {
+        liveResolution.value = `${trackSettings.width}×${trackSettings.height}`
+        liveVideoAspect.value = `${trackSettings.width} / ${trackSettings.height}`
+      }
+      startLivePreview()
     }
   } catch (err) {
     const byName = {
@@ -100,9 +128,69 @@ async function openCamera() {
 }
 
 function stopCamera() {
+  stopLivePreview()
   if (!mediaStream) return
   mediaStream.getTracks().forEach((track) => track.stop())
   mediaStream = null
+  liveResolution.value = ''
+  liveOverlayBox.value = null
+  livePreviewQuality.value = null
+}
+
+function stopLivePreview() {
+  if (previewTimer) clearInterval(previewTimer)
+  previewTimer = null
+  previewInFlight = false
+}
+
+function startLivePreview() {
+  stopLivePreview()
+  if (!liveOverlayActive.value) return
+  previewLiveFrame()
+  previewTimer = setInterval(previewLiveFrame, 400)
+}
+
+async function previewLiveFrame() {
+  const video = videoEl.value
+  if (!liveOverlayActive.value || previewInFlight || !video?.videoWidth) return
+  previewInFlight = true
+  try {
+    const scale = Math.min(1, 480 / video.videoWidth)
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.7))
+    if (!blob) return
+    const result = await previewAutocrop(new File([blob], 'preview.jpg', { type: 'image/jpeg' }))
+    liveOverlayBox.value = result.box
+    liveOverlaySize.value = { width: result.width, height: result.height }
+    livePreviewQuality.value = result.quality
+  } catch {
+    liveOverlayBox.value = null
+    livePreviewQuality.value = null
+  } finally {
+    previewInFlight = false
+  }
+}
+
+function onLiveOverlayToggle() {
+  if (liveOverlayEnabled.value) startLivePreview()
+  else {
+    stopLivePreview()
+    liveOverlayBox.value = null
+    livePreviewQuality.value = null
+  }
+}
+
+function setCropMode(next) {
+  cropMode.value = next
+  if (next === 'auto') startLivePreview()
+  else {
+    stopLivePreview()
+    liveOverlayBox.value = null
+    livePreviewQuality.value = null
+  }
 }
 
 async function captureMobile() {
@@ -112,8 +200,18 @@ async function captureMobile() {
   canvas.width = video.videoWidth
   canvas.height = video.videoHeight
   canvas.getContext('2d').drawImage(video, 0, 0)
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.98))
   if (blob) await pushDetect({ file: new File([blob], 'mobile.jpg', { type: 'image/jpeg' }) })
+}
+
+function confirmCrop(index) {
+  const item = stack.value[index]
+  if (item?.crop_quality?.status === 'review') item.cropConfirmed = true
+}
+
+function retakeFullFrame(index) {
+  removeCapture(index)
+  cropMode.value = 'full'
 }
 
 function removeCapture(index) {
@@ -133,7 +231,10 @@ function closeSendReview() {
 }
 
 async function sendToStudio() {
-  if (!stack.value.length) return
+  if (!stack.value.length || !allCropsReady.value) {
+    errorMsg.value = t('inspection.cropReviewRequired')
+    return
+  }
   busy.value = true
   errorMsg.value = ''
   try {
@@ -197,10 +298,10 @@ function polyPoints(poly) {
       </div>
       <div class="seg">
         <span class="seg-label">{{ t('inspection.cropMode') }}</span>
-        <button class="seg-btn" :class="{ active: cropMode === 'full' }" @click="cropMode = 'full'">
+        <button class="seg-btn" :class="{ active: cropMode === 'full' }" @click="setCropMode('full')">
           {{ t('inspection.cropFull') }}
         </button>
-        <button class="seg-btn" :class="{ active: cropMode === 'auto' }" @click="cropMode = 'auto'">
+        <button class="seg-btn" :class="{ active: cropMode === 'auto' }" @click="setCropMode('auto')">
           {{ t('inspection.cropAuto') }}
         </button>
         <label class="debug-toggle">
@@ -260,12 +361,40 @@ function polyPoints(poly) {
       </div>
       <div v-else class="mobile-cam">
         <p class="source-hint">{{ t('inspection.mobileHint') }}</p>
-        <video ref="videoEl" playsinline muted class="cam-video"></video>
+        <div class="live-camera-wrap" :style="{ aspectRatio: liveVideoAspect }">
+          <video ref="videoEl" playsinline muted class="cam-video"></video>
+          <svg
+            v-if="liveOverlayActive && liveOverlayBox"
+            class="live-overlay"
+            :viewBox="`0 0 ${liveOverlaySize.width} ${liveOverlaySize.height}`"
+            preserveAspectRatio="none"
+          >
+            <rect
+              :x="liveOverlayBox[0]"
+              :y="liveOverlayBox[1]"
+              :width="liveOverlayBox[2] - liveOverlayBox[0]"
+              :height="liveOverlayBox[3] - liveOverlayBox[1]"
+              class="live-box"
+            />
+          </svg>
+          <span
+            v-if="liveOverlayActive"
+            class="live-overlay-label"
+            :class="livePreviewQuality?.status || 'waiting'"
+          >
+            {{ livePreviewQuality?.status === 'ok' ? t('inspection.cropOk') : livePreviewQuality?.status === 'review' ? t('inspection.cropReview') : livePreviewQuality?.status === 'reject' ? t('inspection.cropRetake') : t('inspection.cropWaiting') }}
+          </span>
+        </div>
         <div class="row">
           <button class="btn-sm" @click="openCamera">{{ t('inspection.openCamera') }}</button>
           <button class="btn-sm" :disabled="busy" @click="captureMobile">
             {{ t('inspection.capture') }}
           </button>
+          <label class="debug-toggle live-toggle">
+            <input v-model="liveOverlayEnabled" type="checkbox" @change="onLiveOverlayToggle" />
+            <span>{{ t('inspection.liveOverlay') }}</span>
+          </label>
+          <span v-if="liveResolution" class="mono camera-resolution">{{ liveResolution }}</span>
         </div>
       </div>
     </div>
@@ -314,6 +443,24 @@ function polyPoints(poly) {
             {{ selectedCapture.verdict === 'defect' ? t('inspection.defect') : t('inspection.clean') }}
           </span>
           <span class="mono">{{ selectedCapture.defects?.length || 0 }} {{ t('inspection.defectPolygons') }}</span>
+          <span v-if="selectedCapture.crop_quality && selectedCapture.crop_mode === 'auto'" class="crop-quality" :class="selectedCapture.cropConfirmed || selectedCapture.crop_quality.status === 'ok' ? 'ok' : selectedCapture.crop_quality.status">
+            {{ selectedCapture.crop_quality.status === 'ok' ? t('inspection.cropOk') : selectedCapture.crop_quality.status === 'review' ? t('inspection.cropReview') : t('inspection.cropRetake') }}
+            · {{ Math.round((selectedCapture.crop_quality.coverage || 0) * 100) }}%
+          </span>
+          <button
+            v-if="selectedCapture.crop_mode === 'auto' && selectedCapture.crop_quality?.status === 'review' && !selectedCapture.cropConfirmed"
+            class="btn-sm"
+            @click="confirmCrop(selectedIdx)"
+          >
+            {{ t('inspection.confirmCrop') }}
+          </button>
+          <button
+            v-if="selectedCapture.crop_mode === 'auto' && selectedCapture.crop_quality?.status === 'reject'"
+            class="btn-sm btn-danger-sm"
+            @click="retakeFullFrame(selectedIdx)"
+          >
+            {{ t('inspection.retakeFull') }}
+          </button>
           <button class="btn-sm btn-danger-sm" @click="removeCapture(selectedIdx)">
             {{ t('inspection.removeCapture') }}
           </button>
@@ -337,7 +484,7 @@ function polyPoints(poly) {
     <p v-else class="empty-state">{{ t('inspection.empty') }}</p>
 
     <div class="footer-actions">
-      <button class="btn-primary" :disabled="busy || !stack.length" @click="openSendReview">
+      <button class="btn-primary" :disabled="busy || !stack.length || !allCropsReady" @click="openSendReview">
         {{ t('inspection.sendToStudio') }}
       </button>
     </div>
@@ -581,10 +728,73 @@ function polyPoints(poly) {
 
 .cam-video {
   width: 100%;
-  max-width: 480px;
-  aspect-ratio: 4 / 3;
+  height: 100%;
   background: var(--color-ink);
-  object-fit: contain;
+  object-fit: fill;
+}
+
+.live-camera-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  min-height: 220px;
+  background: var(--color-ink);
+  overflow: hidden;
+}
+
+.live-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.live-box {
+  fill: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  stroke: var(--color-warning);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.live-overlay-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  color: var(--color-on-primary);
+  background: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.live-overlay-label.ok,
+.crop-quality.ok {
+  background: var(--color-success);
+  color: var(--color-on-primary);
+}
+
+.live-overlay-label.review,
+.crop-quality.review {
+  background: var(--color-warning);
+  color: var(--color-ink);
+}
+
+.live-overlay-label.reject,
+.crop-quality.reject {
+  background: var(--color-error);
+  color: var(--color-on-primary);
+}
+
+.camera-resolution {
+  color: var(--color-ink-muted);
+  font-size: 12px;
+}
+
+.crop-quality {
+  padding: 2px 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
 }
 
 .stack-title {

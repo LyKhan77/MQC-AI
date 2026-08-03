@@ -6,6 +6,7 @@ import DirectInspection from '../DirectInspection.vue'
 
 const mocks = vi.hoisted(() => ({
   detectInspection: vi.fn(),
+  previewAutocrop: vi.fn(),
   inspectionToQc: vi.fn(),
   push: vi.fn(),
 }))
@@ -18,6 +19,7 @@ vi.mock('../../composables/useCameras.js', async () => {
 })
 vi.mock('../../api/inspection.js', () => ({
   detectInspection: mocks.detectInspection,
+  previewAutocrop: mocks.previewAutocrop,
   inspectionToQc: mocks.inspectionToQc,
 }))
 vi.mock('../../composables/useSettings.js', async () => {

@@ -11,6 +11,26 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-03 - Direct Inspection Live Auto-Crop Guidance
+
+### Added
+
+- Low-resolution live auto-crop preview overlay for mobile camera, using the existing server-side autocrop algorithm at a throttled interval.
+- Actual browser camera resolution indicator and higher-quality still capture (`JPEG 0.98`).
+- Final crop quality metadata for object edge contact, empty crop, and multiple dominant objects.
+- Operator crop review gate with confirm/re-take states before QC Studio handoff.
+- `POST /api/inspection/autocrop-preview` for lightweight preview bounding boxes.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Mobile camera guidance | 2026-08-03 | Live video had no crop guidance; overlay appeared only after capture | Live preview shows throttled auto-crop box; full-resolution capture remains authoritative. |
+| Crop safety | 2026-08-03 | Operator could send an unreviewed auto-crop | Final crop reports quality status and blocks handoff until review/re-take when needed. |
+| Verification | 2026-08-03 | No live-preview endpoint or quality-gate coverage | Backend: 157 tests passed; frontend: 126 tests passed; build and Playwright passed. |
+
+---
+
 ## [Unreleased] - 2026-08-03 - GPU Settings Feedback Fixes
 
 ### Fixed
