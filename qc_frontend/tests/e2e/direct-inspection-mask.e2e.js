@@ -55,13 +55,20 @@ test('Direct Inspection processes a masked staged upload and a full-frame fallba
   await page.locator('input[type="file"]').setInputFiles([upload('masked.svg'), upload('full-frame.svg')])
   await page.getByText('Masking').check()
 
-  const editor = page.getByTestId('mask-canvas').first()
+  const stagedThumbs = page.locator('.mask-stage-thumb')
+  await expect(stagedThumbs).toHaveCount(2)
+  await expect(page.getByTestId('mask-canvas')).toHaveCount(1)
+  await stagedThumbs.nth(1).click()
+  await expect(stagedThumbs.nth(1)).toHaveClass(/active/)
+  await stagedThumbs.nth(0).click()
+
+  const editor = page.getByTestId('mask-canvas')
   await editor.click({ position: { x: 20, y: 20 } })
   await editor.click({ position: { x: 80, y: 20 } })
   await editor.click({ position: { x: 50, y: 80 } })
   await expect(editor.locator('.mask-polygon')).toBeVisible()
   await page.getByTestId('mask-finish').first().click()
-  await expect(page.getByText('Mask ready')).toBeVisible()
+  await expect(page.locator('.mask-stage-heading').getByText('Mask ready')).toBeVisible()
 
   await page.locator('.process-qc').click()
   await expect.poll(() => detectRequests.length).toBe(2)

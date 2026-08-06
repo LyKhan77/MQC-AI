@@ -89,7 +89,30 @@ describe('DirectInspection', () => {
     await stage(wrapper, [file('a.png'), file('b.png')])
 
     expect(mocks.detectInspection).not.toHaveBeenCalled()
-    expect(wrapper.findAll('.mask-stage-item')).toHaveLength(2)
+    expect(wrapper.findAll('.mask-stage-thumb')).toHaveLength(2)
+  })
+
+  it('shows one active mask editor and switches it with staged thumbnails', async () => {
+    const wrapper = mount(DirectInspection)
+    await stage(wrapper, [file('a.png'), file('b.png')])
+    await wrapper.find('.masking-toggle input').setValue(true)
+
+    const thumbnails = wrapper.findAll('.mask-stage-thumb')
+    expect(thumbnails).toHaveLength(2)
+    for (const thumbnail of thumbnails) {
+      const preview = thumbnail.find('img')
+      Object.defineProperties(preview.element, {
+        naturalWidth: { value: 40 },
+        naturalHeight: { value: 40 },
+      })
+      await preview.trigger('load')
+    }
+
+    expect(wrapper.findAllComponents({ name: 'MaskEditor' })).toHaveLength(1)
+    expect(thumbnails[0].classes()).toContain('active')
+    await thumbnails[1].trigger('click')
+    expect(thumbnails[1].classes()).toContain('active')
+    expect(wrapper.findAllComponents({ name: 'MaskEditor' })).toHaveLength(1)
   })
 
   it('processes staged images in order with a mask only for finished masks', async () => {

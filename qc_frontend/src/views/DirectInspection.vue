@@ -19,6 +19,7 @@ const debugCrop = ref(false)
 const selectedCameraId = ref('')
 const stack = ref([])
 const staged = ref([])
+const selectedStageId = ref('')
 const masking = ref(false)
 const busy = ref(false)
 const errorMsg = ref('')
@@ -57,6 +58,7 @@ const allCropsReady = computed(() => stack.value.every((item) => (
 const liveOverlayActive = computed(() => liveOverlayEnabled.value && cropMode.value === 'auto')
 const stagedPending = computed(() => staged.value.some((item) => item.status !== 'done'))
 const stagedProcessing = computed(() => staged.value.some((item) => item.status === 'processing'))
+const selectedStage = computed(() => staged.value.find((item) => item.id === selectedStageId.value) || null)
 
 let statusTimer = null
 onMounted(() => {
@@ -86,7 +88,7 @@ async function pushDetect(opts) {
 
 async function onFiles(event) {
   const files = Array.from(event.target.files || [])
-  staged.value.push(...files.map((file, index) => ({
+  const additions = files.map((file, index) => ({
     id: `${Date.now()}-${index}-${file.name}`,
     file,
     previewUrl: URL.createObjectURL(file),
@@ -96,7 +98,9 @@ async function onFiles(event) {
     maskStatus: masking.value ? 'editing' : 'none',
     status: 'staged',
     error: '',
-  })))
+  }))
+  staged.value.push(...additions)
+  if (!selectedStageId.value) selectedStageId.value = additions[0]?.id || ''
   event.target.value = ''
 }
 
@@ -133,9 +137,16 @@ function clearMask(item) {
   item.maskStatus = masking.value ? 'editing' : 'none'
 }
 
+function selectStage(id) {
+  selectedStageId.value = id
+}
+
 function removeStage(index) {
-  URL.revokeObjectURL(staged.value[index].previewUrl)
-  staged.value.splice(index, 1)
+  const [removed] = staged.value.splice(index, 1)
+  URL.revokeObjectURL(removed.previewUrl)
+  if (removed.id === selectedStageId.value) {
+    selectedStageId.value = staged.value[index]?.id || staged.value[index - 1]?.id || ''
+  }
 }
 
 async function processStaged() {
@@ -404,26 +415,41 @@ function polyPoints(poly) {
           <span>{{ t('inspection.masking') }}</span>
         </label>
         <div v-if="staged.length" class="mask-stage-list">
-          <section v-for="(item, index) in staged" :key="item.id" class="mask-stage-item">
+          <div class="mask-stage-strip" :aria-label="t('inspection.masking')">
+            <button
+              v-for="item in staged"
+              :key="item.id"
+              type="button"
+              class="mask-stage-thumb"
+              :class="{ active: item.id === selectedStageId }"
+              :aria-label="item.file.name"
+              :aria-pressed="item.id === selectedStageId"
+              @click="selectStage(item.id)"
+            >
+              <img class="mask-stage-preview" :src="item.previewUrl" :alt="item.file.name" @load="setStageSize(item, $event)" />
+              <span class="mask-stage-thumb-status">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
+            </button>
+          </div>
+          <section v-if="selectedStage" class="mask-stage-item">
             <div class="mask-stage-heading">
-              <strong>{{ item.file.name }}</strong>
-              <span class="mono">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
-              <button class="btn-sm btn-danger-sm" :disabled="stagedProcessing" @click="removeStage(index)">{{ t('inspection.removeCapture') }}</button>
+              <strong>{{ selectedStage.file.name }}</strong>
+              <span class="mono">{{ selectedStage.status === 'processing' ? t('inspection.processing') : selectedStage.status === 'done' ? t('inspection.processed') : selectedStage.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
+              <button class="btn-sm btn-danger-sm" :disabled="stagedProcessing" @click="removeStage(staged.indexOf(selectedStage))">{{ t('inspection.removeCapture') }}</button>
             </div>
-            <img class="mask-stage-preview" :src="item.previewUrl" :alt="item.file.name" @load="setStageSize(item, $event)" />
-            <MaskEditor
-              v-if="masking && item.width && item.height"
-              :src="item.previewUrl"
-              :width="item.width"
-              :height="item.height"
-              :model-value="item.maskPolygon"
-              :disabled="stagedProcessing || item.status === 'done'"
-              @update:model-value="updateMask(item, $event)"
-              @finish="finishMask(item, $event)"
-              @clear="clearMask(item)"
-            />
-            <p v-if="masking && item.maskStatus !== 'ready'" class="mask-stage-status">{{ t('inspection.maskValidation') }}</p>
-            <p v-if="item.error" class="mask-stage-error">{{ item.error }}</p>
+            <div v-if="masking && selectedStage.width && selectedStage.height" class="mask-editor-viewport">
+              <MaskEditor
+                :src="selectedStage.previewUrl"
+                :width="selectedStage.width"
+                :height="selectedStage.height"
+                :model-value="selectedStage.maskPolygon"
+                :disabled="stagedProcessing || selectedStage.status === 'done'"
+                @update:model-value="updateMask(selectedStage, $event)"
+                @finish="finishMask(selectedStage, $event)"
+                @clear="clearMask(selectedStage)"
+              />
+            </div>
+            <p v-if="masking && selectedStage.maskStatus !== 'ready'" class="mask-stage-status">{{ t('inspection.maskValidation') }}</p>
+            <p v-if="selectedStage.error" class="mask-stage-error">{{ selectedStage.error }}</p>
           </section>
           <button class="btn-primary process-qc" :disabled="busy || !stagedPending" @click="processStaged">{{ t('inspection.processQc') }}</button>
         </div>
@@ -734,6 +760,45 @@ function polyPoints(poly) {
   margin-top: 16px;
 }
 
+.mask-stage-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.mask-stage-thumb {
+  position: relative;
+  flex: 0 0 112px;
+  height: 84px;
+  padding: 0;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+  cursor: pointer;
+}
+
+.mask-stage-thumb.active,
+.mask-stage-thumb:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+  outline: none;
+}
+
+.mask-stage-thumb-status {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 3px 5px;
+  overflow: hidden;
+  color: var(--color-on-primary);
+  background: color-mix(in srgb, var(--color-ink) 82%, transparent);
+  font-size: 11px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mask-stage-item {
   padding: 12px;
   border: 1px solid var(--color-hairline);
@@ -754,8 +819,21 @@ function polyPoints(poly) {
 .mask-stage-preview {
   display: block;
   width: 100%;
-  max-width: 960px;
-  margin-bottom: 12px;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mask-editor-viewport {
+  max-height: min(56vh, 560px);
+  overflow: auto;
+}
+
+.mask-editor-viewport :deep(.mask-actions) {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0;
+  margin: 0;
+  background: var(--color-surface-1);
 }
 
 .mask-stage-status,
