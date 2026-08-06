@@ -6,6 +6,10 @@ import numpy as np
 
 
 def validate_polygon(points, width, height) -> list[list[int]]:
+    try:
+        points = list(points)
+    except TypeError as exc:
+        raise ValueError("polygon points must be an iterable of points") from exc
     if len(points) < 3:
         raise ValueError("polygon requires at least three points")
     if width <= 0 or height <= 0:
@@ -13,12 +17,17 @@ def validate_polygon(points, width, height) -> list[list[int]]:
 
     result = []
     for point in points:
-        if len(point) != 2 or not all(isinstance(value, Real) and math.isfinite(value) for value in point):
+        try:
+            x, y = point
+        except (TypeError, ValueError) as exc:
+            raise ValueError("polygon points must contain finite numeric values") from exc
+        if not all(isinstance(value, Real) and math.isfinite(value) for value in (x, y)):
             raise ValueError("polygon points must contain finite numeric values")
-        x, y = point
         if not 0 <= x <= width or not 0 <= y <= height:
             raise ValueError("polygon point is outside image bounds")
         result.append([max(0, min(width, int(round(x)))), max(0, min(height, int(round(y))))])
+    if abs(sum(x1 * y2 - y1 * x2 for (x1, y1), (x2, y2) in zip(result, result[1:] + result[:1]))) == 0:
+        raise ValueError("polygon must have non-zero area")
     return result
 
 

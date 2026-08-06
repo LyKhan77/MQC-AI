@@ -15,6 +15,17 @@ def test_validate_polygon_rejects_fewer_than_three_points():
         validate_polygon([[1, 1], [5, 1]], 20, 20)
 
 
+@pytest.mark.parametrize("points", [None, [1, 2, 3]])
+def test_validate_polygon_rejects_malformed_points(points):
+    with pytest.raises(ValueError, match="points"):
+        validate_polygon(points, 20, 20)
+
+
+def test_validate_polygon_rejects_zero_area_polygon():
+    with pytest.raises(ValueError, match="area"):
+        validate_polygon([[10, 10], [10, 15], [10, 20]], 40, 40)
+
+
 def test_validate_polygon_rejects_out_of_bounds_points():
     with pytest.raises(ValueError, match="bounds"):
         validate_polygon([[1, 1], [19, 1], [21, 10]], 20, 20)
