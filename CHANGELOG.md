@@ -11,6 +11,25 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-06 - Direct Inspection Polygon Masking
+
+### Added
+
+- Direct Inspection upload staging with one optional finished polygon processing mask per image and an explicit Process QC action.
+- Masked inference runs in the polygon's bounded ROI, remaps defect polygons onto the original full image, and keeps unmasked staged files on the full-frame path.
+- `mask_polygon` persists through Direct Inspection handoff, batch image/result JSON, and a non-editable QC Studio Processing mask overlay.
+- `qc_frontend/tests/e2e/direct-inspection-mask.e2e.js` mocks the inspection API, uploads masked and unmasked files, checks multipart mask/full-frame payloads, verifies result overlays, and verifies the QC handoff payload.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Direct Inspection polygon masks | 2026-08-06 | Uploads were immediate or had no persisted polygon-processing path | Files stage until Process QC; each can use one mask or full-frame fallback, with ROI defects remapped to the full image. |
+| QC Studio mask context | 2026-08-06 | Processing scope was not visible after handoff | Persisted `mask_polygon` renders as a labeled, non-editable Processing mask behind defects. |
+| Browser verification | 2026-08-06 | No browser flow covered mixed masked/full-frame Direct Inspection uploads | Mocked Playwright flow checks two multipart detect payloads, result overlay, and mask-preserving QC handoff; all three e2e tests pass. |
+
+---
+
 ## [Unreleased] - 2026-08-03 - Production Report Formats
 
 ### Added
