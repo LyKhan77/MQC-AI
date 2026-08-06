@@ -56,8 +56,26 @@ function sample(key = 'ins-1') {
   }
 }
 
+function file(name) {
+  return new File(['image'], name, { type: 'image/png' })
+}
+
+async function stage(wrapper, files) {
+  const input = wrapper.find('input[type="file"]')
+  Object.defineProperty(input.element, 'files', { value: files, configurable: true })
+  await input.trigger('change')
+  await flushPromises()
+}
+
+function processButton(wrapper) {
+  return wrapper.find('.process-qc')
+}
+
 describe('DirectInspection', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('URL', { createObjectURL: vi.fn((value) => `blob:${value.name}`), revokeObjectURL: vi.fn() })
+  })
 
   it('shows qc model and strategy context', () => {
     const wrapper = mount(DirectInspection)
@@ -66,71 +84,116 @@ describe('DirectInspection', () => {
     expect(wrapper.text()).toContain('sam3_prompt')
   })
 
-  it('uploading a file pushes a capture card', async () => {
-    mocks.detectInspection.mockResolvedValue(sample())
+  it('stages uploads without starting detection', async () => {
     const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
+    await stage(wrapper, [file('a.png'), file('b.png')])
+
+    expect(mocks.detectInspection).not.toHaveBeenCalled()
+    expect(wrapper.findAll('.mask-stage-item')).toHaveLength(2)
+  })
+
+  it('processes staged images in order with a mask only for finished masks', async () => {
+    let resolveFirst
+    const polygon = [[1, 1], [30, 1], [1, 30]]
+    mocks.detectInspection
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+      .mockResolvedValueOnce(sample('ins-2'))
+    const wrapper = mount(DirectInspection)
+    const files = [file('a.png'), file('b.png')]
+    await stage(wrapper, files)
+    await wrapper.find('.masking-toggle input').setValue(true)
+    const preview = wrapper.findAll('.mask-stage-preview').at(0)
+    Object.defineProperties(preview.element, {
+      naturalWidth: { value: 40 },
+      naturalHeight: { value: 40 },
+    })
+    await preview.trigger('load')
+    await wrapper.findComponent({ name: 'MaskEditor' }).vm.$emit('finish', polygon)
+
+    await processButton(wrapper).trigger('click')
     await flushPromises()
-    expect(mocks.detectInspection).toHaveBeenCalled()
+    expect(mocks.detectInspection).toHaveBeenCalledTimes(1)
+    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.objectContaining({
+      file: files[0], cropMode: 'full', maskPolygon: polygon,
+    }))
+
+    resolveFirst({ ...sample('ins-1'), mask_polygon: polygon, mask_applied: true })
+    await flushPromises()
+    expect(mocks.detectInspection).toHaveBeenCalledTimes(2)
+    expect(mocks.detectInspection).toHaveBeenLastCalledWith(expect.objectContaining({
+      file: files[1], cropMode: 'full',
+    }))
+    expect(mocks.detectInspection.mock.calls[1][0]).not.toHaveProperty('maskPolygon')
+    await flushPromises()
+    expect(wrapper.findAll('.capture-thumb')).toHaveLength(2)
+    await wrapper.findAll('.capture-thumb').at(0).trigger('click')
+    expect(wrapper.find('.mask-result-poly').exists()).toBe(true)
+  })
+
+  it('keeps a failed staged image available for retry', async () => {
+    mocks.detectInspection
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(sample())
+    const wrapper = mount(DirectInspection)
+    await stage(wrapper, [file('retry.png')])
+    await processButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.mask-stage-item')).toHaveLength(1)
+    expect(wrapper.find('.mask-stage-error').text()).toContain('offline')
+
+    await processButton(wrapper).trigger('click')
+    await flushPromises()
+    expect(mocks.detectInspection).toHaveBeenCalledTimes(2)
     expect(wrapper.findAll('.capture-thumb')).toHaveLength(1)
   })
 
-  it('selects the newest capture after multiple uploads', async () => {
-    mocks.detectInspection
-      .mockResolvedValueOnce(sample('ins-1'))
-      .mockResolvedValueOnce(sample('ins-2'))
-    const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' }), new File(['y'], 'b.png', { type: 'image/png' })] })
-    await input.trigger('change')
-    await flushPromises()
-    expect(wrapper.find('.selected-capture img').attributes('src')).toBe('/f/ins-2')
-  })
-
-  it('sends auto-crop debug flag and shows debug frame', async () => {
-    mocks.detectInspection.mockResolvedValue({ ...sample(), debug_frame_url: '/debug/ins-1.jpg' })
-    const wrapper = mount(DirectInspection)
-    await wrapper.findAll('.seg-btn').at(4).trigger('click')
-    await wrapper.find('input[type="checkbox"]').setValue(true)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
-    await flushPromises()
-    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.objectContaining({ cropMode: 'auto', debugCrop: true }))
-    expect(wrapper.find('.auto-crop-debug img').attributes('src')).toBe('/debug/ins-1.jpg')
-  })
-
-  it('summarizes captures and defects for review', async () => {
+  it('keeps server camera capture on the existing immediate-detect path', async () => {
     mocks.detectInspection.mockResolvedValue(sample())
     const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
+    await wrapper.findAll('.seg-btn').at(1).trigger('click')
+    await wrapper.find('select').setValue('cam-1')
+    await wrapper.find('.server-cam .btn-sm').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('inspection.captures')
-    expect(wrapper.text()).toContain('inspection.defects')
-    expect(wrapper.text()).toContain('inspection.cleanCaptures')
+    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.objectContaining({ cameraId: 'cam-1' }))
+    expect(wrapper.findAll('.capture-thumb')).toHaveLength(1)
+  })
+
+  it('keeps mobile camera capture on the existing immediate-detect path', async () => {
+    mocks.detectInspection.mockResolvedValue(sample())
+    const context = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() })
+    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['frame'], { type: 'image/jpeg' })))
+    const wrapper = mount(DirectInspection)
+    await wrapper.findAll('.seg-btn').at(2).trigger('click')
+    const video = wrapper.find('video')
+    Object.defineProperties(video.element, {
+      videoWidth: { value: 20 },
+      videoHeight: { value: 10 },
+    })
+    await wrapper.findAll('.mobile-cam .btn-sm').at(1).trigger('click')
+    await flushPromises()
+
+    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.objectContaining({
+      cropMode: 'full', file: expect.any(File),
+    }))
+    context.mockRestore()
+    toBlob.mockRestore()
   })
 
   it('remove drops a capture from the stack', async () => {
     mocks.detectInspection.mockResolvedValue(sample())
     const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
+    await stage(wrapper, [file('a.png')])
+    await processButton(wrapper).trigger('click')
     await flushPromises()
-    await wrapper.find('.btn-danger-sm').trigger('click')
+    await wrapper.find('.selected-capture .btn-danger-sm').trigger('click')
     expect(wrapper.findAll('.capture-thumb')).toHaveLength(0)
   })
 
   it('opens a native send review dialog before qc handoff', async () => {
     mocks.detectInspection.mockResolvedValue(sample('ins-9'))
     const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
+    await stage(wrapper, [file('a.png')])
+    await processButton(wrapper).trigger('click')
     await flushPromises()
     await wrapper.find('.footer-actions .btn-primary').trigger('click')
     expect(wrapper.find('dialog').exists()).toBe(true)
@@ -142,9 +205,8 @@ describe('DirectInspection', () => {
     mocks.detectInspection.mockResolvedValue(sample('ins-9'))
     mocks.inspectionToQc.mockResolvedValue({ batch_id: 'batch-1' })
     const wrapper = mount(DirectInspection)
-    const input = wrapper.find('input[type="file"]')
-    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'a.png', { type: 'image/png' })] })
-    await input.trigger('change')
+    await stage(wrapper, [file('a.png')])
+    await processButton(wrapper).trigger('click')
     await flushPromises()
     await wrapper.find('.footer-actions .btn-primary').trigger('click')
     await wrapper.find('dialog .btn-primary').trigger('click')

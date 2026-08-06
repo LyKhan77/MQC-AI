@@ -6,6 +6,7 @@ import { useCameras } from '../composables/useCameras.js'
 import { useI18n } from '../composables/useI18n.js'
 import { useSettings } from '../composables/useSettings.js'
 import BaseModal from '../components/BaseModal.vue'
+import MaskEditor from '../components/MaskEditor.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -17,6 +18,8 @@ const cropMode = ref('full')
 const debugCrop = ref(false)
 const selectedCameraId = ref('')
 const stack = ref([])
+const staged = ref([])
+const masking = ref(false)
 const busy = ref(false)
 const errorMsg = ref('')
 const videoEl = ref(null)
@@ -52,6 +55,7 @@ const allCropsReady = computed(() => stack.value.every((item) => (
   item.crop_mode !== 'auto' || item.crop_quality?.status === 'ok' || item.cropConfirmed
 )))
 const liveOverlayActive = computed(() => liveOverlayEnabled.value && cropMode.value === 'auto')
+const stagedPending = computed(() => staged.value.some((item) => item.status !== 'done'))
 
 let statusTimer = null
 onMounted(() => {
@@ -61,6 +65,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (statusTimer) clearInterval(statusTimer)
   stopCamera()
+  staged.value.forEach((item) => URL.revokeObjectURL(item.previewUrl))
 })
 
 async function pushDetect(opts) {
@@ -80,8 +85,76 @@ async function pushDetect(opts) {
 
 async function onFiles(event) {
   const files = Array.from(event.target.files || [])
-  for (const file of files) await pushDetect({ file })
+  staged.value.push(...files.map((file, index) => ({
+    id: `${Date.now()}-${index}-${file.name}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+    width: 0,
+    height: 0,
+    maskPolygon: [],
+    maskStatus: masking.value ? 'editing' : 'none',
+    status: 'staged',
+    error: '',
+  })))
   event.target.value = ''
+}
+
+function setStageSize(item, event) {
+  item.width = event.target.naturalWidth
+  item.height = event.target.naturalHeight
+}
+
+function toggleMasking() {
+  staged.value.forEach((item) => {
+    item.maskStatus = masking.value ? 'editing' : 'none'
+    if (!masking.value) item.maskPolygon = []
+  })
+}
+
+function finishMask(item, polygon) {
+  if (polygon.length < 3) {
+    item.error = t('inspection.maskValidation')
+    return
+  }
+  item.maskPolygon = polygon
+  item.maskStatus = 'ready'
+  item.error = ''
+}
+
+function clearMask(item) {
+  item.maskPolygon = []
+  item.maskStatus = masking.value ? 'editing' : 'none'
+}
+
+function removeStage(index) {
+  URL.revokeObjectURL(staged.value[index].previewUrl)
+  staged.value.splice(index, 1)
+}
+
+async function processStaged() {
+  busy.value = true
+  errorMsg.value = ''
+  for (const item of staged.value.filter((stage) => stage.status !== 'done')) {
+    item.status = 'processing'
+    item.error = ''
+    const opts = {
+      file: item.file,
+      cropMode: masking.value ? 'full' : cropMode.value,
+      debugCrop: masking.value ? false : debugCrop.value,
+    }
+    if (item.maskStatus === 'ready' && item.maskPolygon.length) opts.maskPolygon = item.maskPolygon
+    try {
+      const result = await detectInspection(opts)
+      result.cropConfirmed = result.crop_mode !== 'auto' || result.crop_quality?.status === 'ok'
+      stack.value.push(result)
+      selectedIdx.value = stack.value.length - 1
+      item.status = 'done'
+    } catch (err) {
+      item.status = 'error'
+      item.error = err?.message || t('inspection.processingError')
+    }
+  }
+  busy.value = false
 }
 
 function captureServer() {
@@ -238,7 +311,11 @@ async function sendToStudio() {
   busy.value = true
   errorMsg.value = ''
   try {
-    const { batch_id } = await inspectionToQc(stack.value.map((item) => ({ key: item.key, defects: item.defects })))
+    const { batch_id } = await inspectionToQc(stack.value.map((item) => ({
+      key: item.key,
+      defects: item.defects,
+      ...(item.mask_polygon?.length ? { mask_polygon: item.mask_polygon } : {}),
+    })))
     closeSendReview()
     router.push({ name: 'qc', query: { batch: batch_id } })
   } catch (err) {
@@ -301,11 +378,11 @@ function polyPoints(poly) {
         <button class="seg-btn" :class="{ active: cropMode === 'full' }" @click="setCropMode('full')">
           {{ t('inspection.cropFull') }}
         </button>
-        <button class="seg-btn" :class="{ active: cropMode === 'auto' }" @click="setCropMode('auto')">
+        <button class="seg-btn" :class="{ active: cropMode === 'auto' }" :disabled="source === 'upload' && masking" @click="setCropMode('auto')">
           {{ t('inspection.cropAuto') }}
         </button>
         <label class="debug-toggle">
-          <input v-model="debugCrop" type="checkbox" :disabled="cropMode !== 'auto'" />
+          <input v-model="debugCrop" type="checkbox" :disabled="cropMode !== 'auto' || (source === 'upload' && masking)" />
           <span>{{ t('inspection.debugCrop') }}</span>
         </label>
       </div>
@@ -315,6 +392,34 @@ function polyPoints(poly) {
       <div v-if="source === 'upload'">
         <p class="source-hint">{{ t('inspection.uploadHint') }}</p>
         <input type="file" accept="image/*" multiple :disabled="busy" @change="onFiles" />
+        <label class="debug-toggle masking-toggle">
+          <input v-model="masking" type="checkbox" :disabled="busy" @change="toggleMasking" />
+          <span>{{ t('inspection.masking') }}</span>
+        </label>
+        <div v-if="staged.length" class="mask-stage-list">
+          <section v-for="(item, index) in staged" :key="item.id" class="mask-stage-item">
+            <div class="mask-stage-heading">
+              <strong>{{ item.file.name }}</strong>
+              <span class="mono">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
+              <button class="btn-sm btn-danger-sm" :disabled="item.status === 'processing'" @click="removeStage(index)">{{ t('inspection.removeCapture') }}</button>
+            </div>
+            <img class="mask-stage-preview" :src="item.previewUrl" :alt="item.file.name" @load="setStageSize(item, $event)" />
+            <MaskEditor
+              v-if="masking && item.width && item.height"
+              :src="item.previewUrl"
+              :width="item.width"
+              :height="item.height"
+              :model-value="item.maskPolygon"
+              :disabled="item.status === 'processing' || item.status === 'done'"
+              @update:model-value="item.maskPolygon = $event"
+              @finish="finishMask(item, $event)"
+              @clear="clearMask(item)"
+            />
+            <p v-if="masking && item.maskStatus !== 'ready'" class="mask-stage-status">{{ t('inspection.maskValidation') }}</p>
+            <p v-if="item.error" class="mask-stage-error">{{ item.error }}</p>
+          </section>
+          <button class="btn-primary process-qc" :disabled="busy || !stagedPending" @click="processStaged">{{ t('inspection.processQc') }}</button>
+        </div>
       </div>
       <div v-else-if="source === 'server'" class="server-cam">
         <p class="source-hint">{{ t('inspection.serverHint') }}</p>
@@ -427,12 +532,18 @@ function polyPoints(poly) {
           <img :src="selectedCapture.frame_url" class="frame-img" :alt="`capture ${selectedIdx + 1}`" />
           <svg class="overlay" :viewBox="`0 0 ${selectedCapture.width} ${selectedCapture.height}`" preserveAspectRatio="none">
             <polygon
+              v-if="selectedCapture.mask_applied && selectedCapture.mask_polygon?.length"
+              :points="polyPoints(selectedCapture.mask_polygon)"
+              class="mask-result-poly"
+            />
+            <polygon
               v-for="(defect, defectIndex) in selectedCapture.defects"
               :key="defectIndex"
               :points="polyPoints(defect.polygon)"
               class="poly"
             />
           </svg>
+          <span v-if="selectedCapture.mask_applied && selectedCapture.mask_polygon?.length" class="mask-result-label">{{ t('inspection.maskApplied') }}</span>
         </div>
         <div v-if="selectedCapture.debug_frame_url" class="auto-crop-debug">
           <div class="debug-title">{{ t('inspection.debugCrop') }}</div>
@@ -608,6 +719,46 @@ function polyPoints(poly) {
   margin: 0 0 8px;
   color: var(--color-ink-muted);
   font-size: 14px;
+}
+
+.mask-stage-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.mask-stage-item {
+  padding: 12px;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-surface-1);
+}
+
+.mask-stage-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mask-stage-heading .btn-sm {
+  margin-left: auto;
+}
+
+.mask-stage-preview {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  margin-bottom: 12px;
+}
+
+.mask-stage-status,
+.mask-stage-error {
+  margin: 8px 0 0;
+  color: var(--color-ink-muted);
+}
+
+.mask-stage-error {
+  color: var(--color-error);
 }
 
 .row {
@@ -823,6 +974,23 @@ function polyPoints(poly) {
   fill: color-mix(in srgb, var(--color-error) 25%, transparent);
   stroke: var(--color-error);
   stroke-width: 2;
+}
+
+.mask-result-poly {
+  fill: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+
+.mask-result-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .selected-meta {
