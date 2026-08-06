@@ -110,8 +110,24 @@ vi.mock('../../api/batches.js', () => ({
 describe('InspectionCanvas edit dock', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.state.selected.value.mask_polygon = undefined
     mocks.state.selectedDefectId.value = null
     segmentDefect.mockResolvedValue({ polygon: [[1, 1], [20, 1], [20, 20]] })
+  })
+
+  it('renders a persisted processing mask in image coordinates', () => {
+    mocks.state.selected.value.mask_polygon = [[10, 20], [80, 20], [80, 70], [10, 70]]
+
+    const wrapper = mount(InspectionCanvas)
+
+    expect(wrapper.get('polygon.processing-mask').attributes('points')).toBe('10,20 80,20 80,70 10,70')
+    expect(wrapper.text()).toContain('Processing mask')
+  })
+
+  it('does not render a processing mask when the image has none', () => {
+    const wrapper = mount(InspectionCanvas)
+
+    expect(wrapper.find('polygon.processing-mask').exists()).toBe(false)
   })
 
   it('renders icon buttons with visible labels', () => {

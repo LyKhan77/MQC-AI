@@ -571,6 +571,19 @@ onUnmounted(() => {
           @dblclick.stop="finishDrawing"
         >
           <polygon
+            v-if="selected.mask_polygon?.length"
+            :points="pointsAttr(selected.mask_polygon)"
+            class="processing-mask"
+            aria-label="Processing mask"
+          />
+          <text
+            v-if="selected.mask_polygon?.length"
+            class="processing-mask-label"
+            x="8"
+            y="18"
+            aria-hidden="true"
+          >Processing mask</text>
+          <polygon
             v-for="d in selected.defects"
             :key="d.id"
             :points="polyPointsFor(d)"
@@ -875,6 +888,25 @@ onUnmounted(() => {
   pointer-events: auto;
   cursor: pointer;
   transition: fill-opacity 0.12s ease;
+}
+.processing-mask,
+.processing-mask-label {
+  pointer-events: none;
+}
+.processing-mask {
+  fill: var(--color-primary);
+  fill-opacity: 0.15;
+  stroke: var(--color-primary);
+  stroke-opacity: 0.7;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.processing-mask-label {
+  fill: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
 }
 .defect-poly.selected {
   stroke-linejoin: round;
