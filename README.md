@@ -21,7 +21,7 @@ Sistem ini menggunakan arsitektur *decoupled* yang dipisahkan menjadi 3 komponen
     → [Auto: Start/Stop Detection presence-cycle best-frame crop | Manual: Capture x N]
     → [Review & approve crop grid]
     → [Trigger: POST /api/batches dengan approved crop folder]
-    OR [Direct Inspection] Upload / server camera / mobile camera -> Detect Defects preview stack -> Send to QC Studio done batch with defects
+    OR [Direct Inspection] Stage upload(s) / server camera / mobile camera -> optional polygon mask -> Process QC preview stack -> Send to QC Studio done batch with defects
     OR [Media Detection] Stage upload(s) -> Run Test preview / Process uploaded media to crop review
     OR [Quantity Detection] Image upload / video frame / camera snapshot -> annotated canvas + filmstrip + crop evidence -> delete redundant crops if needed -> verify total verdict -> save check with persisted crop URLs -> optional Send to QC from Quantity History
     → [QC Studio: pending RAW image list/canvas + optional image delete]

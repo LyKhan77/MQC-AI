@@ -130,6 +130,35 @@ describe('DirectInspection', () => {
     expect(wrapper.find('.mask-result-poly').exists()).toBe(true)
   })
 
+  it('requires a changed mask to be finished again before processing it', async () => {
+    const polygon = [[1, 1], [30, 1], [1, 30]]
+    mocks.detectInspection.mockResolvedValue(sample())
+    const wrapper = mount(DirectInspection)
+    await stage(wrapper, [file('masked.png')])
+    await wrapper.find('.masking-toggle input').setValue(true)
+    const preview = wrapper.find('.mask-stage-preview')
+    Object.defineProperties(preview.element, { naturalWidth: { value: 40 }, naturalHeight: { value: 40 } })
+    await preview.trigger('load')
+    const editor = wrapper.findComponent({ name: 'MaskEditor' })
+    await editor.vm.$emit('finish', polygon)
+    await editor.vm.$emit('update:modelValue', [[1, 1], [20, 1]])
+
+    await processButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(mocks.detectInspection).toHaveBeenCalledWith(expect.not.objectContaining({ maskPolygon: expect.anything() }))
+    expect(wrapper.text()).toContain('inspection.maskValidation')
+  })
+
+  it('resets Auto-crop to Full frame when masking starts', async () => {
+    const wrapper = mount(DirectInspection)
+    await wrapper.findAll('.seg-btn').at(4).trigger('click')
+    await wrapper.find('.masking-toggle input').setValue(true)
+
+    expect(wrapper.findAll('.seg-btn').at(3).classes()).toContain('active')
+    expect(wrapper.findAll('.seg-btn').at(4).attributes('disabled')).toBeDefined()
+  })
+
   it('keeps a failed staged image available for retry', async () => {
     mocks.detectInspection
       .mockRejectedValueOnce(new Error('offline'))
@@ -201,8 +230,25 @@ describe('DirectInspection', () => {
     expect(mocks.inspectionToQc).not.toHaveBeenCalled()
   })
 
-  it('send to studio calls api with captures and routes to qc', async () => {
-    mocks.detectInspection.mockResolvedValue(sample('ins-9'))
+  it('disables staged removal and Send to QC while sequential processing is active', async () => {
+    let resolveSecond
+    mocks.detectInspection
+      .mockResolvedValueOnce(sample('ins-1'))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve }))
+    const wrapper = mount(DirectInspection)
+    await stage(wrapper, [file('first.png'), file('second.png')])
+    await processButton(wrapper).trigger('click')
+    await flushPromises()
+
+    expect(mocks.detectInspection).toHaveBeenCalledTimes(2)
+    expect(wrapper.findAll('.mask-stage-heading .btn-danger-sm').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.find('.footer-actions .btn-primary').attributes('disabled')).toBeDefined()
+    resolveSecond(sample('ins-2'))
+  })
+
+  it('send to studio preserves a finished mask in the qc handoff', async () => {
+    const maskPolygon = [[1, 1], [30, 1], [1, 30]]
+    mocks.detectInspection.mockResolvedValue({ ...sample('ins-9'), mask_polygon: maskPolygon, mask_applied: true })
     mocks.inspectionToQc.mockResolvedValue({ batch_id: 'batch-1' })
     const wrapper = mount(DirectInspection)
     await stage(wrapper, [file('a.png')])
@@ -211,7 +257,9 @@ describe('DirectInspection', () => {
     await wrapper.find('.footer-actions .btn-primary').trigger('click')
     await wrapper.find('dialog .btn-primary').trigger('click')
     await flushPromises()
-    expect(mocks.inspectionToQc).toHaveBeenCalledWith([{ key: 'ins-9', defects: [{ polygon: [[1, 1], [2, 2], [2, 1]] }] }])
+    expect(mocks.inspectionToQc).toHaveBeenCalledWith([{
+      key: 'ins-9', defects: [{ polygon: [[1, 1], [2, 2], [2, 1]] }], mask_polygon: maskPolygon,
+    }])
     expect(mocks.push).toHaveBeenCalledWith({ name: 'qc', query: { batch: 'batch-1' } })
   })
 })

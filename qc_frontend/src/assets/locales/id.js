@@ -161,6 +161,7 @@ export default {
     samEmpty: 'Bentuk tidak ditemukan - coba lagi.',
     reshapeHint: 'Seret titik untuk mengubah bentuk.',
     needThreePoints: 'Gambar minimal 3 titik.',
+    processingMask: 'Mask pemrosesan',
   },
 
   // Batch History

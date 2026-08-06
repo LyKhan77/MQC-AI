@@ -80,6 +80,7 @@ vi.mock('../../composables/useI18n.js', () => ({
       'qc.samEmpty': 'No shape found - try again.',
       'qc.reshapeHint': 'Drag a point to reshape.',
       'qc.needThreePoints': 'Draw at least 3 points.',
+      'qc.processingMask': 'Processing mask',
       'qc.selectImage': 'Select an image from batch...',
       'common.cancel': 'Cancel',
     }[key] ?? key),

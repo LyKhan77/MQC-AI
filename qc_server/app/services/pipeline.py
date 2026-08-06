@@ -1,4 +1,8 @@
 import os
+import tempfile
+
+import cv2
+import numpy as np
 
 from ..config import settings as app_settings
 from .. import storage
@@ -8,9 +12,10 @@ from . import job_queue
 from .inference.base import DefectClassSpec, get_strategy
 from .inference import mock  # noqa: F401  (registers "mock")
 from .inference import sam3  # noqa: F401  (registers "sam3_prompt")
+from .polygon_mask import polygon_has_overlap, prepare_polygon_roi, remap_polygon, validate_polygon
 
 
-def prepare_images(db, batch) -> int:
+def prepare_images(db, batch, commit=True) -> int:
     """Create raw (un-segmented) image rows for a batch's source folder."""
     files = storage.list_images(batch.source_path)
     for filename in files:
@@ -28,7 +33,10 @@ def prepare_images(db, batch) -> int:
             reviewed=False,
         ))
     batch.image_count = len(files)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return len(files)
 
 
@@ -67,7 +75,31 @@ def run_batch(batch_id: str, session_factory, confidence_override=None) -> None:
         total_defects = 0
         for image in images:
             path = storage.image_path(batch, image.filename)
-            detections = strategy.detect(path, image.width, image.height, specs, params)
+            if image.mask_polygon:
+                frame = cv2.imread(path)
+                if frame is None:
+                    raise ValueError(f"invalid source image: {image.filename}")
+                polygon = validate_polygon(image.mask_polygon, image.width, image.height)
+                roi, offset = prepare_polygon_roi(frame, polygon)
+                roi_mask = np.zeros(roi.shape[:2], dtype=np.uint8)
+                cv2.fillPoly(roi_mask, [np.asarray([[x - offset[0], y - offset[1]] for x, y in polygon], dtype=np.int32)], 255)
+                fd, roi_path = tempfile.mkstemp(suffix=".jpg")
+                os.close(fd)
+                try:
+                    if not cv2.imwrite(roi_path, roi):
+                        raise OSError("could not write mask ROI")
+                    detections = strategy.detect(roi_path, roi.shape[1], roi.shape[0], specs, params)
+                finally:
+                    if os.path.exists(roi_path):
+                        os.unlink(roi_path)
+                detections = [
+                    det for det in detections
+                    if polygon_has_overlap(det.polygon, roi_mask)
+                ]
+                for det in detections:
+                    det.polygon = remap_polygon(det.polygon, *offset)
+            else:
+                detections = strategy.detect(path, image.width, image.height, specs, params)
             image.defects.clear()
             image.reviewed = False
             for det in detections:

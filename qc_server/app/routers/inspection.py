@@ -238,20 +238,22 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     capture_keys = set()
 
     for capture in payload.captures:
-        key = capture.get("key") or ""
+        if not isinstance(capture, dict):
+            raise HTTPException(400, "invalid capture")
+        key = capture.get("key")
+        if not isinstance(key, str) or not key or Path(key).name != key:
+            raise HTTPException(400, "invalid capture key")
+        if key in capture_keys:
+            raise HTTPException(400, "duplicate capture key")
+        capture_keys.add(key)
         src_dir = (tmp_base / key).resolve()
         try:
             src_dir.relative_to(tmp_base)
         except ValueError:
-            continue
-        if src_dir == tmp_base:
-            continue
+            raise HTTPException(400, "invalid capture key")
         src = src_dir / "frame.jpg"
         if not src.is_file():
-            continue
-        if src_dir.name in capture_keys:
-            raise HTTPException(400, "duplicate capture key")
-        capture_keys.add(src_dir.name)
+            raise HTTPException(400, "capture source not found")
         mask_polygon = capture.get("mask_polygon")
         if mask_polygon is not None:
             frame = cv2.imread(str(src))
@@ -266,53 +268,69 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     if not captures:
         raise HTTPException(400, "no captures to send")
 
-    dest = os.path.join(app_settings.data_dir, "batches", batch_id)
-    os.makedirs(dest, exist_ok=True)
+    dest = Path(app_settings.data_dir, "batches", batch_id)
     defects_by_key = {}
     masks_by_key = {}
+    moved = []
+    dest_created = False
+    try:
+        dest.mkdir(parents=True)
+        dest_created = True
+        for src_dir, capture, mask_polygon in captures:
+            src = src_dir / "frame.jpg"
+            moved_path = dest / f"{src_dir.name}.jpg"
+            shutil.move(str(src), str(moved_path))
+            moved.append((src, moved_path))
+            defects_by_key[src_dir.name] = capture.get("defects") or []
+            masks_by_key[src_dir.name] = mask_polygon
 
-    for src_dir, capture, mask_polygon in captures:
-        src = src_dir / "frame.jpg"
-        shutil.move(str(src), os.path.join(dest, f"{src_dir.name}.jpg"))
-        shutil.rmtree(str(src_dir), ignore_errors=True)
-        defects_by_key[src_dir.name] = capture.get("defects") or []
-        masks_by_key[src_dir.name] = mask_polygon
-
-    setting = get_or_create_setting(db)
-    batch = Batch(
-        id=batch_id,
-        name=f"direct_{batch_id[-6:]}",
-        source_path=dest,
-        camera_id=None,
-        created_at=now_iso(),
-        status="done",
-        model_info={
-            "detection": setting.detection_model,
-            "segmentation": setting.segmentation_model,
-            "confidence": setting.confidence_threshold,
-            "strategy": setting.defect_strategy,
-        },
-    )
-    db.add(batch)
-    db.commit()
-    prepare_images(db, batch)
-    defect_count = 0
-    for image in db.query(Image).filter(Image.batch_id == batch.id).all():
-        key = os.path.splitext(image.filename)[0]
-        defects = defects_by_key.get(key, [])
-        image.mask_polygon = masks_by_key.get(key)
-        for item in defects:
-            db.add(Defect(
-                id=gen_id("d"),
-                image_id=image.id,
-                type=item.get("type", ""),
-                category=item.get("category", ""),
-                confidence=float(item.get("confidence", 0)),
-                polygon=item.get("polygon", []),
-            ))
-        image.status = "defect" if defects else "clean"
-        defect_count += len(defects)
-    batch.defect_count = defect_count
-    db.commit()
-    storage.write_result_json(db, batch)
+        setting = get_or_create_setting(db)
+        batch = Batch(
+            id=batch_id,
+            name=f"direct_{batch_id[-6:]}",
+            source_path=str(dest),
+            camera_id=None,
+            created_at=now_iso(),
+            status="done",
+            model_info={
+                "detection": setting.detection_model,
+                "segmentation": setting.segmentation_model,
+                "confidence": setting.confidence_threshold,
+                "strategy": setting.defect_strategy,
+            },
+        )
+        db.add(batch)
+        db.flush()
+        prepare_images(db, batch, commit=False)
+        defect_count = 0
+        for image in db.query(Image).filter(Image.batch_id == batch.id).all():
+            key = os.path.splitext(image.filename)[0]
+            defects = defects_by_key.get(key, [])
+            image.mask_polygon = masks_by_key.get(key)
+            for item in defects:
+                db.add(Defect(
+                    id=gen_id("d"),
+                    image_id=image.id,
+                    type=item.get("type", ""),
+                    category=item.get("category", ""),
+                    confidence=float(item.get("confidence", 0)),
+                    polygon=item.get("polygon", []),
+                ))
+            image.status = "defect" if defects else "clean"
+            defect_count += len(defects)
+        batch.defect_count = defect_count
+        db.flush()
+        storage.write_result_json(db, batch)
+        db.commit()
+    except Exception:
+        db.rollback()
+        for src, moved_path in reversed(moved):
+            if moved_path.exists():
+                src.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(moved_path), str(src))
+        if dest_created:
+            shutil.rmtree(dest, ignore_errors=True)
+        raise
+    for src_dir, _, _ in captures:
+        shutil.rmtree(src_dir, ignore_errors=True)
     return {"batch_id": batch_id}

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import { toImageCoords } from '../utils/canvasCoords.js'
+import { useI18n } from '../composables/useI18n.js'
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -12,6 +13,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'finish', 'clear'])
+const { t } = useI18n()
 const points = ref(props.modelValue.map(([x, y]) => [x, y]))
 
 watch(() => props.modelValue, (value) => {
@@ -88,10 +90,10 @@ function clear() {
       />
     </svg>
 
-    <div class="mask-actions" aria-label="Mask controls">
-      <button type="button" data-testid="mask-finish" :disabled="disabled || points.length < 3" @click="finish">Finish</button>
-      <button type="button" data-testid="mask-undo" :disabled="disabled || !points.length" @click="undo">Undo</button>
-      <button type="button" data-testid="mask-clear" :disabled="disabled || !points.length" @click="clear">Clear</button>
+    <div class="mask-actions" :aria-label="t('inspection.masking')">
+      <button type="button" data-testid="mask-finish" :disabled="disabled || points.length < 3" @click="finish">{{ t('inspection.finish') }}</button>
+      <button type="button" data-testid="mask-undo" :disabled="disabled || !points.length" @click="undo">{{ t('inspection.undo') }}</button>
+      <button type="button" data-testid="mask-clear" :disabled="disabled || !points.length" @click="clear">{{ t('inspection.clear') }}</button>
     </div>
   </div>
 </template>

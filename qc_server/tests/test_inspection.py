@@ -274,6 +274,49 @@ def test_to_qc_rejects_malformed_or_invalid_mask_before_moving_capture(client):
     assert client.get(invalid["frame_url"]).status_code == 200
 
 
+def test_to_qc_rejects_mixed_valid_and_missing_captures_without_moving_valid(client):
+    valid = client.post(
+        "/api/inspection/detect",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+
+    response = client.post(
+        "/api/inspection/to-qc",
+        json={"captures": [
+            {"key": valid["key"], "defects": []},
+            {"key": "ins-missing", "defects": []},
+        ]},
+    )
+
+    assert response.status_code == 400
+    assert client.get(valid["frame_url"]).status_code == 200
+
+
+def test_to_qc_restores_captures_when_result_persistence_fails(client, monkeypatch):
+    first = client.post(
+        "/api/inspection/detect",
+        files={"file": ("first.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+    second = client.post(
+        "/api/inspection/detect",
+        files={"file": ("second.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+    monkeypatch.setattr(inspection.storage, "write_result_json", lambda *_: (_ for _ in ()).throw(OSError("disk full")))
+    raise_server_exceptions = client._transport.raise_server_exceptions
+    client._transport.raise_server_exceptions = False
+    try:
+        response = client.post(
+            "/api/inspection/to-qc",
+            json={"captures": [{"key": first["key"], "defects": []}, {"key": second["key"], "defects": []}]},
+        )
+    finally:
+        client._transport.raise_server_exceptions = raise_server_exceptions
+
+    assert response.status_code == 500
+    assert client.get(first["frame_url"]).status_code == 200
+    assert client.get(second["frame_url"]).status_code == 200
+
+
 def test_to_qc_rejects_duplicate_capture_before_moving_it(client):
     detected = client.post(
         "/api/inspection/detect",

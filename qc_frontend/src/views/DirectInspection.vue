@@ -56,6 +56,7 @@ const allCropsReady = computed(() => stack.value.every((item) => (
 )))
 const liveOverlayActive = computed(() => liveOverlayEnabled.value && cropMode.value === 'auto')
 const stagedPending = computed(() => staged.value.some((item) => item.status !== 'done'))
+const stagedProcessing = computed(() => staged.value.some((item) => item.status === 'processing'))
 
 let statusTimer = null
 onMounted(() => {
@@ -105,6 +106,7 @@ function setStageSize(item, event) {
 }
 
 function toggleMasking() {
+  if (masking.value) setCropMode('full')
   staged.value.forEach((item) => {
     item.maskStatus = masking.value ? 'editing' : 'none'
     if (!masking.value) item.maskPolygon = []
@@ -119,6 +121,11 @@ function finishMask(item, polygon) {
   item.maskPolygon = polygon
   item.maskStatus = 'ready'
   item.error = ''
+}
+
+function updateMask(item, polygon) {
+  item.maskPolygon = polygon
+  if (masking.value) item.maskStatus = 'editing'
 }
 
 function clearMask(item) {
@@ -401,7 +408,7 @@ function polyPoints(poly) {
             <div class="mask-stage-heading">
               <strong>{{ item.file.name }}</strong>
               <span class="mono">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
-              <button class="btn-sm btn-danger-sm" :disabled="item.status === 'processing'" @click="removeStage(index)">{{ t('inspection.removeCapture') }}</button>
+              <button class="btn-sm btn-danger-sm" :disabled="stagedProcessing" @click="removeStage(index)">{{ t('inspection.removeCapture') }}</button>
             </div>
             <img class="mask-stage-preview" :src="item.previewUrl" :alt="item.file.name" @load="setStageSize(item, $event)" />
             <MaskEditor
@@ -410,8 +417,8 @@ function polyPoints(poly) {
               :width="item.width"
               :height="item.height"
               :model-value="item.maskPolygon"
-              :disabled="item.status === 'processing' || item.status === 'done'"
-              @update:model-value="item.maskPolygon = $event"
+              :disabled="stagedProcessing || item.status === 'done'"
+              @update:model-value="updateMask(item, $event)"
               @finish="finishMask(item, $event)"
               @clear="clearMask(item)"
             />

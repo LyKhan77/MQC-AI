@@ -574,7 +574,7 @@ onUnmounted(() => {
             v-if="selected.mask_polygon?.length"
             :points="pointsAttr(selected.mask_polygon)"
             class="processing-mask"
-            aria-label="Processing mask"
+            :aria-label="t('qc.processingMask')"
           />
           <text
             v-if="selected.mask_polygon?.length"
@@ -582,7 +582,7 @@ onUnmounted(() => {
             x="8"
             y="18"
             aria-hidden="true"
-          >Processing mask</text>
+          >{{ t('qc.processingMask') }}</text>
           <polygon
             v-for="d in selected.defects"
             :key="d.id"

@@ -155,6 +155,7 @@ export default {
     samEmpty: 'No shape found - try again.',
     reshapeHint: 'Drag a point to reshape.',
     needThreePoints: 'Draw at least 3 points.',
+    processingMask: 'Processing mask',
   },
 
   batches: {

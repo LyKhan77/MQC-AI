@@ -48,3 +48,10 @@ def test_polygon_has_overlap_detects_candidate_inside_mask():
     cv2.rectangle(mask, (5, 5), (10, 10), 255, -1)
     assert polygon_has_overlap([[6, 6], [8, 6], [8, 8]], mask)
     assert not polygon_has_overlap([[0, 0], [2, 0], [2, 2]], mask)
+
+
+def test_polygon_has_overlap_rejects_candidate_with_only_tiny_intersection():
+    mask = np.zeros((40, 40), dtype=np.uint8)
+    cv2.rectangle(mask, (20, 20), (30, 30), 255, -1)
+
+    assert not polygon_has_overlap([[0, 0], [21, 20], [0, 21]], mask)

@@ -56,4 +56,6 @@ def polygon_has_overlap(candidate, mask) -> bool:
     points = validate_polygon(candidate, width, height)
     candidate_mask = np.zeros((height, width), dtype=np.uint8)
     cv2.fillPoly(candidate_mask, [np.asarray(points, dtype=np.int32)], 255)
-    return bool(np.any((mask != 0) & (candidate_mask != 0)))
+    candidate_area = np.count_nonzero(candidate_mask)
+    intersection = np.count_nonzero((mask != 0) & (candidate_mask != 0))
+    return intersection / candidate_area >= 0.5
