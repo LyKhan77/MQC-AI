@@ -178,6 +178,7 @@ class ImageOut(BaseModel):
     height: int
     status: str
     reviewed: bool
+    mask_polygon: list | None
     defects: list[DefectOut]
 
 

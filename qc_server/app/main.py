@@ -37,6 +37,7 @@ def on_startup():
     from .database import SessionLocal, ensure_active_model_column, ensure_column
     from .services.seed import seed_if_empty
     Base.metadata.create_all(engine)
+    ensure_column(engine, "images", "mask_polygon", "JSON")
     ensure_active_model_column(engine)
     ensure_column(engine, "settings", "input_mode_enabled", "BOOLEAN DEFAULT 1")
     ensure_column(engine, "settings", "qc_model", "VARCHAR DEFAULT ''")

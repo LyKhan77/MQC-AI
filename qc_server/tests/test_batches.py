@@ -2,6 +2,9 @@ import os
 
 from PIL import Image as PILImage
 
+from app.database import SessionLocal
+from app.models import Image
+
 
 def _make_crops(folder):
     os.makedirs(folder, exist_ok=True)
@@ -56,6 +59,20 @@ def test_run_processes_and_returns_result(client, tmp_path):
     clean = next(i for i in result["images"] if i["filename"] == "clean_0003.jpg")
     assert clean["status"] == "clean"
     assert clean["defects"] == []
+
+
+def test_batch_result_includes_persisted_mask_polygon(client, tmp_path):
+    folder = _make_crops(str(tmp_path / "crops"))
+    batch_id = _submit(client, folder, "Masked")
+    polygon = [[10, 10], [30, 10], [20, 30]]
+
+    with SessionLocal() as db:
+        image = db.query(Image).filter(Image.batch_id == batch_id).first()
+        image.mask_polygon = polygon
+        db.commit()
+
+    result = client.get(f"/api/batches/{batch_id}").json()
+    assert result["images"][0]["mask_polygon"] == polygon
 
 
 def test_rerun_allowed_after_done(client, tmp_path):

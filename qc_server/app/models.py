@@ -81,6 +81,7 @@ class Image(Base):
     height: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String, default="clean")
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    mask_polygon: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
     defects: Mapped[list["Defect"]] = relationship(
         back_populates="image", cascade="all, delete-orphan"
     )

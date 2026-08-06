@@ -41,6 +41,7 @@ def write_result_json(db, batch) -> str:
                 "width": im.width,
                 "height": im.height,
                 "status": im.status,
+                "mask_polygon": im.mask_polygon,
                 "defects": [
                     {
                         "id": d.id,
