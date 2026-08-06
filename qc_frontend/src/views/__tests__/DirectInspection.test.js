@@ -199,6 +199,21 @@ describe('DirectInspection', () => {
     expect(wrapper.findAll('.capture-thumb')).toHaveLength(1)
   })
 
+  it('marks a failed staged thumbnail while retry remains available', async () => {
+    mocks.detectInspection
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(sample())
+    const wrapper = mount(DirectInspection)
+    await stage(wrapper, [file('failed.png'), file('done.png')])
+    await processButton(wrapper).trigger('click')
+    await flushPromises()
+
+    const thumbnails = wrapper.findAll('.mask-stage-thumb')
+    expect(thumbnails).toHaveLength(2)
+    expect(thumbnails[0].find('.mask-stage-thumb-status').text()).toBe('inspection.processingError')
+    expect(processButton(wrapper).attributes('disabled')).toBeUndefined()
+  })
+
   it('keeps server camera capture on the existing immediate-detect path', async () => {
     mocks.detectInspection.mockResolvedValue(sample())
     const wrapper = mount(DirectInspection)

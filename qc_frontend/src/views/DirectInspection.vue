@@ -427,7 +427,7 @@ function polyPoints(poly) {
               @click="selectStage(item.id)"
             >
               <img class="mask-stage-preview" :src="item.previewUrl" :alt="item.file.name" @load="setStageSize(item, $event)" />
-              <span class="mask-stage-thumb-status">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
+              <span class="mask-stage-thumb-status" :class="{ error: item.status === 'error' }">{{ item.status === 'processing' ? t('inspection.processing') : item.status === 'error' ? t('inspection.processingError') : item.status === 'done' ? t('inspection.processed') : item.maskStatus === 'ready' ? t('inspection.maskReady') : t('inspection.fullFrame') }}</span>
             </button>
           </div>
           <section v-if="selectedStage" class="mask-stage-item">
@@ -797,6 +797,10 @@ function polyPoints(poly) {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mask-stage-thumb-status.error {
+  background: var(--color-error);
 }
 
 .mask-stage-item {

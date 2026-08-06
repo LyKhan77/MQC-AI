@@ -43,3 +43,34 @@ Complete.
 ## Concerns
 
 None. Large source images scroll inside the bounded editor viewport by design; the editor action row remains sticky inside it.
+
+---
+
+## Fix Round 1 — Failed thumbnail status
+
+### Status
+
+Complete.
+
+### Commit
+
+`fix: show failed Direct Inspection thumbnails`
+
+### Changed files
+
+- `qc_frontend/src/views/DirectInspection.vue`
+  - Failed staged thumbnails now show the existing localized `inspection.processingError` text and use `--color-error`.
+- `qc_frontend/src/views/__tests__/DirectInspection.test.js`
+  - Added a mixed-batch regression assertion: a failed thumbnail remains visibly marked while retry stays enabled.
+
+### Covering test commands and output
+
+1. `npm test -- src/views/__tests__/DirectInspection.test.js`
+   - RED: `1 failed | 13 passed (14)`; expected `inspection.processingError`, received `inspection.fullFrame`.
+   - Final: `Test Files 1 passed (1)` and `Tests 14 passed (14)`.
+2. `npm run build`
+   - Final: `vite v8.1.0`, `322 modules transformed`, `built in 2.24s`.
+
+### Concerns
+
+None. The label uses an existing translation key and the failed staged item retains its existing retry path.
