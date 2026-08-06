@@ -251,6 +251,29 @@ def test_to_qc_persists_capture_mask_polygon(client, monkeypatch):
     assert image["mask_polygon"] == polygon
 
 
+def test_to_qc_rejects_malformed_or_invalid_mask_before_moving_capture(client):
+    valid = client.post(
+        "/api/inspection/detect",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+    invalid = client.post(
+        "/api/inspection/detect",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+
+    for mask_polygon in ("bad", [[1, 1], [2, 2]]):
+        response = client.post(
+            "/api/inspection/to-qc",
+            json={"captures": [
+                {"key": valid["key"], "defects": []},
+                {"key": invalid["key"], "defects": [], "mask_polygon": mask_polygon},
+            ]},
+        )
+        assert response.status_code == 400
+    assert client.get(valid["frame_url"]).status_code == 200
+    assert client.get(invalid["frame_url"]).status_code == 200
+
+
 def test_to_qc_rejects_empty(client):
     assert client.post("/api/inspection/to-qc", json={"captures": []}).status_code == 400
 

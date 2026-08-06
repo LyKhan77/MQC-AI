@@ -234,15 +234,11 @@ class ToQcIn(BaseModel):
 def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     tmp_base = _tmp_base()
     batch_id = gen_id("batch")
-    dest = os.path.join(app_settings.data_dir, "batches", batch_id)
-    os.makedirs(dest, exist_ok=True)
-    count = 0
-    defects_by_key = {}
-    masks_by_key = {}
+    captures = []
 
     for capture in payload.captures:
         key = capture.get("key") or ""
-        src_dir = (tmp_base / (key or "")).resolve()
+        src_dir = (tmp_base / key).resolve()
         try:
             src_dir.relative_to(tmp_base)
         except ValueError:
@@ -250,16 +246,33 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
         if src_dir == tmp_base:
             continue
         src = src_dir / "frame.jpg"
-        if src.is_file():
-            shutil.move(str(src), os.path.join(dest, f"{src_dir.name}.jpg"))
-            shutil.rmtree(str(src_dir), ignore_errors=True)
-            count += 1
-            defects_by_key[src_dir.name] = capture.get("defects") or []
-            masks_by_key[src_dir.name] = capture.get("mask_polygon")
+        if not src.is_file():
+            continue
+        mask_polygon = capture.get("mask_polygon")
+        if mask_polygon is not None:
+            frame = cv2.imread(str(src))
+            if frame is None:
+                raise HTTPException(400, "invalid capture frame")
+            try:
+                mask_polygon = validate_polygon(mask_polygon, frame.shape[1], frame.shape[0])
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+        captures.append((src_dir, capture, mask_polygon))
 
-    if count == 0:
-        shutil.rmtree(dest, ignore_errors=True)
+    if not captures:
         raise HTTPException(400, "no captures to send")
+
+    dest = os.path.join(app_settings.data_dir, "batches", batch_id)
+    os.makedirs(dest, exist_ok=True)
+    defects_by_key = {}
+    masks_by_key = {}
+
+    for src_dir, capture, mask_polygon in captures:
+        src = src_dir / "frame.jpg"
+        shutil.move(str(src), os.path.join(dest, f"{src_dir.name}.jpg"))
+        shutil.rmtree(str(src_dir), ignore_errors=True)
+        defects_by_key[src_dir.name] = capture.get("defects") or []
+        masks_by_key[src_dir.name] = mask_polygon
 
     setting = get_or_create_setting(db)
     batch = Batch(
