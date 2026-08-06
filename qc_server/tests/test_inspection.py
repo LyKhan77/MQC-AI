@@ -274,6 +274,29 @@ def test_to_qc_rejects_malformed_or_invalid_mask_before_moving_capture(client):
     assert client.get(invalid["frame_url"]).status_code == 200
 
 
+def test_to_qc_rejects_duplicate_capture_before_moving_it(client):
+    detected = client.post(
+        "/api/inspection/detect",
+        files={"file": ("part.png", io.BytesIO(_png_bytes()), "image/png")},
+    ).json()
+
+    raise_server_exceptions = client._transport.raise_server_exceptions
+    client._transport.raise_server_exceptions = False
+    try:
+        response = client.post(
+            "/api/inspection/to-qc",
+            json={"captures": [
+                {"key": detected["key"], "defects": []},
+                {"key": detected["key"], "defects": []},
+            ]},
+        )
+    finally:
+        client._transport.raise_server_exceptions = raise_server_exceptions
+
+    assert response.status_code == 400
+    assert client.get(detected["frame_url"]).status_code == 200
+
+
 def test_to_qc_rejects_empty(client):
     assert client.post("/api/inspection/to-qc", json={"captures": []}).status_code == 400
 

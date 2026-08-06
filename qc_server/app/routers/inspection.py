@@ -235,6 +235,7 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
     tmp_base = _tmp_base()
     batch_id = gen_id("batch")
     captures = []
+    capture_keys = set()
 
     for capture in payload.captures:
         key = capture.get("key") or ""
@@ -248,6 +249,9 @@ def inspection_to_qc(payload: ToQcIn, db: Session = Depends(get_db)):
         src = src_dir / "frame.jpg"
         if not src.is_file():
             continue
+        if src_dir.name in capture_keys:
+            raise HTTPException(400, "duplicate capture key")
+        capture_keys.add(src_dir.name)
         mask_polygon = capture.get("mask_polygon")
         if mask_polygon is not None:
             frame = cv2.imread(str(src))
