@@ -11,6 +11,24 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-07 - Inspect Measurement Live Camera and Proper Roadmap
+
+### Added
+
+- Proper-version PRD at `docs/PRD/Features/inspect-measurement-proper.md` covering dynamic views, QC Station calibration, source-of-truth recipes, advanced geometry, accuracy validation, and future AI assistance.
+- Prototype input contract now includes Live Camera preview plus one-shot trigger capture; captured frames use the same measurement pipeline as uploaded images.
+
+### Changed
+
+- Prototype scope excludes Mobile Camera, continuous live measurement, multi-view sessions, and 3D measurement while retaining the future roadmap context.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Inspect Measurement input | 2026-08-07 | Prototype was upload-image only | Prototype contract now supports upload or Live Camera trigger capture; production implementation is still pending. |
+| Inspect Measurement proper roadmap | 2026-08-07 | Future decisions were distributed across discussion and prototype notes | Proper-version PRD preserves session, dynamic views, station calibration, drawing recipe, 3D strategy, governance, and upgrade phases. |
+
 ## [Unreleased] - 2026-08-07 - Inspect Measurement Milestone Tracking
 
 ### Added

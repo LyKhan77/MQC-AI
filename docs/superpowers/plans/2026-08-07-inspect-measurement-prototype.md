@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver a one-image, one-side, semi-automatic measurement workflow: upload → calibrate → process → review edge candidates → set per-item tolerance → evaluate → save/history/audit.
+**Goal:** Deliver a one-image/one-frame, one-side, semi-automatic measurement workflow: upload or Live Camera trigger → calibrate → process → review edge candidates → set per-item tolerance → evaluate → save/history/audit.
 
 **Architecture:** Keep measurement logic server-side in a small OpenCV service. Use the existing Vue API client, Carbon layout, SQLite/SQLAlchemy, file storage, and audit router. Store one prototype run with measurement items in a JSON column; avoid a separate measurement-item table until real recipe/versioning requires relational queries.
 
@@ -10,9 +10,9 @@
 
 ## Global Constraints
 
-- Prototype input is image upload only.
+- Prototype input is image upload or one-shot Live Camera capture.
 - One image represents one inspected side.
-- No CAD/PDF parser, camera capture, multi-view session, 3D inference, trained model, or new dependency.
+- No CAD/PDF parser, Mobile Camera, continuous live measurement, multi-view session, 3D inference, trained model, or new dependency.
 - Calibration is required before a trustworthy mm result.
 - OpenCV returns candidates; inspector confirms/corrects geometry.
 - Default tolerance is `±2.0 mm` for linear items and `±0.5°` for angle items.
@@ -69,14 +69,14 @@
 - Create: `qc_server/tests/test_measurements.py`
 
 **Interfaces:**
-- `POST /api/measurements/process` — multipart image + calibration/options; returns image metadata, candidates, calibration, and readiness.
+- `POST /api/measurements/process` — multipart `file` or `camera_id` + calibration/options; returns image metadata, source type, candidates, calibration, and readiness. Reuse existing camera registry and `grab_one()` path.
 - `POST /api/measurements` — saves a named evaluated run.
 - `GET /api/measurements` — lists saved runs newest first with summary fields.
 - `GET /api/measurements/{run_id}` — returns complete run detail.
 - `DELETE /api/measurements/{run_id}` — deletes run metadata and owned source file.
 - `GET /api/measurements/files/{run_id}/{filename}` — serves contained source image.
 
-- [ ] Add failing API tests for invalid image, process response, missing calibration, save, list, detail, delete, file serving, and path containment.
+- [ ] Add failing API tests for invalid image, missing camera, unavailable camera frame, upload process response, Live Camera process response, missing calibration, save, list, detail, delete, file serving, and path containment.
 - [ ] Add `MeasurementRun` with manual name, timestamps, source metadata, calibration JSON, items JSON, summary verdict, and processing metadata.
 - [ ] Add startup directory creation and lightweight `ensure_column` migration if needed by existing SQLite databases.
 - [ ] Store uploaded source image under a measurement-owned directory; sanitize filenames and reject traversal.
@@ -123,10 +123,10 @@
 
 - [ ] Write component tests for upload state, required calibration guard, process call, candidate rendering, and error state.
 - [ ] Add a single Measurement Studio page using existing Carbon CSS variables and flat geometry.
-- [ ] Add manual run name input and image upload/dropzone.
+- [ ] Add manual run name input, image upload/dropzone, Live Camera selector, existing MJPEG preview, and `Trigger capture` action.
 - [ ] Add calibration overlay with two draggable/clickable points and known-length input.
 - [ ] Add center canvas using native SVG overlay; render candidate lines, selected geometry, calibration line, labels, and confidence/readiness state.
-- [ ] Add explicit `Process measurement` action; show server result and preserve original image.
+- [ ] Add explicit `Process measurement` action; show server result and preserve original image/frame plus source type.
 - [ ] Allow inspector to select a candidate, add a manual measurement item, and adjust endpoints.
 - [ ] Add keyboard focus, visible focus states, and reduced-motion-safe feedback.
 - [ ] Add bilingual labels for all new UI text.
@@ -169,6 +169,7 @@
 - Create or retain test fixtures under `qc_server/tests/fixtures/measurement/` only when small and necessary.
 
 - [ ] Test `temp/output-bending_gpt.png` through the browser workflow.
+- [ ] Mock a registered Live Camera, trigger one frame, and run that frame through the same process/evaluate/save flow.
 - [ ] Test at least one known-scale planar sample, one rotated sample, one glare/noise sample, and one invalid-calibration sample.
 - [ ] Record absolute error and repeatability; report result as evidence, not a claimed production guarantee.
 - [ ] Run from `qc_server/`: `.\.venv\Scripts\python.exe -m pytest -v`.

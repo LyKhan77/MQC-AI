@@ -21,6 +21,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | Feature PRD | `DONE` | `docs/PRD/Features/inspect-measurement-prototype.md` | Scope, constraints, acceptance criteria, dan risk sudah ditulis. |
 | Implementation plan | `DONE` | `docs/superpowers/plans/2026-08-07-inspect-measurement-prototype.md` | Task backend, frontend, test, dan verification sudah dipecah. |
 | Standalone HTML demo | `DONE` | `temp/measurement-studio-demo.html` | Demo visual saja; bukan production measurement engine. |
+| Prototype Live Camera contract | `DONE` | Prototype PRD + implementation plan | Preview + one-shot trigger capture ditambahkan; continuous measurement tetap di luar scope. |
 | Production measurement backend | `PLANNED` | — | Belum ada service/API measurement. |
 | Production Measurement Studio route | `PLANNED` | — | Belum ada route `/measurement`. |
 | History + Audit integration | `PLANNED` | — | Belum ada `MeasurementRun` persistence. |
@@ -35,7 +36,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | M0 | Contract & calibration | `DONE` | `PLANNED` | Data shape, status rules, manual scale, dan synthetic fixtures disetujui serta diuji. |
 | M1 | OpenCV measurement kernel | `DONE` | `PLANNED` | Service mengembalikan candidate edge, px-to-mm, geometry, confidence, dan `REVIEW` gate. |
 | M2 | Backend vertical slice | `DONE` | `PLANNED` | Process → save → list/detail → delete berjalan melalui API dan TestClient. |
-| M3 | Measurement Studio input/process | `DONE` | `PLANNED` | Inspector upload image, calibration, process, dan melihat overlay candidate. |
+| M3 | Measurement Studio input/process | `DONE` | `PLANNED` | Inspector upload atau trigger Live Camera, calibration, process, dan melihat overlay candidate. |
 | M4 | Tolerance & evaluate | `DONE` | `PLANNED` | Tolerance per item mengubah min/max/deviation/status dan summary. |
 | M5 | History & audit UX | `DONE` | `PLANNED` | Saved run dapat dicari, dibuka kembali, dihapus dengan confirmation, dan tercatat di audit. |
 | M6 | Accuracy gate | `DONE` | `PLANNED` | Reference sample, repeatability, failure cases, dan error report tersedia. |
@@ -71,6 +72,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 
 - [ ] Route `/measurement` tersedia.
 - [ ] Upload/dropzone dan manual run name berjalan.
+- [ ] Live Camera selector, preview, dan one-shot trigger capture berjalan.
 - [ ] Calibration overlay berjalan.
 - [ ] Candidate line dan selected geometry terlihat di canvas.
 - [ ] Processing/error state jelas bagi inspector.
