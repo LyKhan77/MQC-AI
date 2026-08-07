@@ -224,6 +224,8 @@ Estimasi untuk satu developer yang sudah memahami codebase. Milestone dapat berj
 
 **Total prototype:** sekitar 10–14 hari kerja, belum termasuk hardware QC Station dan source-of-truth drawing integration.
 
+Tracking implementasi tersedia di [`inspect-measurement-prototype-milestones.md`](./inspect-measurement-prototype-milestones.md). Dokumen tersebut menjadi checkpoint hidup: milestone hanya boleh berstatus `DONE` jika evidence implementasi dan verification tersedia.
+
 ## 12. Acceptance criteria
 
 - [ ] Satu image dapat diproses tanpa trained model.

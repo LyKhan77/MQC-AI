@@ -11,6 +11,19 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-07 - Inspect Measurement Milestone Tracking
+
+### Added
+
+- Living milestone tracker at `docs/PRD/Features/inspect-measurement-prototype-milestones.md` with current implementation boundary, exit checkpoints, verification requirements, and progress log.
+- Inspect Measurement prototype PRD now links to the milestone tracker.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Inspect Measurement milestone tracking | 2026-08-07 | PRD and implementation plan existed without implementation checkpoint tracking | Documentation/demo status is separated from production implementation status; M0–M6 can be updated with evidence. |
+
 ## [Unreleased] - 2026-08-07 - Inspect Measurement Prototype Definition
 
 ### Added
