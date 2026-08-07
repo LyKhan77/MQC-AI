@@ -11,6 +11,19 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-07 - Inspect Measurement Prototype Definition
+
+### Added
+
+- Feature PRD at `docs/PRD/Features/inspect-measurement-prototype.md` for the one-image, one-side Inspect Measurement prototype: manual calibration, OpenCV edge candidates, per-item nominal/tolerance, `PASS`/`FAIL`/`REVIEW` evaluation, History, and Audit Log.
+- Task-level implementation plan at `docs/superpowers/plans/2026-08-07-inspect-measurement-prototype.md`.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Defined | After the Change |
+|---|---|---|---|
+| Inspect Measurement prototype | 2026-08-07 | Measurement concept existed as a broad future workflow | Prototype scope, exclusions, calibration rules, OpenCV approach, tolerance semantics, acceptance criteria, and milestones are documented; implementation is not started. |
+
 ## [Unreleased] - 2026-08-06 - Direct Inspection Polygon Masking
 
 ### Added
