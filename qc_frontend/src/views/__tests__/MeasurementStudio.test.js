@@ -94,6 +94,14 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.measurement-canvas-panel').classes()).not.toContain('scroll-region')
   })
 
+  it('keeps the left input rail scrollable when Input content grows', () => {
+    const wrapper = mount(MeasurementStudio)
+
+    expect(wrapper.find('.measurement-rail-body').classes()).toContain('scroll-region')
+    expect(wrapper.find('.measurement-rail-body').find('.source-tabs').exists()).toBe(true)
+    expect(wrapper.find('.history-section').classes()).toContain('scroll-region')
+  })
+
   it('processes an uploaded image and renders candidate edges', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)

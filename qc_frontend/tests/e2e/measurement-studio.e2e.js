@@ -114,12 +114,13 @@ test('keeps Studio scrolling inside History and measurement items', async ({ pag
 
   const overflow = await page.evaluate(() => Object.fromEntries([
     ['page', '.measurement-page'],
+    ['railBody', '.measurement-rail-body'],
     ['history', '.history-section'],
     ['items', '.items-section'],
     ['canvas', '.measurement-canvas-panel'],
   ].map(([key, selector]) => [key, getComputedStyle(document.querySelector(selector)).overflowY])))
 
-  expect(overflow).toEqual({ page: 'hidden', history: 'auto', items: 'auto', canvas: 'hidden' })
+  expect(overflow).toEqual({ page: 'hidden', railBody: 'auto', history: 'auto', items: 'auto', canvas: 'hidden' })
 })
 
 
@@ -144,6 +145,7 @@ test('keeps measurement overlay aligned while zooming the canvas', async ({ page
   })
   expect(bounds.overlay.width).toBeCloseTo(bounds.image.width, 0)
   expect(bounds.overlay.height).toBeCloseTo(bounds.image.height, 0)
+  await expect(frame.locator('.measurement-line').first()).toHaveCSS('stroke-width', '3px')
   await expect(page.locator('.measurement-zoom-value')).toHaveText('100%')
 
   await page.locator('.measurement-zoom-in').click()

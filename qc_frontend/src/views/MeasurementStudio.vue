@@ -366,6 +366,7 @@ onBeforeUnmount(stopMobileCamera)
 
     <div class="measurement-studio">
       <aside class="measurement-rail">
+        <div class="measurement-rail-body scroll-region">
         <section class="rail-section">
           <div class="section-kicker">01 / {{ t('measurement.input') }}</div>
           <div class="source-tabs">
@@ -436,6 +437,7 @@ onBeforeUnmount(stopMobileCamera)
             <strong>{{ processed?.calibration?.mm_per_pixel?.toFixed?.(4) || '—' }} mm/px</strong>
           </div>
         </section>
+        </div>
 
         <section class="rail-section history-section scroll-region">
           <div class="section-kicker">{{ t('measurement.history') }}</div>
@@ -658,8 +660,7 @@ onBeforeUnmount(stopMobileCamera)
 
 .measurement-studio {
   flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: minmax(300px, 320px) minmax(460px, 1fr) minmax(360px, 380px);
+  display: flex;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-hairline);
@@ -668,6 +669,7 @@ onBeforeUnmount(stopMobileCamera)
 
 .measurement-rail,
 .measurement-results {
+  flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -675,8 +677,10 @@ onBeforeUnmount(stopMobileCamera)
   background: var(--color-canvas);
 }
 
-.measurement-rail { border-right: 1px solid var(--color-hairline); }
-.measurement-results { border-left: 1px solid var(--color-hairline); }
+.measurement-rail { width: 340px; flex-basis: 340px; border-right: 1px solid var(--color-hairline); }
+.measurement-results { width: 380px; flex-basis: 380px; border-left: 1px solid var(--color-hairline); }
+
+.measurement-rail-body { min-height: 0; flex: 1 1 auto; }
 
 .rail-section,
 .results-header,
@@ -759,7 +763,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 
 .history-section { border-bottom: 0; }
 .scroll-region { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.measurement-rail .history-section { flex: 1 1 auto; }
+.measurement-rail .history-section { flex: 0 1 280px; min-height: 180px; }
 .measurement-results .results-header { flex: 0 0 auto; }
 .history-search { min-height: 30px; margin: 8px 0; font-size: 11px; }
 .history-row { display: flex; align-items: stretch; border-top: 1px solid var(--color-hairline); }
@@ -768,7 +772,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .history-delete,
 .item-remove { border: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font-size: 18px; }
 
-.measurement-canvas-panel { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
+.measurement-canvas-panel { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
 .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .canvas-toolbar strong { display: block; max-width: 420px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-inverse-canvas); }
@@ -777,18 +781,18 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
 .measurement-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
 .measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.9; }
-.measurement-line-halo { stroke: var(--color-canvas); stroke-width: 10; vector-effect: non-scaling-stroke; }
-.measurement-line { stroke: var(--color-info); stroke-width: 5; vector-effect: non-scaling-stroke; }
+.measurement-line-halo { stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
+.measurement-line { stroke: var(--color-info); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .measurement-point-halo { fill: var(--color-canvas); }
 .measurement-point { fill: var(--color-info); }
 .measurement-candidate.selected { opacity: 1; }
-.measurement-candidate.selected .measurement-line { stroke: var(--color-warning); stroke-width: 7; }
+.measurement-candidate.selected .measurement-line { stroke: var(--color-warning); stroke-width: 4; }
 .measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
 .selected-measurement { pointer-events: none; }
-.selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 6; stroke-dasharray: 7 4; }
+.selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
 .selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
 .calibration-reference { pointer-events: none; }
-.calibration-reference line { stroke: var(--color-warning); stroke-width: 4; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.calibration-reference line { stroke: var(--color-warning); stroke-width: 2.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
 .viewport-empty { display: grid; place-items: center; gap: 8px; color: var(--color-inverse-ink-muted); text-align: center; }
 .viewport-empty span { max-width: 250px; font-size: 12px; }
@@ -842,14 +846,15 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-zoom-value { min-width: 48px; color: var(--color-ink); font-size: 12px; text-align: center; }
 
 @media (max-width: 1180px) {
-  .measurement-studio { grid-template-columns: 280px minmax(400px, 1fr) 340px; }
+  .measurement-rail { width: 300px; flex-basis: 300px; }
+  .measurement-results { width: 340px; flex-basis: 340px; }
   .measurement-page { padding: 20px; }
 }
 
 @media (max-width: 900px) {
   .measurement-page { overflow-y: auto; }
-  .measurement-studio { grid-template-columns: 1fr; flex: 0 0 auto; min-height: 880px; overflow: visible; }
-  .measurement-rail, .measurement-results { border: 0; }
+  .measurement-studio { flex-direction: column; flex: 0 0 auto; min-height: 880px; overflow: visible; }
+  .measurement-rail, .measurement-results { width: auto; flex-basis: auto; border: 0; }
   .measurement-rail, .measurement-results, .scroll-region { overflow: visible; }
   .measurement-rail { border-bottom: 1px solid var(--color-hairline); }
   .measurement-results { border-top: 1px solid var(--color-hairline); }

@@ -21,6 +21,8 @@ Each entry contains:
 - Widened Measurement Studio input/result panels to match QC Studio density and spacing.
 - Rebuilt the measurement canvas around one shared image/SVG frame, added QC Studio-style zoom/pan controls, and made candidate/selected measurement overlays more visible with halos, endpoints, and larger labels.
 - Added a browser regression assertion that image and SVG bounding boxes remain equal.
+- Reworked panel positioning to fixed QC Studio-style flex rails; Input/Calibration now scroll in a bounded left rail body, History remains independently scrollable, and the right Measurement Items panel remains independently scrollable.
+- Reduced foreground LSD overlay stroke from 5px to 3px while retaining a 6px contrast halo.
 
 ### Current Codebase State
 
