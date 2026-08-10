@@ -11,6 +11,19 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-10 - Inspect Measurement Studio UI Hardening
+
+### Changed
+
+- Measurement Studio now uses a QC Studio-style fixed-height shell: header/canvas stay fixed, History owns its scroll region, and Measurement Items owns a separate scroll region.
+- Added component and browser assertions for scoped scrolling; Mobile Camera remains a follow-up change after layout feedback.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Measurement Studio layout | 2026-08-10 | The whole page scrolled as one document | Desktop Studio shell is fixed; only History and Measurement Items scroll internally, while canvas remains stationary. |
+
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Prototype Implementation
 
 ### Added

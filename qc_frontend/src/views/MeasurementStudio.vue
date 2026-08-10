@@ -235,7 +235,7 @@ onMounted(loadHistory)
 </script>
 
 <template>
-  <main class="measurement-page">
+  <main class="measurement-page measurement-shell">
     <header class="measurement-heading">
       <div>
         <p class="eyebrow">{{ t('measurement.eyebrow') }}</p>
@@ -299,7 +299,7 @@ onMounted(loadHistory)
           </div>
         </section>
 
-        <section class="rail-section history-section">
+        <section class="rail-section history-section scroll-region">
           <div class="section-kicker">{{ t('measurement.history') }}</div>
           <input v-if="recentRuns.length" v-model="historyQuery" class="history-search" type="search" :placeholder="t('measurement.historySearch')">
           <div v-if="!filteredRuns.length" class="empty-small">{{ recentRuns.length ? t('measurement.noHistoryResults') : t('measurement.noHistory') }}</div>
@@ -386,7 +386,7 @@ onMounted(loadHistory)
           <input id="run-name" v-model="runName" class="run-name" type="text" :placeholder="t('measurement.runNamePlaceholder')">
         </section>
 
-        <section class="items-section">
+        <section class="items-section scroll-region">
           <div class="section-title-row">
             <h2>{{ t('measurement.items') }}</h2>
             <span>{{ items.length }}</span>
@@ -432,13 +432,17 @@ onMounted(loadHistory)
 <style scoped>
 .measurement-page {
   height: 100%;
-  overflow: auto;
-  padding: 28px 32px 40px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 24px 24px;
   background: var(--color-surface-1);
   color: var(--color-ink);
 }
 
 .measurement-heading {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -495,15 +499,21 @@ onMounted(loadHistory)
 .status-review .status-dot { background: var(--color-warning); }
 
 .measurement-studio {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 240px minmax(420px, 1fr) 330px;
-  min-height: 650px;
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid var(--color-hairline);
   background: var(--color-canvas);
 }
 
 .measurement-rail,
 .measurement-results {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--color-canvas);
 }
 
@@ -584,6 +594,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .trigger-capture { width: 100%; }
 
 .history-section { border-bottom: 0; }
+.scroll-region { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.measurement-rail .history-section { flex: 1 1 auto; }
 .history-search { min-height: 30px; margin: 8px 0; font-size: 11px; }
 .history-row { display: flex; align-items: stretch; border-top: 1px solid var(--color-hairline); }
 .history-run { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; padding: 9px 0; border: 0; background: transparent; color: var(--color-ink); text-align: left; cursor: pointer; }
@@ -591,10 +603,10 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .history-delete,
 .item-remove { border: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font-size: 18px; }
 
-.measurement-canvas-panel { display: flex; min-width: 0; flex-direction: column; background: var(--color-surface-1); }
+.measurement-canvas-panel { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
 .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .canvas-toolbar strong { display: block; max-width: 420px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.measurement-viewport { position: relative; display: grid; flex: 1; min-height: 450px; place-items: center; padding: 20px; overflow: hidden; background: var(--color-inverse-canvas); }
+.measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 20px; overflow: hidden; background: var(--color-inverse-canvas); }
 .measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
 .measurement-overlay { position: absolute; width: min(90%, 860px); height: min(90%, 520px); pointer-events: none; }
 .measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.55; }
@@ -623,7 +635,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .manual-card { display: flex; align-items: center; justify-content: center; gap: 6px; }
 
 .results-header { padding-bottom: 14px; }
-.items-section { min-height: 350px; }
+.items-section { flex: 1 1 auto; }
 .section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .section-title-row h2 { margin: 0; font-size: 15px; }
 .section-title-row span { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 12px; }
@@ -644,7 +656,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .item-limits strong { color: var(--color-ink); font-weight: 400; text-align: right; }
 .item-limits span:last-child { grid-column: 1 / -1; }
 .item-reason { margin-top: 8px; color: var(--color-warning); font-size: 11px; }
-.result-actions { display: grid; gap: 9px; border-bottom: 0; }
+.result-actions { flex: 0 0 auto; display: grid; gap: 9px; border-bottom: 0; }
 .measurement-summary { justify-content: space-between; }
 .measurement-summary strong { color: var(--color-ink); }
 .summary-pass strong { color: var(--color-success); }

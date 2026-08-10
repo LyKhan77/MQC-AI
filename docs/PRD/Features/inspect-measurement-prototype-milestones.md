@@ -119,3 +119,4 @@ Setelah milestone berubah:
 |---|---|---|---|
 | 2026-08-07 | PRD + plan | Commit `0b87f49` | Documentation complete; production implementation not started. |
 | 2026-08-10 | M0–M5 prototype implementation | Feature branch verification: backend `202 passed`, frontend `157 passed`, build passed, Playwright `5 passed`; sample kernel smoke `42 candidates` | Production prototype flow complete; M6 physical accuracy validation pending. |
+| 2026-08-10 | Measurement Studio UI hardening | Frontend `158 passed`, build passed, Playwright `6 passed`; scoped overflow assertion | QC Studio-style fixed shell; History and Measurement Items scroll independently; Mobile Camera remains follow-up. |

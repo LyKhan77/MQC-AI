@@ -100,3 +100,18 @@ test('triggers Live Camera capture into the same measurement pipeline', async ({
   await expect(page.locator('.canvas-toolbar')).toContainText('cam-1.jpg')
   await expect(page.locator('.measurement-candidate')).toHaveCount(1)
 })
+
+
+test('keeps Studio scrolling inside History and measurement items', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  const overflow = await page.evaluate(() => Object.fromEntries([
+    ['page', '.measurement-page'],
+    ['history', '.history-section'],
+    ['items', '.items-section'],
+    ['canvas', '.measurement-canvas-panel'],
+  ].map(([key, selector]) => [key, getComputedStyle(document.querySelector(selector)).overflowY])))
+
+  expect(overflow).toEqual({ page: 'hidden', history: 'auto', items: 'auto', canvas: 'hidden' })
+})

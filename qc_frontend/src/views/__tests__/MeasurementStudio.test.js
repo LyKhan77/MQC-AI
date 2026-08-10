@@ -85,6 +85,15 @@ describe('MeasurementStudio', () => {
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
   })
 
+  it('keeps the Studio shell fixed and scopes scrolling to History and items', () => {
+    const wrapper = mount(MeasurementStudio)
+
+    expect(wrapper.find('.measurement-page').classes()).toContain('measurement-shell')
+    expect(wrapper.find('.history-section').classes()).toContain('scroll-region')
+    expect(wrapper.find('.items-section').classes()).toContain('scroll-region')
+    expect(wrapper.find('.measurement-canvas-panel').classes()).not.toContain('scroll-region')
+  })
+
   it('processes an uploaded image and renders candidate edges', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
