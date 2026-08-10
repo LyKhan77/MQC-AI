@@ -115,3 +115,16 @@ test('keeps Studio scrolling inside History and measurement items', async ({ pag
 
   expect(overflow).toEqual({ page: 'hidden', history: 'auto', items: 'auto', canvas: 'hidden' })
 })
+
+
+test('shows Mobile Camera client capture controls', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  await page.locator('.source-mobile').click()
+
+  await expect(page.locator('.mobile-camera-panel')).toBeVisible()
+  await expect(page.locator('.open-mobile-camera')).toBeVisible()
+  await expect(page.locator('.capture-mobile')).toBeDisabled()
+  await expect(page.locator('.mobile-camera-panel')).toContainText(/HTTPS|kamera|camera/i)
+})

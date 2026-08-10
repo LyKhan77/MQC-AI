@@ -64,6 +64,27 @@ def test_process_live_camera_uses_registered_camera_and_grab_one(client, monkeyp
     assert body["source_filename"] == "cam-measure.jpg"
 
 
+def test_process_mobile_camera_file_preserves_mobile_source_type(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("mobile.jpg", _png_bytes(), "image/jpeg")},
+        data={"source_type": "mobile_camera", "calibration": _calibration()},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source_type"] == "mobile_camera"
+
+
+def test_process_rejects_unknown_file_source_type(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("capture.jpg", _png_bytes(), "image/jpeg")},
+        data={"source_type": "camera", "calibration": _calibration()},
+    )
+
+    assert response.status_code == 400
+
+
 def test_process_rejects_missing_calibration(client):
     response = client.post(
         "/api/measurements/process",

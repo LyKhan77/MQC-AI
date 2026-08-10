@@ -16,13 +16,14 @@ Each entry contains:
 ### Changed
 
 - Measurement Studio now uses a QC Studio-style fixed-height shell: header/canvas stay fixed, History owns its scroll region, and Measurement Items owns a separate scroll region.
-- Added component and browser assertions for scoped scrolling; Mobile Camera remains a follow-up change after layout feedback.
+- Added component and browser assertions for scoped scrolling.
+- Added Mobile Camera as a third source tab: HTTPS browser `getUserMedia()` preview, one-shot JPEG capture, preserved `mobile_camera` source metadata, and the same measurement process/evaluate/save flow.
 
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
 |---|---|---|---|
-| Measurement Studio layout | 2026-08-10 | The whole page scrolled as one document | Desktop Studio shell is fixed; only History and Measurement Items scroll internally, while canvas remains stationary. |
+| Measurement Studio layout and input | 2026-08-10 | The whole page scrolled as one document; Mobile Camera was unavailable | Desktop Studio shell is fixed; only History and Measurement Items scroll internally, canvas stays stationary, and Mobile Camera captures through the client browser. |
 
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Prototype Implementation
 
@@ -30,7 +31,7 @@ Each entry contains:
 
 - OpenCV measurement service with manual reference calibration, LSD-first line candidates, `HoughLinesP` fallback, geometry math, confidence, and `PASS`/`FAIL`/`REVIEW` evaluation.
 - Measurement API for image upload and registered Live Camera trigger, temporary/source file serving, `MeasurementRun` persistence, History list/detail/delete, server-side re-evaluation, and measurement audit events.
-- Measurement Studio route at `/measurement` with Image/Live Camera input, preview/trigger capture, calibration overlay, candidate edge selection, per-item nominal/tolerance, evaluate summary, save, History search/reopen/delete, and bilingual UI.
+- Measurement Studio route at `/measurement` with Image/Live Camera/Mobile Camera input, preview/trigger capture, calibration overlay, candidate edge selection, per-item nominal/tolerance, evaluate summary, save, History search/reopen/delete, and bilingual UI.
 - Backend, frontend, component, and Playwright coverage for the measurement vertical slice.
 
 ### Changed
@@ -54,7 +55,7 @@ Each entry contains:
 
 ### Changed
 
-- Prototype scope excludes Mobile Camera, continuous live measurement, multi-view sessions, and 3D measurement while retaining the future roadmap context.
+- Prototype scope excludes continuous live measurement, multi-view sessions, and 3D measurement while retaining the future roadmap context.
 
 ### Current Codebase State
 

@@ -56,8 +56,9 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 
 ### In scope
 
-- Input satu image melalui file upload atau satu frame dari Live Camera.
+- Input satu image melalui file upload, satu frame dari registered Live Camera, atau satu frame dari Mobile Camera client.
 - Live Camera menampilkan preview camera terdaftar dan memakai trigger capture; frame hasil capture masuk ke pipeline yang sama seperti upload.
+- Mobile Camera memakai `getUserMedia()` browser pada HTTPS; inspector membuka preview lalu mengambil satu still frame ke pipeline yang sama.
 - Nama run/seri/komponen diisi manual.
 - Kalibrasi skala image dengan reference distance pada bidang yang sama.
 - Process server-side menggunakan OpenCV tanpa trained model.
@@ -83,10 +84,9 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 
 ### Out of scope
 
-- Mobile Camera.
 - Live Camera continuous auto-measurement atau continuous video processing; prototype hanya preview + one-shot trigger capture.
 - Satu komponen dengan banyak foto atau dynamic custom views.
-- Trigger capture dan QC Station workflow.
+- QC Station hardware workflow.
 - CAD/PDF import, OCR drawing, automatic callout mapping, atau CAD parsing.
 - Automatic source-of-truth recipe dari drawing.
 - True 3D thickness atau bend angle dari satu top-down image.
@@ -165,16 +165,17 @@ Measurement Studio memakai pola tiga area yang sudah cocok dengan prototype HTML
 
 Flow UI:
 
-1. Upload image atau pilih Live Camera, lalu isi nama run.
+1. Upload image, pilih Live Camera, atau pilih Mobile Camera; lalu isi nama run.
 2. Jika Live Camera, buka preview dan klik `Trigger capture`.
-3. Set calibration reference pada image/frame yang dipilih.
-4. Klik `Process measurement`.
-5. Sistem menampilkan kandidat edge.
-6. Inspector memilih atau mengoreksi geometry, lalu menambah item lain bila perlu.
-7. Inspector mengisi nominal dan tolerance per item.
-8. Klik `Evaluate dimension`.
-9. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
-10. Klik `Save measurement`.
+3. Jika Mobile Camera, izinkan akses browser, buka preview, lalu klik `Capture`.
+4. Set calibration reference pada image/frame yang dipilih.
+5. Klik `Process measurement`.
+6. Sistem menampilkan kandidat edge.
+7. Inspector memilih atau mengoreksi geometry, lalu menambah item lain bila perlu.
+8. Inspector mengisi nominal dan tolerance per item.
+9. Klik `Evaluate dimension`.
+10. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
+11. Klik `Save measurement`.
 
 UI harus mencegah evaluate sebelum image processed, calibration valid, geometry valid, dan nominal/tolerance lengkap.
 
@@ -233,6 +234,7 @@ Tracking implementasi tersedia di [`inspect-measurement-prototype-milestones.md`
 
 - [x] Satu image dapat diproses tanpa trained model.
 - [x] Live Camera dapat menampilkan preview dan menghasilkan satu captured frame melalui trigger.
+- [x] Mobile Camera dapat membuka preview HTTPS dan menghasilkan satu captured frame melalui browser client.
 - [x] Calibration reference menghasilkan nilai `mm_per_pixel` yang terlihat dan tersimpan.
 - [x] Canvas menampilkan candidate edge dan measurement geometry.
 - [x] Inspector dapat menambah dan memilih measurement item; endpoint correction ditunda.

@@ -2,10 +2,11 @@ import { apiDelete, apiGet, apiPost } from './client.js'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
-export async function processMeasurement({ file, cameraId, calibration, options = {} }) {
+export async function processMeasurement({ file, cameraId, sourceType = 'image', calibration, options = {} }) {
   const fd = new FormData()
   if (file) fd.append('file', file)
   if (cameraId) fd.append('camera_id', cameraId)
+  if (file) fd.append('source_type', sourceType)
   fd.append('calibration', JSON.stringify(calibration || {}))
   fd.append('options', JSON.stringify(options))
   const response = await fetch(`${BASE}/measurements/process`, { method: 'POST', body: fd })

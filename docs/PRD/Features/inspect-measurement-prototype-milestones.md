@@ -22,8 +22,8 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | Implementation plan | `DONE` | `docs/superpowers/plans/2026-08-07-inspect-measurement-prototype.md` | Task backend, frontend, test, dan verification sudah dipecah. |
 | Standalone HTML demo | `DONE` | `temp/measurement-studio-demo.html` | Demo visual saja; bukan production measurement engine. |
 | Prototype Live Camera contract | `DONE` | Prototype PRD + implementation plan | Preview + one-shot trigger capture ditambahkan; continuous measurement tetap di luar scope. |
-| Production measurement backend | `DONE` | `qc_server/app/services/measurement.py`, `qc_server/app/routers/measurements.py`, `202 pytest passed` | OpenCV process, upload/Live Camera, persistence, file serving, server-side evaluate, dan audit tersedia. |
-| Production Measurement Studio route | `DONE` | `qc_frontend/src/views/MeasurementStudio.vue`, `157 Vitest passed`, `5 Playwright tests passed` | `/measurement` mendukung upload, Live Camera trigger, calibration overlay, candidate selection, tolerance, dan evaluate. |
+| Production measurement backend | `DONE` | `qc_server/app/services/measurement.py`, `qc_server/app/routers/measurements.py` | OpenCV process, upload/Live Camera/Mobile Camera source metadata, persistence, file serving, server-side evaluate, dan audit tersedia. |
+| Production Measurement Studio route | `DONE` | `qc_frontend/src/views/MeasurementStudio.vue` | `/measurement` mendukung upload, Live Camera trigger, Mobile Camera capture, calibration overlay, candidate selection, tolerance, dan evaluate. |
 | History + Audit integration | `DONE` | MeasurementRun API + component tests | Save, History search/reopen/delete, dan audit actions tersedia. |
 | Accuracy validation | `PLANNED` | — | Belum ada physical reference sample/evidence. |
 
@@ -36,7 +36,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | M0 | Contract & calibration | `DONE` | `DONE` | Data shape, status rules, manual scale, dan synthetic fixtures disetujui serta diuji. |
 | M1 | OpenCV measurement kernel | `DONE` | `DONE` | Service mengembalikan candidate edge, px-to-mm, geometry, confidence, dan `REVIEW` gate. |
 | M2 | Backend vertical slice | `DONE` | `DONE` | Process → save → list/detail → delete berjalan melalui API dan TestClient. |
-| M3 | Measurement Studio input/process | `DONE` | `DONE` | Inspector upload atau trigger Live Camera, calibration overlay, process, dan melihat candidate overlay. |
+| M3 | Measurement Studio input/process | `DONE` | `DONE` | Inspector upload, trigger Live Camera, atau capture Mobile Camera; calibration overlay, process, dan candidate overlay tersedia. |
 | M4 | Tolerance & evaluate | `DONE` | `DONE` | Tolerance per item mengubah min/max/deviation/status dan summary. |
 | M5 | History & audit UX | `DONE` | `DONE` | Saved run dapat dicari, dibuka kembali, dihapus dengan confirmation, dan tercatat di audit. |
 | M6 | Accuracy gate | `DONE` | `PLANNED` | Reference sample, repeatability, failure cases, dan error report tersedia. |
@@ -73,6 +73,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 - [x] Route `/measurement` tersedia.
 - [x] Upload/dropzone dan manual run name berjalan.
 - [x] Live Camera selector, preview, dan one-shot trigger capture berjalan.
+- [x] Mobile Camera tab, HTTPS permission flow, preview, dan one-shot capture berjalan.
 - [x] Calibration overlay berjalan.
 - [x] Candidate line dan selected geometry terlihat di canvas.
 - [x] Processing/error state jelas bagi inspector.
@@ -119,4 +120,4 @@ Setelah milestone berubah:
 |---|---|---|---|
 | 2026-08-07 | PRD + plan | Commit `0b87f49` | Documentation complete; production implementation not started. |
 | 2026-08-10 | M0–M5 prototype implementation | Feature branch verification: backend `202 passed`, frontend `157 passed`, build passed, Playwright `5 passed`; sample kernel smoke `42 candidates` | Production prototype flow complete; M6 physical accuracy validation pending. |
-| 2026-08-10 | Measurement Studio UI hardening | Frontend `158 passed`, build passed, Playwright `6 passed`; scoped overflow assertion | QC Studio-style fixed shell; History and Measurement Items scroll independently; Mobile Camera remains follow-up. |
+| 2026-08-10 | Measurement Studio UI + Mobile Camera | Backend `204 passed`, frontend `160 passed`, build passed, Playwright `7 passed`; scoped overflow assertion | QC Studio-style fixed shell; History and Measurement Items scroll independently; Mobile Camera uses browser `getUserMedia()` and same process pipeline. |

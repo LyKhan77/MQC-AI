@@ -525,6 +525,7 @@ export default {
     cameraPreview: 'Preview live camera',
     cameraWaiting: 'Pilih kamera terdaftar',
     triggerCapture: 'Trigger capture',
+    mobileWaiting: 'Buka kamera perangkat untuk melihat preview',
     calibration: 'Kalibrasi',
     calibrationHelp: 'Reference length harus berada pada bidang yang sama dengan komponen.',
     referencePx: 'Panjang reference dalam pixel',

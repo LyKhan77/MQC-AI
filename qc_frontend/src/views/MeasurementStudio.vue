@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useCameras } from '../composables/useCameras.js'
@@ -37,6 +37,12 @@ const evaluated = ref(false)
 const readOnly = ref(false)
 const errorMessage = ref('')
 const selectedCandidate = ref(-1)
+const mobileVideo = ref(null)
+const mobileCameraOpen = ref(false)
+const mobileResolution = ref('')
+const mobileVideoAspect = ref('4 / 3')
+
+let mobileStream = null
 
 const cameraStreamUrl = computed(() => (
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : ''
@@ -47,7 +53,7 @@ const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
   : readiness.value.toUpperCase())
 const canProcess = computed(() => !processing.value && (
-  source.value === 'image' ? Boolean(selectedFile.value) : Boolean(selectedCameraId.value)
+  source.value === 'image' ? Boolean(selectedFile.value) : source.value === 'live' ? Boolean(selectedCameraId.value) : false
 ))
 const canEvaluate = computed(() => (
   !readOnly.value && Boolean(processed.value) && readiness.value === 'ready' && items.value.length > 0
@@ -72,6 +78,7 @@ function chooseSource(value) {
   source.value = value
   errorMessage.value = ''
   if (value === 'image') selectedCameraId.value = ''
+  if (value !== 'mobile') stopMobileCamera()
 }
 
 function onFileChange(event) {
@@ -85,17 +92,12 @@ function onFileChange(event) {
   errorMessage.value = ''
 }
 
-async function processCurrent() {
-  if (!canProcess.value) return
+async function runMeasurement(input) {
   processing.value = true
   errorMessage.value = ''
   readOnly.value = false
   try {
-    processed.value = await processMeasurement({
-      file: source.value === 'image' ? selectedFile.value : undefined,
-      cameraId: source.value === 'live' ? selectedCameraId.value : undefined,
-      calibration: calibrationInput(),
-    })
+    processed.value = await processMeasurement({ ...input, calibration: calibrationInput() })
     items.value = []
     evaluated.value = false
     selectedCandidate.value = -1
@@ -104,6 +106,75 @@ async function processCurrent() {
     errorMessage.value = error.message
   } finally {
     processing.value = false
+  }
+}
+
+async function processCurrent() {
+  if (!canProcess.value) return
+  return runMeasurement({
+    file: source.value === 'image' ? selectedFile.value : undefined,
+    cameraId: source.value === 'live' ? selectedCameraId.value : undefined,
+  })
+}
+
+async function openMobileCamera() {
+  errorMessage.value = ''
+  if (!navigator.mediaDevices?.getUserMedia) {
+    errorMessage.value = t('inspection.cameraInsecure')
+    return
+  }
+  try {
+    mobileStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 },
+      },
+    })
+    await nextTick()
+    if (!mobileVideo.value) return
+    mobileVideo.value.srcObject = mobileStream
+    await mobileVideo.value.play()
+    const settings = mobileStream.getVideoTracks()[0]?.getSettings?.() || {}
+    if (settings.width && settings.height) {
+      mobileResolution.value = `${settings.width}×${settings.height}`
+      mobileVideoAspect.value = `${settings.width} / ${settings.height}`
+    }
+    mobileCameraOpen.value = true
+  } catch (error) {
+    const byName = {
+      NotAllowedError: t('inspection.cameraDenied'),
+      NotFoundError: t('inspection.cameraNotFound'),
+      NotReadableError: t('inspection.cameraInUse'),
+      SecurityError: t('inspection.cameraInsecure'),
+    }
+    errorMessage.value = byName[error?.name] || `${t('inspection.cameraError')}: ${error?.name || error?.message || 'unknown'}`
+  }
+}
+
+function stopMobileCamera() {
+  if (mobileStream) mobileStream.getTracks().forEach((track) => track.stop())
+  mobileStream = null
+  if (mobileVideo.value) mobileVideo.value.srcObject = null
+  mobileCameraOpen.value = false
+  mobileResolution.value = ''
+}
+
+async function captureMobile() {
+  const video = mobileVideo.value
+  if (!video || !video.videoWidth || processing.value) return
+  const canvas = document.createElement('canvas')
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  canvas.getContext('2d').drawImage(video, 0, 0)
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.98))
+  if (blob) {
+    await runMeasurement({
+      file: new File([blob], 'mobile.jpg', { type: 'image/jpeg' }),
+      sourceType: 'mobile_camera',
+    })
   }
 }
 
@@ -200,7 +271,7 @@ function openRun(run) {
   runName.value = run.name
   selectedFile.value = null
   localFileName.value = run.source_filename
-  source.value = run.source_type === 'live_camera' ? 'live' : 'image'
+  source.value = run.source_type === 'live_camera' ? 'live' : run.source_type === 'mobile_camera' ? 'mobile' : 'image'
   processed.value = {
     source_key: null,
     source_type: run.source_type,
@@ -232,6 +303,7 @@ async function removeRun(run) {
 }
 
 onMounted(loadHistory)
+onBeforeUnmount(stopMobileCamera)
 </script>
 
 <template>
@@ -259,12 +331,34 @@ onMounted(loadHistory)
             <button type="button" class="source-live" :class="{ active: source === 'live' }" @click="chooseSource('live')">
               {{ t('measurement.liveCamera') }}
             </button>
+            <button type="button" class="source-mobile" :class="{ active: source === 'mobile' }" @click="chooseSource('mobile')">
+              {{ t('inspection.sourceMobileCamera') }}
+            </button>
           </div>
 
           <template v-if="source === 'image'">
             <label class="field-label" for="measurement-file">{{ t('measurement.selectImage') }}</label>
             <input id="measurement-file" type="file" accept="image/*" @change="onFileChange">
             <div v-if="localFileName" class="file-chip">{{ localFileName }}</div>
+          </template>
+
+          <template v-else-if="source === 'mobile'">
+            <div class="mobile-camera-panel">
+              <p class="section-help">{{ t('inspection.mobileHint') }}</p>
+              <div class="mobile-preview" :style="{ aspectRatio: mobileVideoAspect }">
+                <video ref="mobileVideo" playsinline muted class="mobile-video"></video>
+                <span v-if="!mobileCameraOpen">{{ t('measurement.mobileWaiting') }}</span>
+              </div>
+              <div class="mobile-camera-actions">
+                <button type="button" class="btn btn-secondary open-mobile-camera" @click="openMobileCamera">
+                  {{ t('inspection.openCamera') }}
+                </button>
+                <button type="button" class="btn btn-primary capture-mobile" :disabled="!mobileCameraOpen || processing" @click="captureMobile">
+                  {{ processing ? t('measurement.processing') : t('inspection.capture') }}
+                </button>
+              </div>
+              <span v-if="mobileResolution" class="camera-resolution">{{ mobileResolution }}</span>
+            </div>
           </template>
 
           <template v-else>
@@ -501,7 +595,7 @@ onMounted(loadHistory)
 .measurement-studio {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 240px minmax(420px, 1fr) 330px;
+  grid-template-columns: var(--sidebar-left) minmax(420px, 1fr) var(--sidebar-right);
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-hairline);
@@ -537,7 +631,7 @@ onMounted(loadHistory)
   line-height: 1.45;
 }
 
-.source-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
+.source-tabs { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 16px; }
 .source-tabs button {
   padding: 9px 6px;
   border: 1px solid var(--color-hairline);
@@ -587,6 +681,12 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .camera-preview { display: grid; place-items: center; min-height: 120px; margin: 12px 0; overflow: hidden; background: var(--color-inverse-canvas); color: var(--color-inverse-ink-muted); font-size: 11px; }
 .camera-preview img { display: block; width: 100%; height: 120px; object-fit: cover; }
 
+.mobile-camera-panel { display: grid; gap: 10px; }
+.mobile-preview { position: relative; display: grid; min-height: 150px; place-items: center; overflow: hidden; background: var(--color-inverse-canvas); color: var(--color-inverse-ink-muted); font-size: 11px; }
+.mobile-video { display: block; width: 100%; height: 100%; min-height: 150px; object-fit: cover; }
+.mobile-camera-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.camera-resolution { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
+
 .btn { min-height: 36px; border: 1px solid transparent; border-radius: 0; padding: 8px 12px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
 .btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
@@ -596,6 +696,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .history-section { border-bottom: 0; }
 .scroll-region { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .measurement-rail .history-section { flex: 1 1 auto; }
+.measurement-results .results-header { flex: 0 0 auto; }
 .history-search { min-height: 30px; margin: 8px 0; font-size: 11px; }
 .history-row { display: flex; align-items: stretch; border-top: 1px solid var(--color-hairline); }
 .history-run { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; padding: 9px 0; border: 0; background: transparent; color: var(--color-ink); text-align: left; cursor: pointer; }
@@ -665,13 +766,15 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .error-message { margin: 0; color: var(--color-error); font-size: 12px; }
 
 @media (max-width: 1180px) {
-  .measurement-studio { grid-template-columns: 210px minmax(360px, 1fr) 290px; }
+  .measurement-studio { grid-template-columns: 220px minmax(360px, 1fr) 290px; }
   .measurement-page { padding: 20px; }
 }
 
 @media (max-width: 900px) {
-  .measurement-studio { grid-template-columns: 1fr; }
+  .measurement-page { overflow-y: auto; }
+  .measurement-studio { grid-template-columns: 1fr; flex: 0 0 auto; min-height: 880px; overflow: visible; }
   .measurement-rail, .measurement-results { border: 0; }
+  .measurement-rail, .measurement-results, .scroll-region { overflow: visible; }
   .measurement-rail { border-bottom: 1px solid var(--color-hairline); }
   .measurement-results { border-top: 1px solid var(--color-hairline); }
   .measurement-viewport { min-height: 360px; }

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver a one-image/one-frame, one-side, semi-automatic measurement workflow: upload or Live Camera trigger → calibrate → process → review edge candidates → set per-item tolerance → evaluate → save/history/audit.
+**Goal:** Deliver a one-image/one-frame, one-side, semi-automatic measurement workflow: upload, Live Camera trigger, or Mobile Camera capture → calibrate → process → review edge candidates → set per-item tolerance → evaluate → save/history/audit.
 
 **Architecture:** Keep measurement logic server-side in a small OpenCV service. Use the existing Vue API client, Carbon layout, SQLite/SQLAlchemy, file storage, and audit router. Store one prototype run with measurement items in a JSON column; avoid a separate measurement-item table until real recipe/versioning requires relational queries.
 
@@ -10,9 +10,9 @@
 
 ## Global Constraints
 
-- Prototype input is image upload or one-shot Live Camera capture.
+- Prototype input is image upload, one-shot Live Camera capture, or one-shot Mobile Camera capture.
 - One image represents one inspected side.
-- No CAD/PDF parser, Mobile Camera, continuous live measurement, multi-view session, 3D inference, trained model, or new dependency.
+- No CAD/PDF parser, continuous live measurement, multi-view session, 3D inference, trained model, or new dependency.
 - Calibration is required before a trustworthy mm result.
 - OpenCV returns candidates; inspector confirms/corrects geometry.
 - Default tolerance is `±2.0 mm` for linear items and `±0.5°` for angle items.
@@ -123,7 +123,7 @@
 
 - [x] Write component tests for upload state, required calibration guard, process call, candidate rendering, and error state.
 - [x] Add a single Measurement Studio page using existing Carbon CSS variables and flat geometry.
-- [x] Add manual run name input, image upload/dropzone, Live Camera selector, existing MJPEG preview, and `Trigger capture` action.
+- [x] Add manual run name input, image upload/dropzone, Live Camera selector, existing MJPEG preview, `Trigger capture`, and Mobile Camera `getUserMedia()` capture action.
 - [x] Add calibration overlay with reference points and known-length input.
 - [x] Add center canvas using native SVG overlay; render candidate lines, selected geometry, calibration line, labels, and confidence/readiness state.
 - [x] Add explicit `Process measurement` action; show server result and preserve original image/frame plus source type.
@@ -170,12 +170,13 @@
 
 - [ ] Test `temp/output-bending_gpt.png` through the browser workflow.
 - [x] Mock a registered Live Camera, trigger one frame, and run that frame through the same process/evaluate/save flow.
+- [x] Verify Mobile Camera source metadata and client capture controls.
 - [ ] Test at least one known-scale planar sample, one rotated sample, one glare/noise sample, and one invalid-calibration sample.
 - [ ] Record absolute error and repeatability; report result as evidence, not a claimed production guarantee.
 - [x] Run from `qc_server/`: `.\.venv\Scripts\python.exe -m pytest -v`.
 - [x] Run from `qc_frontend/`: `npm test -- --run --maxWorkers=1` and `npm run build`.
 - [x] Run browser smoke through the existing Playwright workflow and inspect console errors.
-- [x] Confirm no CAD/PDF, Mobile Camera, multi-view, or 3D behavior has leaked into prototype scope.
+- [x] Confirm no CAD/PDF, multi-view, or 3D behavior has leaked into prototype scope.
 
 ## Verification checklist
 

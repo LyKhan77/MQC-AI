@@ -49,6 +49,20 @@ describe('measurements api', () => {
     expect(body.get('file')).toBeNull()
   })
 
+  it('preserves Mobile Camera as the client capture source', async () => {
+    const fetchMock = ok({ source_type: 'mobile_camera' })
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['image'], 'mobile.jpg', { type: 'image/jpeg' })
+
+    await processMeasurement({
+      file,
+      sourceType: 'mobile_camera',
+      calibration: { point_a: [0, 0], point_b: [10, 0], known_mm: 5 },
+    })
+
+    expect(fetchMock.mock.calls[0][1].body.get('source_type')).toBe('mobile_camera')
+  })
+
   it('uses measurement run CRUD endpoints', async () => {
     const fetchMock = ok({ id: 'measurement-1' })
     vi.stubGlobal('fetch', fetchMock)

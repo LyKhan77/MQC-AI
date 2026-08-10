@@ -133,6 +133,7 @@ def _evaluate_items(items, calibration):
 async def process_measurement(
     file: UploadFile | None = File(default=None),
     camera_id: str | None = Form(default=None),
+    source_type: str = Form(default="image"),
     calibration: str = Form(...),
     options: str = Form(default="{}"),
     db: Session = Depends(get_db),
@@ -141,8 +142,9 @@ async def process_measurement(
         raise HTTPException(400, "choose file or camera_id")
     source_camera_id = None
     if file is not None:
+        if source_type not in {"image", "mobile_camera"}:
+            raise HTTPException(400, "invalid source_type")
         frame = _decode_frame(await file.read())
-        source_type = "image"
         source_filename = os.path.basename(file.filename or "capture.png")
     elif camera_id:
         camera = db.get(Camera, camera_id)

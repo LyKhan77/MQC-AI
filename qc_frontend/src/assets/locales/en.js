@@ -515,6 +515,7 @@ export default {
     cameraPreview: 'Live camera preview',
     cameraWaiting: 'Select registered camera',
     triggerCapture: 'Trigger capture',
+    mobileWaiting: 'Open device camera to preview',
     calibration: 'Calibration',
     calibrationHelp: 'Reference length must be on the same plane as the component.',
     referencePx: 'Reference length in pixels',

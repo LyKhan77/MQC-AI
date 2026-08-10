@@ -117,6 +117,16 @@ describe('MeasurementStudio', () => {
     expect(wrapper.text()).toContain('cam-1.jpg')
   })
 
+  it('offers Mobile Camera as a client-side capture source', async () => {
+    const wrapper = mount(MeasurementStudio)
+
+    await wrapper.find('.source-mobile').trigger('click')
+
+    expect(wrapper.find('.mobile-camera-panel').exists()).toBe(true)
+    expect(wrapper.find('.open-mobile-camera').exists()).toBe(true)
+    expect(wrapper.find('.capture-mobile').exists()).toBe(true)
+  })
+
   it('evaluates a selected edge with editable per-item tolerance', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
