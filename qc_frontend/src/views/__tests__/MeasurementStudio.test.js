@@ -104,6 +104,24 @@ describe('MeasurementStudio', () => {
     expect(wrapper.findAll('.measurement-candidate')).toHaveLength(1)
   })
 
+  it('keeps the image and overlay in one zoomable frame', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    const frame = wrapper.find('.measurement-image-frame')
+    expect(frame.find('.measurement-image').exists()).toBe(true)
+    expect(frame.find('.measurement-overlay').exists()).toBe(true)
+    expect(frame.find('.measurement-line-halo').exists()).toBe(true)
+    expect(wrapper.find('.measurement-zoom-controls').exists()).toBe(true)
+    expect(wrapper.find('.measurement-zoom-value').text()).toBe('100%')
+
+    await wrapper.find('.measurement-zoom-in').trigger('click')
+
+    expect(wrapper.find('.measurement-zoom-value').text()).toBe('120%')
+  })
+
   it('triggers one Live Camera capture through the same process API', async () => {
     const wrapper = mount(MeasurementStudio)
     mocks.processMeasurement.mockResolvedValueOnce(processed('live'))

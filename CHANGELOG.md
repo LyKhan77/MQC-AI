@@ -18,12 +18,15 @@ Each entry contains:
 - Measurement Studio now uses a QC Studio-style fixed-height shell: header/canvas stay fixed, History owns its scroll region, and Measurement Items owns a separate scroll region.
 - Added component and browser assertions for scoped scrolling.
 - Added Mobile Camera as a third source tab: HTTPS browser `getUserMedia()` preview, one-shot JPEG capture, preserved `mobile_camera` source metadata, and the same measurement process/evaluate/save flow.
+- Widened Measurement Studio input/result panels to match QC Studio density and spacing.
+- Rebuilt the measurement canvas around one shared image/SVG frame, added QC Studio-style zoom/pan controls, and made candidate/selected measurement overlays more visible with halos, endpoints, and larger labels.
+- Added a browser regression assertion that image and SVG bounding boxes remain equal.
 
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
 |---|---|---|---|
-| Measurement Studio layout and input | 2026-08-10 | The whole page scrolled as one document; Mobile Camera was unavailable | Desktop Studio shell is fixed; only History and Measurement Items scroll internally, canvas stays stationary, and Mobile Camera captures through the client browser. |
+| Measurement Studio layout, input, and canvas | 2026-08-10 | The whole page scrolled as one document; Mobile Camera was unavailable; SVG overlay used an independent viewport box | Desktop Studio shell has wider panels, scoped scrolling, shared image/SVG coordinates, QC-style zoom/pan, visible measurement overlays, and Mobile Camera client capture. |
 
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Prototype Implementation
 

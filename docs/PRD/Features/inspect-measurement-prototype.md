@@ -157,11 +157,12 @@ Nominal wajib diisi sebelum evaluate. Prototype menerima nominal secara manual. 
 
 ## 8. UX yang ditargetkan
 
-Measurement Studio memakai pola tiga area yang sudah cocok dengan prototype HTML:
+Measurement Studio memakai pola tiga area yang mengadopsi QC Studio:
 
 - **Left:** input image, nama run, calibration state, recent/history.
-- **Center:** image canvas, edge candidates, selected measurement overlay, calibration overlay.
+- **Center:** image canvas, edge candidates, selected measurement overlay, calibration overlay, zoom/pan controls.
 - **Right:** measurement item table, measured/nominal/tolerance, status, Evaluate, Save.
+- Panel input dan evaluate cukup lebar untuk label serta form fields; canvas memakai satu image frame bersama untuk image dan SVG supaya overlay tetap tepat saat fit, zoom, dan pan.
 
 Flow UI:
 
@@ -176,6 +177,8 @@ Flow UI:
 9. Klik `Evaluate dimension`.
 10. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
 11. Klik `Save measurement`.
+
+Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Candidate edge memakai outline/halo kontras, endpoint marker, dan selected measurement label yang lebih besar agar terbaca di atas komponen.
 
 UI harus mencegah evaluate sebelum image processed, calibration valid, geometry valid, dan nominal/tolerance lengkap.
 

@@ -29,6 +29,12 @@ const processed = {
 
 
 async function mockMeasurementApi(page) {
+  await page.route('**/api/measurements/files/**', async (route) => {
+    await route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    })
+  })
   await page.route('**/api/cameras', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({ json: [{ id: 'cam-1', name: 'QC Top Camera', status: 'online' }] })
@@ -114,6 +120,34 @@ test('keeps Studio scrolling inside History and measurement items', async ({ pag
   ].map(([key, selector]) => [key, getComputedStyle(document.querySelector(selector)).overflowY])))
 
   expect(overflow).toEqual({ page: 'hidden', history: 'auto', items: 'auto', canvas: 'hidden' })
+})
+
+
+test('keeps measurement overlay aligned while zooming the canvas', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'bracket.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('not-used-by-intercept'),
+  })
+  await page.getByRole('button', { name: 'Process measurement' }).click()
+
+  const frame = page.locator('.measurement-image-frame')
+  await expect(frame.locator('.measurement-image')).toBeVisible()
+  await expect(frame.locator('.measurement-overlay')).toBeVisible()
+  const bounds = await frame.evaluate((element) => {
+    const image = element.querySelector('.measurement-image').getBoundingClientRect()
+    const overlay = element.querySelector('.measurement-overlay').getBoundingClientRect()
+    return { image, overlay }
+  })
+  expect(bounds.overlay.width).toBeCloseTo(bounds.image.width, 0)
+  expect(bounds.overlay.height).toBeCloseTo(bounds.image.height, 0)
+  await expect(page.locator('.measurement-zoom-value')).toHaveText('100%')
+
+  await page.locator('.measurement-zoom-in').click()
+  await expect(page.locator('.measurement-zoom-value')).toHaveText('120%')
 })
 
 

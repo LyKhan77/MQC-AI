@@ -41,6 +41,11 @@ const mobileVideo = ref(null)
 const mobileCameraOpen = ref(false)
 const mobileResolution = ref('')
 const mobileVideoAspect = ref('4 / 3')
+const zoom = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const dragging = ref(false)
+const dragStart = ref({ x: 0, y: 0, panX: 0, panY: 0 })
 
 let mobileStream = null
 
@@ -48,6 +53,7 @@ const cameraStreamUrl = computed(() => (
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : ''
 ))
 const displayUrl = computed(() => processed.value?.frame_url || '')
+const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
 const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
@@ -101,12 +107,49 @@ async function runMeasurement(input) {
     items.value = []
     evaluated.value = false
     selectedCandidate.value = -1
+    resetZoom()
     log('MEASUREMENT_PROCESSED', `${processed.value.source_type}:${processed.value.source_filename}`)
   } catch (error) {
     errorMessage.value = error.message
   } finally {
     processing.value = false
   }
+}
+
+function onWheel(event) {
+  event.preventDefault()
+  const delta = event.deltaY > 0 ? -0.1 : 0.1
+  zoom.value = Math.max(0.5, Math.min(5, Number((zoom.value + delta).toFixed(2))))
+}
+
+function onMouseDown(event) {
+  if (event.button !== 0 || event.target.closest('button')) return
+  dragging.value = true
+  dragStart.value = { x: event.clientX, y: event.clientY, panX: panX.value, panY: panY.value }
+}
+
+function onMouseMove(event) {
+  if (!dragging.value) return
+  panX.value = dragStart.value.panX + event.clientX - dragStart.value.x
+  panY.value = dragStart.value.panY + event.clientY - dragStart.value.y
+}
+
+function onMouseUp() {
+  dragging.value = false
+}
+
+function resetZoom() {
+  zoom.value = 1
+  panX.value = 0
+  panY.value = 0
+}
+
+function zoomIn() {
+  zoom.value = Math.min(5, Number((zoom.value + 0.2).toFixed(2)))
+}
+
+function zoomOut() {
+  zoom.value = Math.max(0.5, Number((zoom.value - 0.2).toFixed(2)))
 }
 
 async function processCurrent() {
@@ -289,6 +332,7 @@ function openRun(run) {
   evaluated.value = true
   readOnly.value = true
   errorMessage.value = ''
+  resetZoom()
 }
 
 async function removeRun(run) {
@@ -418,15 +462,24 @@ onBeforeUnmount(stopMobileCamera)
           </button>
         </div>
 
-        <div class="measurement-viewport">
+        <div
+          class="measurement-viewport"
+          :class="{ 'is-dragging': dragging }"
+          @wheel="onWheel"
+          @mousedown="onMouseDown"
+          @mousemove="onMouseMove"
+          @mouseup="onMouseUp"
+          @mouseleave="onMouseUp"
+        >
           <div v-if="!processed" class="viewport-empty">
             <div class="empty-crosshair">+</div>
             <strong>{{ t('measurement.viewportEmpty') }}</strong>
             <span>{{ t('measurement.viewportHint') }}</span>
           </div>
           <template v-else>
-            <img class="measurement-image" :src="displayUrl" :alt="processed.source_filename">
-            <svg class="measurement-overlay" :viewBox="`0 0 ${processed.width} ${processed.height}`" role="img" :aria-label="t('measurement.edgeOverlay')">
+            <div class="measurement-image-frame" :style="{ transform: frameTransform }">
+              <img class="measurement-image" :src="displayUrl" :alt="processed.source_filename" draggable="false">
+              <svg class="measurement-overlay" :viewBox="`0 0 ${processed.width} ${processed.height}`" preserveAspectRatio="none" role="img" :aria-label="t('measurement.edgeOverlay')">
               <g
                 v-for="(candidate, index) in processed.candidates"
                 :key="candidateKey(candidate, index)"
@@ -434,9 +487,12 @@ onBeforeUnmount(stopMobileCamera)
                 :class="{ selected: selectedCandidate === index }"
                 @click="selectCandidate(candidate, index)"
               >
-                <line :x1="candidate.points[0][0]" :y1="candidate.points[0][1]" :x2="candidate.points[1][0]" :y2="candidate.points[1][1]"></line>
-                <circle :cx="candidate.points[0][0]" :cy="candidate.points[0][1]" r="2"></circle>
-                <circle :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="2"></circle>
+                <line class="measurement-line-halo" :x1="candidate.points[0][0]" :y1="candidate.points[0][1]" :x2="candidate.points[1][0]" :y2="candidate.points[1][1]"></line>
+                <line class="measurement-line" :x1="candidate.points[0][0]" :y1="candidate.points[0][1]" :x2="candidate.points[1][0]" :y2="candidate.points[1][1]"></line>
+                <circle class="measurement-point-halo" :cx="candidate.points[0][0]" :cy="candidate.points[0][1]" r="7"></circle>
+                <circle class="measurement-point-halo" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="7"></circle>
+                <circle class="measurement-point" :cx="candidate.points[0][0]" :cy="candidate.points[0][1]" r="4"></circle>
+                <circle class="measurement-point" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="4"></circle>
               </g>
               <g v-if="processed.calibration.point_a && processed.calibration.point_b" class="calibration-reference">
                 <line
@@ -448,10 +504,18 @@ onBeforeUnmount(stopMobileCamera)
                 <text :x="processed.calibration.point_a[0]" :y="processed.calibration.point_a[1] + 13">REF {{ processed.calibration.known_mm }} mm</text>
               </g>
               <g v-for="item in items" :key="`item-${item.id}`" class="selected-measurement">
-                <line :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
+                <line class="measurement-line-halo" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
+                <line class="measurement-line" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
                 <text :x="item.points[0][0]" :y="item.points[0][1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
               </g>
-            </svg>
+              </svg>
+            </div>
+            <div class="measurement-zoom-controls" :aria-label="t('measurement.zoomControls')">
+              <button type="button" class="measurement-zoom-button measurement-zoom-out" :aria-label="t('measurement.zoomOut')" @click.stop="zoomOut">−</button>
+              <span class="measurement-zoom-value mono">{{ Math.round(zoom * 100) }}%</span>
+              <button type="button" class="measurement-zoom-button measurement-zoom-in" :aria-label="t('measurement.zoomIn')" @click.stop="zoomIn">+</button>
+              <button type="button" class="measurement-zoom-reset" @click.stop="resetZoom">{{ t('measurement.zoomResetShort') }}</button>
+            </div>
           </template>
         </div>
 
@@ -595,7 +659,7 @@ onBeforeUnmount(stopMobileCamera)
 .measurement-studio {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: var(--sidebar-left) minmax(420px, 1fr) var(--sidebar-right);
+  grid-template-columns: minmax(300px, 320px) minmax(460px, 1fr) minmax(360px, 380px);
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-hairline);
@@ -618,7 +682,7 @@ onBeforeUnmount(stopMobileCamera)
 .results-header,
 .items-section,
 .result-actions {
-  padding: 18px;
+  padding: 22px;
   border-bottom: 1px solid var(--color-hairline);
 }
 
@@ -707,26 +771,30 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-canvas-panel { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
 .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .canvas-toolbar strong { display: block; max-width: 420px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 20px; overflow: hidden; background: var(--color-inverse-canvas); }
-.measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
-.measurement-overlay { position: absolute; width: min(90%, 860px); height: min(90%, 520px); pointer-events: none; }
-.measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.55; }
-.measurement-candidate line { stroke: var(--color-info); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.measurement-candidate circle { fill: var(--color-info); }
+.measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-inverse-canvas); }
+.measurement-viewport.is-dragging { cursor: grabbing; }
+.measurement-image-frame { position: relative; transform-origin: center; transition: transform 0.05s linear; }
+.measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
+.measurement-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
+.measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.9; }
+.measurement-line-halo { stroke: var(--color-canvas); stroke-width: 10; vector-effect: non-scaling-stroke; }
+.measurement-line { stroke: var(--color-info); stroke-width: 5; vector-effect: non-scaling-stroke; }
+.measurement-point-halo { fill: var(--color-canvas); }
+.measurement-point { fill: var(--color-info); }
 .measurement-candidate.selected { opacity: 1; }
-.measurement-candidate.selected line { stroke: var(--color-warning); stroke-width: 4; }
-.measurement-candidate.selected circle { fill: var(--color-warning); }
+.measurement-candidate.selected .measurement-line { stroke: var(--color-warning); stroke-width: 7; }
+.measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
 .selected-measurement { pointer-events: none; }
-.selected-measurement line { stroke: var(--color-success); stroke-width: 3; stroke-dasharray: 7 4; vector-effect: non-scaling-stroke; }
-.selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 10px; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 3px; }
+.selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 6; stroke-dasharray: 7 4; }
+.selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
 .calibration-reference { pointer-events: none; }
-.calibration-reference line { stroke: var(--color-warning); stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 9px; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 3px; }
+.calibration-reference line { stroke: var(--color-warning); stroke-width: 4; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
 .viewport-empty { display: grid; place-items: center; gap: 8px; color: var(--color-inverse-ink-muted); text-align: center; }
 .viewport-empty span { max-width: 250px; font-size: 12px; }
 .empty-crosshair { color: var(--color-primary); font-family: var(--font-mono); font-size: 42px; font-weight: 300; }
 
-.candidate-strip { display: flex; gap: 8px; min-height: 86px; padding: 10px 14px; overflow-x: auto; border-top: 1px solid var(--color-hairline); background: var(--color-canvas); }
+.candidate-strip { display: flex; gap: 10px; min-height: 100px; padding: 14px 18px; overflow-x: auto; border-top: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .strip-header { display: flex; min-width: 100px; flex-direction: column; justify-content: center; gap: 4px; color: var(--color-ink-muted); font-size: 11px; }
 .strip-header span:last-child { font-family: var(--font-mono); }
 .candidate-card { display: grid; min-width: 120px; grid-template-columns: 16px 1fr; align-content: center; gap: 2px 6px; padding: 8px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); color: var(--color-ink); text-align: left; cursor: pointer; font-size: 11px; }
@@ -740,13 +808,13 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .section-title-row h2 { margin: 0; font-size: 15px; }
 .section-title-row span { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 12px; }
-.measurement-item { margin-top: 10px; padding: 11px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); }
+.measurement-item { margin-top: 14px; padding: 16px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); }
 .item-topline { display: flex; justify-content: space-between; }
 .item-topline div { display: flex; gap: 7px; align-items: baseline; }
 .item-topline strong { color: var(--color-primary); font-family: var(--font-mono); font-size: 12px; }
 .item-topline span { color: var(--color-ink-muted); font-size: 12px; }
 .item-measured { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 4px; }
-.item-measured strong { font-family: var(--font-mono); font-size: 24px; font-weight: 400; }
+.item-measured strong { font-family: var(--font-mono); font-size: 30px; font-weight: 400; }
 .item-measured > span:not(.measurement-status) { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 11px; }
 .measurement-status { margin-left: auto; font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
 .item-fail { color: var(--color-error); }
@@ -764,9 +832,17 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .summary-fail strong { color: var(--color-error); }
 .summary-review strong { color: var(--color-warning); }
 .error-message { margin: 0; color: var(--color-error); font-size: 12px; }
+.measurement-zoom-controls { position: absolute; right: 18px; bottom: 18px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
+.measurement-zoom-button,
+.measurement-zoom-reset { min-height: 34px; border: 1px solid var(--color-hairline); background: transparent; color: var(--color-ink); cursor: pointer; font: inherit; }
+.measurement-zoom-button { width: 34px; font-size: 20px; line-height: 1; }
+.measurement-zoom-button:hover,
+.measurement-zoom-reset:hover { background: var(--color-surface-1); }
+.measurement-zoom-reset { padding: 0 10px; font-size: 11px; }
+.measurement-zoom-value { min-width: 48px; color: var(--color-ink); font-size: 12px; text-align: center; }
 
 @media (max-width: 1180px) {
-  .measurement-studio { grid-template-columns: 220px minmax(360px, 1fr) 290px; }
+  .measurement-studio { grid-template-columns: 280px minmax(400px, 1fr) 340px; }
   .measurement-page { padding: 20px; }
 }
 
