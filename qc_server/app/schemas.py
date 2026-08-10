@@ -238,3 +238,54 @@ class QuantityCheckOut(BaseModel):
     verdict: str
     reviewer: str
     notes: str
+
+
+class MeasurementItemIn(BaseModel):
+    id: str
+    type: str
+    label: str = ""
+    points: list[list[float]]
+    nominal: float | None = None
+    tolerance: float | None = None
+    confidence: float = 0.0
+
+
+class MeasurementProcessOut(BaseModel):
+    source_key: str
+    source_type: str
+    source_filename: str
+    source_camera_id: str | None = None
+    frame_url: str
+    width: int
+    height: int
+    calibration: dict
+    readiness: str
+    reason: str
+    candidates: list
+
+
+class MeasurementRunIn(BaseModel):
+    name: str
+    source_key: str
+    source_filename: str
+    source_type: str = "image"
+    source_camera_id: str | None = None
+    calibration: dict
+    items: list[MeasurementItemIn] = []
+
+
+class MeasurementRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    created_at: str
+    name: str
+    source_type: str
+    source_filename: str
+    source_camera_id: str | None
+    source_url: str
+    width: int
+    height: int
+    calibration: dict
+    processing: dict
+    items: list
+    summary: dict

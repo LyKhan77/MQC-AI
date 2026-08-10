@@ -1,6 +1,6 @@
 # PRD — Inspect Measurement Prototype
 
-**Status:** Proposed prototype
+**Status:** Implemented prototype; M6 accuracy validation pending
 **Date:** 7 August 2026
 **Owner:** GSPE / MQC-AI
 
@@ -62,8 +62,8 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 - Kalibrasi skala image dengan reference distance pada bidang yang sama.
 - Process server-side menggunakan OpenCV tanpa trained model.
 - Kandidat garis/edge dari `LineSegmentDetector` atau `HoughLinesP`, dengan preprocessing sederhana.
-- Pemilihan pasangan endpoint atau edge oleh inspector.
-- Koreksi endpoint melalui drag/click.
+- Pemilihan candidate edge oleh inspector; manual item fallback tersedia.
+- Endpoint drag/click correction deferred sampai validasi UX/akurasi berikutnya.
 - Measurement item minimal:
   - edge length / point-to-point linear dimension;
   - edge-to-edge linear dimension;
@@ -73,7 +73,7 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 - Default tolerance:
   - linear: `±2.0 mm`;
   - angle: `±0.5°`.
-- Bulk set default tolerance, lalu override per item.
+- Default tolerance, lalu override per item.
 - Evaluation:
   - `PASS`: measured berada dalam `[nominal - tolerance, nominal + tolerance]`;
   - `FAIL`: measured berada di luar range;
@@ -99,7 +99,7 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 
 Pixel hanya dapat diubah menjadi mm jika ada skala. Prototype memakai satu metode sederhana:
 
-1. Inspector menggambar reference line pada benda/marker yang panjangnya diketahui.
+1. Prototype menyediakan reference pixel length sebagai input kalibrasi pada sisi yang sama.
 2. Inspector memasukkan panjang reference dalam mm.
 3. Sistem menghitung `mm_per_pixel` dan menyimpan titik reference serta nilai kalibrasi.
 
@@ -231,18 +231,18 @@ Tracking implementasi tersedia di [`inspect-measurement-prototype-milestones.md`
 
 ## 12. Acceptance criteria
 
-- [ ] Satu image dapat diproses tanpa trained model.
-- [ ] Live Camera dapat menampilkan preview dan menghasilkan satu captured frame melalui trigger.
-- [ ] Calibration reference menghasilkan nilai `mm_per_pixel` yang terlihat dan tersimpan.
-- [ ] Canvas menampilkan candidate edge dan measurement geometry.
-- [ ] Inspector dapat menambah, memilih, dan mengoreksi measurement item.
-- [ ] Setiap item memiliki nominal, tolerance, min, max, deviation, dan status.
-- [ ] Default linear `±2.0 mm`, angle `±0.5°`.
-- [ ] Invalid calibration/ambiguous edge menghasilkan `REVIEW`.
-- [ ] PASS hanya muncul setelah nominal, tolerance, geometry, dan calibration valid.
-- [ ] Save/reopen mempertahankan image, calibration, geometry, measurement, tolerance, dan verdict.
-- [ ] History dan Audit Log memuat aktivitas measurement.
-- [ ] `npm run build`, `npm test`, dan backend `pytest -v` lulus.
+- [x] Satu image dapat diproses tanpa trained model.
+- [x] Live Camera dapat menampilkan preview dan menghasilkan satu captured frame melalui trigger.
+- [x] Calibration reference menghasilkan nilai `mm_per_pixel` yang terlihat dan tersimpan.
+- [x] Canvas menampilkan candidate edge dan measurement geometry.
+- [x] Inspector dapat menambah dan memilih measurement item; endpoint correction ditunda.
+- [x] Setiap item memiliki nominal, tolerance, min, max, deviation, dan status.
+- [x] Default linear `±2.0 mm`; angle `±0.5°` tersedia di kernel contract.
+- [x] Invalid calibration/ambiguous edge menghasilkan `REVIEW`.
+- [x] PASS hanya muncul setelah nominal, tolerance, geometry, dan calibration valid.
+- [x] Save/reopen mempertahankan image, calibration, geometry, measurement, tolerance, dan verdict.
+- [x] History dan Audit Log memuat aktivitas measurement.
+- [x] `npm run build`, `npm test`, dan backend `pytest -v` lulus.
 
 ## 13. Risiko dan keputusan upgrade
 

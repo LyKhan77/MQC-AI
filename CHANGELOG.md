@@ -11,6 +11,27 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-10 - Inspect Measurement Prototype Implementation
+
+### Added
+
+- OpenCV measurement service with manual reference calibration, LSD-first line candidates, `HoughLinesP` fallback, geometry math, confidence, and `PASS`/`FAIL`/`REVIEW` evaluation.
+- Measurement API for image upload and registered Live Camera trigger, temporary/source file serving, `MeasurementRun` persistence, History list/detail/delete, server-side re-evaluation, and measurement audit events.
+- Measurement Studio route at `/measurement` with Image/Live Camera input, preview/trigger capture, calibration overlay, candidate edge selection, per-item nominal/tolerance, evaluate summary, save, History search/reopen/delete, and bilingual UI.
+- Backend, frontend, component, and Playwright coverage for the measurement vertical slice.
+
+### Changed
+
+- Prototype milestone tracker now records M0–M5 as implemented; M6 physical accuracy, repeatability, and QC Station validation remain pending.
+- README and AGENTS living project docs now include Inspect Measurement route, workflow, files, API, and current-state boundaries.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Inspect Measurement prototype | 2026-08-10 | Feature had PRD/demo only | One-side upload/Live Camera trigger → manual calibration → OpenCV candidate edge → tolerance/evaluate → save History/Audit is implemented on `feat/inspect-measurement-prototype`. |
+| Accuracy boundary | 2026-08-10 | No physical reference evidence | Prototype is not a production accuracy claim; known-scale, repeatability, glare/noise, and station validation remain M6. |
+
 ## [Unreleased] - 2026-08-07 - Inspect Measurement Live Camera and Proper Roadmap
 
 ### Added

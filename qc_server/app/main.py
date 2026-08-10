@@ -14,6 +14,7 @@ from .routers import (
     detect,
     images,
     inspection,
+    measurements,
     models as models_router,
     quantity,
     settings as settings_router,
@@ -33,6 +34,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     os.makedirs(os.path.join(settings.data_dir, "batches"), exist_ok=True)
+    os.makedirs(os.path.join(settings.data_dir, "measurements"), exist_ok=True)
     from . import models  # noqa: F401
     from .database import SessionLocal, ensure_active_model_column, ensure_column
     from .services.seed import seed_if_empty
@@ -78,6 +80,7 @@ app.include_router(models_router.router)
 app.include_router(detect.router)
 app.include_router(quantity.router)
 app.include_router(inspection.router)
+app.include_router(measurements.router)
 app.include_router(settings_router.router)
 app.include_router(system.router)
 app.include_router(audit.router)

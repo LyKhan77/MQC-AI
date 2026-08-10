@@ -117,3 +117,21 @@ class QuantityCheck(Base):
     verdict: Mapped[str] = mapped_column(String, default="none")
     reviewer: Mapped[str] = mapped_column(String, default="")
     notes: Mapped[str] = mapped_column(String, default="")
+
+
+class MeasurementRun(Base):
+    __tablename__ = "measurement_runs"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String, default="")
+    source_type: Mapped[str] = mapped_column(String, default="image")
+    source_filename: Mapped[str] = mapped_column(String, default="")
+    source_camera_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    file_path: Mapped[str] = mapped_column(String, default="")
+    source_url: Mapped[str] = mapped_column(String, default="")
+    width: Mapped[int] = mapped_column(Integer, default=0)
+    height: Mapped[int] = mapped_column(Integer, default=0)
+    calibration: Mapped[dict] = mapped_column(JSON, default=dict)
+    processing: Mapped[dict] = mapped_column(JSON, default=dict)
+    items: Mapped[list] = mapped_column(JSON, default=list)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)

@@ -53,6 +53,7 @@ const nav = [
     icon: QualityControlIcon,
     children: [
       { name: 'direct-inspection', icon: DirectInspectionIcon, labelKey: 'nav.directInspection' },
+      { name: 'measurement', icon: DirectInspectionIcon, labelKey: 'nav.inspectMeasurement' },
       { name: 'qc', icon: QcStudioIcon, labelKey: 'nav.qcStudio' },
       { name: 'batches', icon: BatchHistoryIcon, labelKey: 'nav.batchHistory' },
     ],
