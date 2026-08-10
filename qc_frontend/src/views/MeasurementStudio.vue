@@ -352,23 +352,11 @@ onBeforeUnmount(stopMobileCamera)
 
 <template>
   <main class="measurement-page measurement-shell">
-    <header class="measurement-heading">
-      <div>
-        <p class="eyebrow">{{ t('measurement.eyebrow') }}</p>
-        <h1>{{ t('measurement.title') }}</h1>
-        <p>{{ t('measurement.subtitle') }}</p>
-      </div>
-      <div class="heading-status" :class="`status-${summaryStatus.toLowerCase()}`">
-        <span class="status-dot"></span>
-        {{ summaryStatus }}
-      </div>
-    </header>
-
     <div class="measurement-studio">
       <aside class="measurement-rail">
         <div class="measurement-rail-body scroll-region">
         <section class="rail-section">
-          <div class="section-kicker">01 / {{ t('measurement.input') }}</div>
+          <div class="panel-section-title">{{ t('measurement.input') }}</div>
           <div class="source-tabs">
             <button type="button" class="source-image" :class="{ active: source === 'image' }" @click="chooseSource('image')">
               {{ t('measurement.image') }}
@@ -423,7 +411,7 @@ onBeforeUnmount(stopMobileCamera)
         </section>
 
         <section class="rail-section">
-          <div class="section-kicker">02 / {{ t('measurement.calibration') }}</div>
+          <div class="panel-section-title">{{ t('measurement.calibration') }}</div>
           <p class="section-help">{{ t('measurement.calibrationHelp') }}</p>
           <label class="field-label" for="reference-px">{{ t('measurement.referencePx') }}</label>
           <input id="reference-px" v-model.number="referencePx" type="number" min="1" step="1">
@@ -440,7 +428,7 @@ onBeforeUnmount(stopMobileCamera)
         </div>
 
         <section class="rail-section history-section scroll-region">
-          <div class="section-kicker">{{ t('measurement.history') }}</div>
+          <div class="panel-section-title">{{ t('measurement.history') }}</div>
           <input v-if="recentRuns.length" v-model="historyQuery" class="history-search" type="search" :placeholder="t('measurement.historySearch')">
           <div v-if="!filteredRuns.length" class="empty-small">{{ recentRuns.length ? t('measurement.noHistoryResults') : t('measurement.noHistory') }}</div>
           <div v-for="run in filteredRuns" :key="run.id" class="history-row">
@@ -454,16 +442,6 @@ onBeforeUnmount(stopMobileCamera)
       </aside>
 
       <section class="measurement-canvas-panel">
-        <div class="canvas-toolbar">
-          <div>
-            <span class="toolbar-label">{{ t('measurement.currentSource') }}</span>
-            <strong>{{ processed?.source_filename || t('measurement.noInput') }}</strong>
-          </div>
-          <button type="button" class="btn btn-primary process-measurement" :disabled="!canProcess || source === 'live'" @click="processCurrent">
-            {{ processing ? t('measurement.processing') : t('measurement.process') }}
-          </button>
-        </div>
-
         <div
           class="measurement-viewport"
           :class="{ 'is-dragging': dragging }"
@@ -473,6 +451,18 @@ onBeforeUnmount(stopMobileCamera)
           @mouseup="onMouseUp"
           @mouseleave="onMouseUp"
         >
+          <div class="measurement-canvas-tools" @mousedown.stop>
+            <div>
+              <span class="toolbar-label">{{ t('measurement.currentSource') }}</span>
+              <strong>{{ processed?.source_filename || t('measurement.noInput') }}</strong>
+            </div>
+            <div class="measurement-canvas-actions">
+              <span class="canvas-status mono" :class="`status-${summaryStatus.toLowerCase()}`">{{ summaryStatus }}</span>
+              <button type="button" class="btn btn-primary process-measurement" :disabled="!canProcess || source === 'live'" @click="processCurrent">
+                {{ processing ? t('measurement.processing') : t('measurement.process') }}
+              </button>
+            </div>
+          </div>
           <div v-if="!processed" class="viewport-empty">
             <div class="empty-crosshair">+</div>
             <strong>{{ t('measurement.viewportEmpty') }}</strong>
@@ -541,7 +531,7 @@ onBeforeUnmount(stopMobileCamera)
 
       <aside class="measurement-results">
         <section class="results-header">
-          <div class="section-kicker">03 / {{ t('measurement.evaluate') }}</div>
+          <div class="panel-section-title">{{ t('measurement.evaluate') }}</div>
           <label class="field-label" for="run-name">{{ t('measurement.runName') }}</label>
           <input id="run-name" v-model="runName" class="run-name" type="text" :placeholder="t('measurement.runNamePlaceholder')">
         </section>
@@ -596,17 +586,9 @@ onBeforeUnmount(stopMobileCamera)
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px 24px 24px;
-  background: var(--color-surface-1);
+  padding: 0;
+  background: var(--color-canvas);
   color: var(--color-ink);
-}
-
-.measurement-heading {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 22px;
 }
 
 .eyebrow,
@@ -618,18 +600,6 @@ onBeforeUnmount(stopMobileCamera)
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.measurement-heading h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.measurement-heading p:not(.eyebrow) {
-  margin: 6px 0 0;
-  color: var(--color-ink-muted);
-  font-size: 14px;
 }
 
 .heading-status,
@@ -663,7 +633,7 @@ onBeforeUnmount(stopMobileCamera)
   display: flex;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--color-hairline);
+  border: 0;
   background: var(--color-canvas);
 }
 
@@ -677,8 +647,8 @@ onBeforeUnmount(stopMobileCamera)
   background: var(--color-canvas);
 }
 
-.measurement-rail { width: 340px; flex-basis: 340px; border-right: 1px solid var(--color-hairline); }
-.measurement-results { width: 380px; flex-basis: 380px; border-left: 1px solid var(--color-hairline); }
+.measurement-rail { width: var(--sidebar-left); flex-basis: var(--sidebar-left); border-right: 1px solid var(--color-hairline); }
+.measurement-results { width: var(--sidebar-right); flex-basis: var(--sidebar-right); border-left: 1px solid var(--color-hairline); }
 
 .measurement-rail-body { min-height: 0; flex: 1 1 auto; }
 
@@ -688,6 +658,13 @@ onBeforeUnmount(stopMobileCamera)
 .result-actions {
   padding: 22px;
   border-bottom: 1px solid var(--color-hairline);
+}
+
+.panel-section-title {
+  margin: 0 0 14px;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .section-help,
@@ -773,10 +750,15 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .item-remove { border: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font-size: 18px; }
 
 .measurement-canvas-panel { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
-.canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 12px 16px; border-bottom: 1px solid var(--color-hairline); background: var(--color-canvas); }
-.canvas-toolbar strong { display: block; max-width: 420px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-inverse-canvas); }
+.measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-surface-1); }
 .measurement-viewport.is-dragging { cursor: grabbing; }
+.measurement-canvas-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; max-width: calc(100% - 24px); padding: 9px 10px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
+.measurement-canvas-tools strong { display: block; max-width: 280px; overflow: hidden; color: var(--color-ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.measurement-canvas-actions { display: flex; align-items: center; gap: 10px; }
+.canvas-status { color: var(--color-ink-muted); font-size: 11px; font-weight: 600; }
+.canvas-status.status-pass { color: var(--color-success); }
+.canvas-status.status-fail { color: var(--color-error); }
+.canvas-status.status-review { color: var(--color-warning); }
 .measurement-image-frame { position: relative; transform-origin: center; transition: transform 0.05s linear; }
 .measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
 .measurement-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
@@ -790,11 +772,11 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
 .selected-measurement { pointer-events: none; }
 .selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
-.selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
+.selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
 .calibration-reference { pointer-events: none; }
 .calibration-reference line { stroke: var(--color-warning); stroke-width: 2.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
-.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-inverse-canvas); stroke-width: 5px; }
-.viewport-empty { display: grid; place-items: center; gap: 8px; color: var(--color-inverse-ink-muted); text-align: center; }
+.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
+.viewport-empty { display: grid; place-items: center; gap: 8px; color: var(--color-ink-muted); text-align: center; }
 .viewport-empty span { max-width: 250px; font-size: 12px; }
 .empty-crosshair { color: var(--color-primary); font-family: var(--font-mono); font-size: 42px; font-weight: 300; }
 
@@ -844,12 +826,6 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-zoom-reset:hover { background: var(--color-surface-1); }
 .measurement-zoom-reset { padding: 0 10px; font-size: 11px; }
 .measurement-zoom-value { min-width: 48px; color: var(--color-ink); font-size: 12px; text-align: center; }
-
-@media (max-width: 1180px) {
-  .measurement-rail { width: 300px; flex-basis: 300px; }
-  .measurement-results { width: 340px; flex-basis: 340px; }
-  .measurement-page { padding: 20px; }
-}
 
 @media (max-width: 900px) {
   .measurement-page { overflow-y: auto; }

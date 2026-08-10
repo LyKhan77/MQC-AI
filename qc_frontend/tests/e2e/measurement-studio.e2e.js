@@ -94,6 +94,35 @@ test('processes an image, evaluates an edge, and saves the run', async ({ page }
 })
 
 
+test('uses the QC Studio full-height shell and application top bar', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  await expect(page.locator('.top-bar .page-title')).toHaveText('Inspect Measurement')
+  await expect(page.locator('.measurement-heading')).toHaveCount(0)
+
+  const shell = await page.evaluate(() => {
+    const page = document.querySelector('.measurement-page')
+    const studio = document.querySelector('.measurement-studio')
+    return {
+      pagePadding: getComputedStyle(page).padding,
+      studioDisplay: getComputedStyle(studio).display,
+      studioBorder: getComputedStyle(studio).borderTopWidth,
+      leftRailWidth: getComputedStyle(document.querySelector('.measurement-rail')).width,
+      rightRailWidth: getComputedStyle(document.querySelector('.measurement-results')).width,
+    }
+  })
+
+  expect(shell).toEqual({
+    pagePadding: '0px',
+    studioDisplay: 'flex',
+    studioBorder: '0px',
+    leftRailWidth: '280px',
+    rightRailWidth: '320px',
+  })
+})
+
+
 test('triggers Live Camera capture into the same measurement pipeline', async ({ page }) => {
   await mockMeasurementApi(page)
   await page.goto('/measurement')
@@ -103,7 +132,7 @@ test('triggers Live Camera capture into the same measurement pipeline', async ({
   await page.locator('.trigger-capture').click()
 
   await expect(page.locator('.candidate-strip')).toBeVisible()
-  await expect(page.locator('.canvas-toolbar')).toContainText('cam-1.jpg')
+  await expect(page.locator('.measurement-canvas-tools')).toContainText('cam-1.jpg')
   await expect(page.locator('.measurement-candidate')).toHaveCount(1)
 })
 

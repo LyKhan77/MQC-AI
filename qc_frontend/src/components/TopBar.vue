@@ -16,6 +16,7 @@ const pageTitle = computed(() => {
     reports: t('reports.title'),
     audit: t('audit.title'),
     settings: t('settings.title'),
+    measurement: t('measurement.title'),
   }
   return map[route.name] ?? ''
 })

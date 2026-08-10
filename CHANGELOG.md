@@ -23,12 +23,13 @@ Each entry contains:
 - Added a browser regression assertion that image and SVG bounding boxes remain equal.
 - Reworked panel positioning to fixed QC Studio-style flex rails; Input/Calibration now scroll in a bounded left rail body, History remains independently scrollable, and the right Measurement Items panel remains independently scrollable.
 - Reduced foreground LSD overlay stroke from 5px to 3px while retaining a 6px contrast halo.
+- Moved the page title into the application TopBar, removed the in-page heading and outer padding/border, matched QC Studio's `280px / flex / 320px` workspace shell, and moved source/process/status controls into a floating canvas tool cluster.
 
 ### Current Codebase State
 
 | Area / Feature | Timeline | What Was Developed | After the Change |
 |---|---|---|---|
-| Measurement Studio layout, input, and canvas | 2026-08-10 | The whole page scrolled as one document; Mobile Camera was unavailable; SVG overlay used an independent viewport box | Desktop Studio shell has wider panels, scoped scrolling, shared image/SVG coordinates, QC-style zoom/pan, visible measurement overlays, and Mobile Camera client capture. |
+| Measurement Studio layout, input, and canvas | 2026-08-10 | The whole page scrolled as one document; Mobile Camera was unavailable; SVG overlay used an independent viewport box | Desktop shell now begins below TopBar with no modal-like outer container, matches QC Studio rail positioning, keeps scoped scrolling, shares image/SVG coordinates, uses QC-style zoom/pan, visible measurement overlays, and supports Mobile Camera client capture. |
 
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Prototype Implementation
 
