@@ -12,6 +12,14 @@ def _png_bytes():
     return buffer.tobytes()
 
 
+def _hole_png_bytes():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.circle(frame, (160, 120), 36, (255, 255, 255), -1)
+    ok, buffer = cv2.imencode(".png", frame)
+    assert ok
+    return buffer.tobytes()
+
+
 def _calibration():
     return json.dumps({
         "point_a": [0, 0],
@@ -39,6 +47,42 @@ def test_process_upload_returns_candidates_and_serves_frame(client):
     assert body["candidates"]
     assert body["frame_url"].startswith("/api/measurements/files/tmp-")
     assert client.get(body["frame_url"]).status_code == 200
+
+
+def test_process_hole_task_returns_circle_candidates(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("holes.png", _hole_png_bytes(), "image/png")},
+        data={
+            "task_type": "hole_diameter",
+            "view_type": "top",
+            "calibration": _calibration(),
+            "options": json.dumps({"min_radius_px": 30, "max_radius_px": 42}),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_type"] == "hole_diameter"
+    assert body["view_type"] == "top"
+    assert body["holes"]
+    assert body["holes"][0]["center"]
+
+
+def test_process_profile_task_on_top_view_requires_review(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("profile.png", _png_bytes(), "image/png")},
+        data={
+            "task_type": "thickness_profile",
+            "view_type": "top",
+            "calibration": _calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "review"
+    assert response.json()["reason"] == "unsupported_view"
 
 
 def test_process_live_camera_uses_registered_camera_and_grab_one(client, monkeypatch):
@@ -156,6 +200,8 @@ def test_save_list_detail_delete_measurement_and_audit(client):
     assert body["name"] == "BRKT-001"
     assert body["items"][0]["measured"] == 60
     assert body["items"][0]["status"] == "PASS"
+    assert body["processing"]["task_type"] == "linear_dimension"
+    assert body["processing"]["view_type"] == "top"
     assert client.get(body["source_url"]).status_code == 200
 
     listed = client.get("/api/measurements").json()

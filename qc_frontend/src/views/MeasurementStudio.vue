@@ -26,8 +26,15 @@ const selectedFile = ref(null)
 const localFileName = ref('')
 const runName = ref('')
 const selectedCameraId = ref('')
-const referencePx = ref(100)
 const knownMm = ref(50)
+const taskType = ref('linear_dimension')
+const viewType = ref('top')
+const previewUrl = ref('')
+const previewWidth = ref(1)
+const previewHeight = ref(1)
+const calibrationPoints = ref([])
+const calibrationMode = ref(false)
+const calibrationDragging = ref(false)
 const processed = ref(null)
 const items = ref([])
 const recentRuns = ref([])
@@ -37,6 +44,8 @@ const evaluated = ref(false)
 const readOnly = ref(false)
 const errorMessage = ref('')
 const selectedCandidate = ref(-1)
+const selectedHoleIndexes = ref([])
+const selectedAngleIndexes = ref([])
 const mobileVideo = ref(null)
 const mobileCameraOpen = ref(false)
 const mobileResolution = ref('')
@@ -53,6 +62,7 @@ const cameraStreamUrl = computed(() => (
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : ''
 ))
 const displayUrl = computed(() => processed.value?.frame_url || '')
+const calibrationReady = computed(() => calibrationPoints.value.length === 2 && Number(knownMm.value) > 0)
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
 const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
@@ -61,6 +71,10 @@ const summaryStatus = computed(() => evaluated.value
 const canProcess = computed(() => !processing.value && (
   source.value === 'image' ? Boolean(selectedFile.value) : source.value === 'live' ? Boolean(selectedCameraId.value) : false
 ))
+const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
+const taskNeedsEdgeCandidate = computed(() => taskType.value === 'hole_center_to_edge')
+const taskRequiresProfile = computed(() => ['thickness_profile', 'bend_angle'].includes(taskType.value))
+const taskViewSupported = computed(() => !taskRequiresProfile.value || ['profile', 'side'].includes(viewType.value))
 const canEvaluate = computed(() => (
   !readOnly.value && Boolean(processed.value) && readiness.value === 'ready' && items.value.length > 0
 ))
@@ -72,12 +86,56 @@ const filteredRuns = computed(() => {
 })
 
 function calibrationInput() {
-  const length = Number(referencePx.value)
+  const points = calibrationPoints.value.length === 2
+    ? calibrationPoints.value
+    : [[20, 20], [120, 20]]
   return {
-    point_a: [20, 20],
-    point_b: [20 + length, 20],
+    mode: 'reference_line',
+    point_a: points[0],
+    point_b: points[1],
     known_mm: Number(knownMm.value),
   }
+}
+
+function clearPreview() {
+  if (previewUrl.value && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(previewUrl.value)
+  previewUrl.value = ''
+  previewWidth.value = 1
+  previewHeight.value = 1
+}
+
+function startCalibration() {
+  calibrationPoints.value = []
+  calibrationMode.value = true
+  errorMessage.value = ''
+}
+
+function previewPoint(event) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const width = rect.width || 1
+  const height = rect.height || 1
+  return [
+    Math.max(0, Math.min(previewWidth.value, ((event.clientX - rect.left) / width) * previewWidth.value)),
+    Math.max(0, Math.min(previewHeight.value, ((event.clientY - rect.top) / height) * previewHeight.value)),
+  ]
+}
+
+function onCalibrationPointerDown(event) {
+  if (!calibrationMode.value || event.button !== 0) return
+  calibrationPoints.value = [previewPoint(event)]
+  calibrationDragging.value = true
+}
+
+function onCalibrationPointerMove(event) {
+  if (!calibrationDragging.value) return
+  calibrationPoints.value = [calibrationPoints.value[0], previewPoint(event)]
+}
+
+function onCalibrationPointerUp(event) {
+  if (!calibrationDragging.value) return
+  calibrationDragging.value = false
+  calibrationPoints.value = [calibrationPoints.value[0], previewPoint(event)]
+  calibrationMode.value = false
 }
 
 function chooseSource(value) {
@@ -88,6 +146,7 @@ function chooseSource(value) {
 }
 
 function onFileChange(event) {
+  clearPreview()
   selectedFile.value = event.target.files?.[0] || null
   localFileName.value = selectedFile.value?.name || ''
   runName.value = selectedFile.value?.name?.replace(/\.[^.]+$/, '') || runName.value
@@ -95,7 +154,23 @@ function onFileChange(event) {
   items.value = []
   evaluated.value = false
   readOnly.value = false
+  calibrationPoints.value = []
+  calibrationMode.value = false
+  selectedHoleIndexes.value = []
+  selectedAngleIndexes.value = []
+  if (selectedFile.value) {
+    previewUrl.value = typeof URL.createObjectURL === 'function'
+      ? URL.createObjectURL(selectedFile.value)
+      : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+    previewWidth.value = 160
+    previewHeight.value = 120
+  }
   errorMessage.value = ''
+}
+
+function onPreviewLoad(event) {
+  previewWidth.value = event.target.naturalWidth || event.target.width || 1
+  previewHeight.value = event.target.naturalHeight || event.target.height || 1
 }
 
 async function runMeasurement(input) {
@@ -103,10 +178,17 @@ async function runMeasurement(input) {
   errorMessage.value = ''
   readOnly.value = false
   try {
-    processed.value = await processMeasurement({ ...input, calibration: calibrationInput() })
+    processed.value = await processMeasurement({
+      ...input,
+      calibration: calibrationInput(),
+      taskType: taskType.value,
+      viewType: viewType.value,
+    })
     items.value = []
     evaluated.value = false
     selectedCandidate.value = -1
+    selectedHoleIndexes.value = []
+    selectedAngleIndexes.value = []
     resetZoom()
     log('MEASUREMENT_PROCESSED', `${processed.value.source_type}:${processed.value.source_filename}`)
   } catch (error) {
@@ -222,20 +304,168 @@ async function captureMobile() {
 }
 
 function candidateKey(candidate, index) {
-  return `${candidate.source}-${index}-${candidate.points.flat().join('-')}`
+  const geometry = candidate.center ? candidate.center.join('-') : candidate.points.flat().join('-')
+  return `${candidate.source}-${index}-${geometry}`
 }
 
 function selectCandidate(candidate, index) {
   if (readOnly.value || !processed.value) return
+  if (taskType.value === 'bend_angle') {
+    const nextIndexes = selectedAngleIndexes.value.includes(index)
+      ? selectedAngleIndexes.value.filter((value) => value !== index)
+      : [...selectedAngleIndexes.value, index]
+    selectedAngleIndexes.value = nextIndexes.slice(-2)
+    selectedCandidate.value = index
+    if (selectedAngleIndexes.value.length < 2) return
+    const [first, second] = selectedAngleIndexes.value.map((value) => processed.value.candidates[value])
+    const shared = first.points.find((point) => second.points.some((other) => point[0] === other[0] && point[1] === other[1]))
+    const otherPoint = (points) => points.find((point) => !shared || point[0] !== shared[0] || point[1] !== shared[1])
+    const points = shared
+      ? [shared, otherPoint(first.points), shared, otherPoint(second.points)]
+      : [...first.points, ...second.points]
+    const measured = measureGeometry('bend_angle', points, processed.value.calibration)
+    const id = `B${items.value.length + 1}`
+    items.value.push({
+      id,
+      type: 'bend_angle',
+      task_type: 'bend_angle',
+      view_type: viewType.value,
+      label: `Bend ${id}`,
+      points,
+      measured: measured.value,
+      unit: measured.unit,
+      pixel_value: measured.pixel_value,
+      nominal: null,
+      tolerance: 0.5,
+      confidence: Math.min(first.confidence, second.confidence),
+      status: 'REVIEW',
+      reason: 'missing_nominal_or_tolerance',
+    })
+    selectedAngleIndexes.value = []
+    evaluated.value = false
+    return
+  }
+  if (taskNeedsEdgeCandidate.value) {
+    if (selectedHoleIndexes.value.length !== 1) return
+    const hole = processed.value.holes[selectedHoleIndexes.value[0]]
+    const geometry = {
+      kind: 'circle_to_edge',
+      center: hole.center,
+      edge_a: candidate.points[0],
+      edge_b: candidate.points[1],
+    }
+    const measured = measureGeometry(taskType.value, [], processed.value.calibration, geometry)
+    const id = `H${items.value.length + 1}`
+    items.value.push({
+      id,
+      type: taskType.value,
+      task_type: taskType.value,
+      view_type: viewType.value,
+      label: `Hole ${id}`,
+      points: [],
+      geometry,
+      measured: measured.value,
+      unit: measured.unit,
+      pixel_value: measured.pixel_value,
+      nominal: null,
+      tolerance: 2,
+      confidence: Math.min(hole.confidence, candidate.confidence),
+      status: 'REVIEW',
+      reason: 'missing_nominal_or_tolerance',
+    })
+    selectedCandidate.value = index
+    selectedHoleIndexes.value = []
+    evaluated.value = false
+    return
+  }
   selectedCandidate.value = index
   const points = candidate.points
-  const measured = measureGeometry('edge_length', points, processed.value.calibration)
-  const id = `E${items.value.length + 1}`
+  if (taskType.value === 'thickness_profile') return
+  const measured = measureGeometry(taskType.value, points, processed.value.calibration)
+  const idPrefix = taskType.value === 'inclination' ? 'I' : 'E'
+  const id = `${idPrefix}${items.value.length + 1}`
   items.value.push({
     id,
-    type: 'edge_length',
-    label: `Edge ${id}`,
+    type: taskType.value,
+    task_type: taskType.value,
+    view_type: viewType.value,
+    label: taskType.value === 'inclination' ? `Inclination ${id}` : `Edge ${id}`,
     points,
+    measured: measured.value,
+    unit: measured.unit,
+    pixel_value: measured.pixel_value,
+    nominal: null,
+    tolerance: 2,
+    confidence: candidate.confidence,
+    status: 'REVIEW',
+    reason: 'missing_nominal_or_tolerance',
+  })
+  evaluated.value = false
+}
+
+function selectHole(candidate, index) {
+  if (readOnly.value || !processed.value) return
+  if (taskType.value === 'hole_center_distance' || taskType.value === 'hole_edge_distance') {
+    const nextIndexes = selectedHoleIndexes.value.includes(index)
+      ? selectedHoleIndexes.value.filter((value) => value !== index)
+      : [...selectedHoleIndexes.value, index]
+    selectedHoleIndexes.value = nextIndexes.slice(-2)
+    selectedCandidate.value = index
+    if (selectedHoleIndexes.value.length < 2) return
+    const [firstIndex, secondIndex] = selectedHoleIndexes.value
+    const first = processed.value.holes[firstIndex]
+    const second = processed.value.holes[secondIndex]
+    const pairGeometry = {
+      kind: 'circle_pair',
+      center_a: first.center,
+      center_b: second.center,
+      radius_a_px: first.radius_px,
+      radius_b_px: second.radius_px,
+    }
+    const measuredPair = measureGeometry(taskType.value, [], processed.value.calibration, pairGeometry)
+    const pairId = `H${items.value.length + 1}`
+    items.value.push({
+      id: pairId,
+      type: taskType.value,
+      task_type: taskType.value,
+      view_type: viewType.value,
+      label: `Hole ${pairId}`,
+      points: [],
+      geometry: pairGeometry,
+      measured: measuredPair.value,
+      unit: measuredPair.unit,
+      pixel_value: measuredPair.pixel_value,
+      nominal: null,
+      tolerance: 2,
+      confidence: Math.min(first.confidence, second.confidence),
+      status: 'REVIEW',
+      reason: 'missing_nominal_or_tolerance',
+    })
+    selectedHoleIndexes.value = []
+    evaluated.value = false
+    return
+  }
+  if (taskType.value === 'hole_center_to_edge') {
+    selectedHoleIndexes.value = [index]
+    selectedCandidate.value = -1
+    return
+  }
+  selectedCandidate.value = index
+  const geometry = {
+    kind: 'circle',
+    center: candidate.center,
+    radius_px: candidate.radius_px,
+  }
+  const measured = measureGeometry(taskType.value, [], processed.value.calibration, geometry)
+  const id = `H${items.value.length + 1}`
+  items.value.push({
+    id,
+    type: taskType.value,
+    task_type: taskType.value,
+    view_type: viewType.value,
+    label: `Hole ${id}`,
+    points: [],
+    geometry,
     measured: measured.value,
     unit: measured.unit,
     pixel_value: measured.pixel_value,
@@ -312,6 +542,8 @@ async function loadHistory() {
 
 function openRun(run) {
   runName.value = run.name
+  taskType.value = run.processing?.task_type || run.items?.[0]?.task_type || run.items?.[0]?.type || 'linear_dimension'
+  viewType.value = run.processing?.view_type || run.items?.[0]?.view_type || 'top'
   selectedFile.value = null
   localFileName.value = run.source_filename
   source.value = run.source_type === 'live_camera' ? 'live' : run.source_type === 'mobile_camera' ? 'mobile' : 'image'
@@ -347,7 +579,10 @@ async function removeRun(run) {
 }
 
 onMounted(loadHistory)
-onBeforeUnmount(stopMobileCamera)
+onBeforeUnmount(() => {
+  stopMobileCamera()
+  clearPreview()
+})
 </script>
 
 <template>
@@ -368,6 +603,31 @@ onBeforeUnmount(stopMobileCamera)
               {{ t('inspection.sourceMobileCamera') }}
             </button>
           </div>
+
+          <div class="task-grid">
+            <label class="field-label" for="task-type">
+              {{ t('measurement.taskType') }}
+              <select id="task-type" v-model="taskType">
+                <option value="linear_dimension">{{ t('measurement.taskLinear') }}</option>
+                <option value="thickness_profile">{{ t('measurement.taskThickness') }}</option>
+                <option value="bend_angle">{{ t('measurement.taskBend') }}</option>
+                <option value="inclination">{{ t('measurement.taskInclination') }}</option>
+                <option value="hole_diameter">{{ t('measurement.taskHoleDiameter') }}</option>
+                <option value="hole_center_distance">{{ t('measurement.taskHolePitch') }}</option>
+                <option value="hole_edge_distance">{{ t('measurement.taskHoleEdge') }}</option>
+                <option value="hole_center_to_edge">{{ t('measurement.taskHoleToEdge') }}</option>
+              </select>
+            </label>
+            <label class="field-label" for="view-type">
+              {{ t('measurement.viewType') }}
+              <select id="view-type" v-model="viewType">
+                <option value="top">{{ t('measurement.viewTop') }}</option>
+                <option value="profile">{{ t('measurement.viewProfile') }}</option>
+                <option value="side">{{ t('measurement.viewSide') }}</option>
+              </select>
+            </label>
+          </div>
+          <p v-if="!taskViewSupported" class="task-warning">{{ t('measurement.profileViewRequired') }}</p>
 
           <template v-if="source === 'image'">
             <label class="field-label" for="measurement-file">{{ t('measurement.selectImage') }}</label>
@@ -413,13 +673,17 @@ onBeforeUnmount(stopMobileCamera)
         <section class="rail-section">
           <div class="panel-section-title">{{ t('measurement.calibration') }}</div>
           <p class="section-help">{{ t('measurement.calibrationHelp') }}</p>
-          <label class="field-label" for="reference-px">{{ t('measurement.referencePx') }}</label>
-          <input id="reference-px" v-model.number="referencePx" type="number" min="1" step="1">
+          <button type="button" class="btn btn-secondary calibration-draw-button" :disabled="!previewUrl || readOnly" @click="startCalibration">
+            {{ calibrationMode ? t('measurement.calibrationDrawing') : t('measurement.drawReference') }}
+          </button>
           <label class="field-label" for="known-mm">{{ t('measurement.knownLength') }}</label>
           <div class="input-unit">
             <input id="known-mm" v-model.number="knownMm" type="number" min="0.01" step="0.01">
             <span>mm</span>
           </div>
+          <p class="calibration-state" :class="{ valid: calibrationReady }">
+            {{ calibrationReady ? t('measurement.calibrationReady') : t('measurement.calibrationPending') }}
+          </p>
           <div class="calibration-readout">
             <span>{{ t('measurement.scale') }}</span>
             <strong>{{ processed?.calibration?.mm_per_pixel?.toFixed?.(4) || '—' }} mm/px</strong>
@@ -463,7 +727,32 @@ onBeforeUnmount(stopMobileCamera)
               </button>
             </div>
           </div>
-          <div v-if="!processed" class="viewport-empty">
+          <div v-if="!processed && previewUrl" class="measurement-preview">
+            <div class="measurement-image-frame preview-frame">
+              <img class="measurement-image" :src="previewUrl" :alt="localFileName" @load="onPreviewLoad" draggable="false">
+              <svg
+                class="measurement-overlay calibration-overlay"
+                :viewBox="`0 0 ${previewWidth} ${previewHeight}`"
+                preserveAspectRatio="none"
+                :class="{ active: calibrationMode }"
+                @mousedown.stop="onCalibrationPointerDown"
+                @mousemove.stop="onCalibrationPointerMove"
+                @mouseup.stop="onCalibrationPointerUp"
+              >
+                <line
+                  v-if="calibrationPoints.length === 2"
+                  class="calibration-drawn-line"
+                  :x1="calibrationPoints[0][0]"
+                  :y1="calibrationPoints[0][1]"
+                  :x2="calibrationPoints[1][0]"
+                  :y2="calibrationPoints[1][1]"
+                ></line>
+                <circle v-for="(point, index) in calibrationPoints" :key="`calibration-point-${index}`" class="calibration-drawn-point" :cx="point[0]" :cy="point[1]" r="6"></circle>
+              </svg>
+            </div>
+            <span class="preview-guidance">{{ calibrationMode ? t('measurement.calibrationDrawHint') : t('measurement.previewHint') }}</span>
+          </div>
+          <div v-else-if="!processed" class="viewport-empty">
             <div class="empty-crosshair">+</div>
             <strong>{{ t('measurement.viewportEmpty') }}</strong>
             <span>{{ t('measurement.viewportHint') }}</span>
@@ -476,7 +765,7 @@ onBeforeUnmount(stopMobileCamera)
                 v-for="(candidate, index) in processed.candidates"
                 :key="candidateKey(candidate, index)"
                 class="measurement-candidate"
-                :class="{ selected: selectedCandidate === index }"
+                :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }"
                 @click="selectCandidate(candidate, index)"
               >
                 <line class="measurement-line-halo" :x1="candidate.points[0][0]" :y1="candidate.points[0][1]" :x2="candidate.points[1][0]" :y2="candidate.points[1][1]"></line>
@@ -485,6 +774,18 @@ onBeforeUnmount(stopMobileCamera)
                 <circle class="measurement-point-halo" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="7"></circle>
                 <circle class="measurement-point" :cx="candidate.points[0][0]" :cy="candidate.points[0][1]" r="4"></circle>
                 <circle class="measurement-point" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="4"></circle>
+              </g>
+              <g
+                v-for="(hole, index) in (processed.holes || [])"
+                :key="`hole-${index}-${hole.center.join('-')}`"
+                class="measurement-hole-candidate"
+                :class="{ selected: selectedHoleIndexes.includes(index) }"
+                @click.stop="selectHole(hole, index)"
+              >
+                <circle class="measurement-hole-halo" :cx="hole.center[0]" :cy="hole.center[1]" :r="hole.radius_px"></circle>
+                <circle class="measurement-hole-center" :cx="hole.center[0]" :cy="hole.center[1]" r="4"></circle>
+                <line class="measurement-hole-crosshair" :x1="hole.center[0] - 10" :y1="hole.center[1]" :x2="hole.center[0] + 10" :y2="hole.center[1]"></line>
+                <line class="measurement-hole-crosshair" :x1="hole.center[0]" :y1="hole.center[1] - 10" :x2="hole.center[0]" :y2="hole.center[1] + 10"></line>
               </g>
               <g v-if="processed.calibration.point_a && processed.calibration.point_b" class="calibration-reference">
                 <line
@@ -496,9 +797,28 @@ onBeforeUnmount(stopMobileCamera)
                 <text :x="processed.calibration.point_a[0]" :y="processed.calibration.point_a[1] + 13">REF {{ processed.calibration.known_mm }} mm</text>
               </g>
               <g v-for="item in items" :key="`item-${item.id}`" class="selected-measurement">
-                <line class="measurement-line-halo" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
-                <line class="measurement-line" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
-                <text :x="item.points[0][0]" :y="item.points[0][1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <template v-if="item.geometry?.kind === 'circle'">
+                  <circle class="measurement-line-halo" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" :r="item.geometry.radius_px"></circle>
+                  <circle class="measurement-line" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" :r="item.geometry.radius_px"></circle>
+                </template>
+                <template v-else-if="item.geometry?.kind === 'circle_pair'">
+                  <line class="measurement-line-halo" :x1="item.geometry.center_a[0]" :y1="item.geometry.center_a[1]" :x2="item.geometry.center_b[0]" :y2="item.geometry.center_b[1]"></line>
+                  <line class="measurement-line" :x1="item.geometry.center_a[0]" :y1="item.geometry.center_a[1]" :x2="item.geometry.center_b[0]" :y2="item.geometry.center_b[1]"></line>
+                </template>
+                <template v-else-if="item.geometry?.kind === 'circle_to_edge'">
+                  <circle class="measurement-point-halo" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" r="7"></circle>
+                  <circle class="measurement-point" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" r="4"></circle>
+                  <line class="measurement-line-halo" :x1="item.geometry.edge_a[0]" :y1="item.geometry.edge_a[1]" :x2="item.geometry.edge_b[0]" :y2="item.geometry.edge_b[1]"></line>
+                  <line class="measurement-line" :x1="item.geometry.edge_a[0]" :y1="item.geometry.edge_a[1]" :x2="item.geometry.edge_b[0]" :y2="item.geometry.edge_b[1]"></line>
+                </template>
+                <template v-else>
+                  <line class="measurement-line-halo" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
+                  <line class="measurement-line" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
+                </template>
+                <text v-if="item.geometry?.kind === 'circle'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - item.geometry.radius_px - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <text v-else-if="item.geometry?.kind === 'circle_pair'" :x="item.geometry.center_a[0]" :y="item.geometry.center_a[1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <text v-else-if="item.geometry?.kind === 'circle_to_edge'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - 9">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <text v-else :x="item.points[0][0]" :y="item.points[0][1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
               </g>
               </svg>
             </div>
@@ -514,15 +834,33 @@ onBeforeUnmount(stopMobileCamera)
         <div v-if="processed" class="candidate-strip">
           <div class="strip-header">
             <span>{{ t('measurement.candidates') }}</span>
-            <span>{{ processed.candidates.length }} {{ t('measurement.detected') }}</span>
+            <span>{{ taskIsHole ? (processed.holes || []).length : processed.candidates.length }} {{ t('measurement.detected') }}</span>
           </div>
-          <button v-for="(candidate, index) in processed.candidates" :key="candidateKey(candidate, index)" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index }" @click="selectCandidate(candidate, index)">
-            <span class="candidate-line"></span>
-            <strong>L{{ index + 1 }}</strong>
-            <span>{{ candidate.length_px.toFixed(1) }} px</span>
-            <small>{{ candidate.source }} · {{ candidate.confidence.toFixed(2) }}</small>
-          </button>
-          <button type="button" class="candidate-card manual-card" :disabled="readOnly" @click="addManualItem">
+          <template v-if="!taskIsHole">
+            <button v-for="(candidate, index) in processed.candidates" :key="candidateKey(candidate, index)" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
+              <span class="candidate-line"></span>
+              <strong>L{{ index + 1 }}</strong>
+              <span>{{ candidate.length_px.toFixed(1) }} px</span>
+              <small>{{ candidate.source }} · {{ candidate.confidence.toFixed(2) }}</small>
+            </button>
+          </template>
+          <template v-else>
+            <button v-for="(hole, index) in (processed.holes || [])" :key="candidateKey(hole, index)" type="button" class="candidate-card hole-card" :class="{ selected: selectedCandidate === index || selectedHoleIndexes.includes(index) }" @click="selectHole(hole, index)">
+              <span class="candidate-hole"></span>
+              <strong>H{{ index + 1 }}</strong>
+              <span>Ø {{ hole.diameter_px.toFixed(1) }} px</span>
+              <small>{{ hole.source }} · {{ hole.confidence.toFixed(2) }}</small>
+            </button>
+          </template>
+          <template v-if="taskNeedsEdgeCandidate">
+            <button v-for="(candidate, index) in processed.candidates" :key="`edge-${candidateKey(candidate, index)}`" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
+              <span class="candidate-line"></span>
+              <strong>E{{ index + 1 }}</strong>
+              <span>{{ candidate.length_px.toFixed(1) }} px</span>
+              <small>{{ candidate.source }} · {{ candidate.confidence.toFixed(2) }}</small>
+            </button>
+          </template>
+          <button v-if="!taskIsHole" type="button" class="candidate-card manual-card" :disabled="readOnly" @click="addManualItem">
             <strong>＋</strong>
             <span>{{ t('measurement.addManual') }}</span>
           </button>
@@ -688,6 +1026,10 @@ onBeforeUnmount(stopMobileCamera)
 }
 .source-tabs button + button { border-left: 0; }
 .source-tabs button.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
+.task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.task-grid .field-label { margin-top: 0; }
+.task-grid select { margin-top: 5px; min-height: 42px; font-size: 11px; }
+.task-warning { margin: 12px 0 0; padding: 9px; border-left: 3px solid var(--color-warning); background: var(--color-surface-1); color: var(--color-warning); font-size: 11px; line-height: 1.4; }
 
 .field-label,
 .item-fields label {
@@ -737,6 +1079,9 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
 .btn-secondary { border-color: var(--color-hairline-strong); background: var(--color-canvas); color: var(--color-ink); }
 .trigger-capture { width: 100%; }
+.calibration-draw-button { width: 100%; margin-bottom: 4px; }
+.calibration-state { margin: 10px 0 0; color: var(--color-warning); font-family: var(--font-mono); font-size: 11px; }
+.calibration-state.valid { color: var(--color-success); }
 
 .history-section { border-bottom: 0; }
 .scroll-region { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -752,6 +1097,13 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-canvas-panel { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
 .measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-surface-1); }
 .measurement-viewport.is-dragging { cursor: grabbing; }
+.measurement-preview { display: grid; max-width: 100%; max-height: 100%; place-items: center; gap: 12px; }
+.preview-frame { max-width: min(100%, 920px); max-height: calc(100% - 32px); }
+.preview-frame .measurement-image { max-height: calc(100vh - 260px); }
+.calibration-overlay.active { cursor: crosshair; }
+.calibration-drawn-line { stroke: var(--color-warning); stroke-width: 3; vector-effect: non-scaling-stroke; stroke-dasharray: 8 4; }
+.calibration-drawn-point { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.preview-guidance { color: var(--color-ink-muted); font-size: 12px; text-align: center; }
 .measurement-canvas-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; max-width: calc(100% - 24px); padding: 9px 10px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .measurement-canvas-tools strong { display: block; max-width: 280px; overflow: hidden; color: var(--color-ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .measurement-canvas-actions { display: flex; align-items: center; gap: 10px; }
@@ -767,6 +1119,11 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-line { stroke: var(--color-info); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .measurement-point-halo { fill: var(--color-canvas); }
 .measurement-point { fill: var(--color-info); }
+.measurement-hole-candidate { cursor: pointer; opacity: 0.92; }
+.measurement-hole-halo { fill: none; stroke: var(--color-canvas); stroke-width: 7; vector-effect: non-scaling-stroke; }
+.measurement-hole-candidate > .measurement-hole-halo { stroke: var(--color-warning); stroke-width: 3; }
+.measurement-hole-center { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.measurement-hole-crosshair { stroke: var(--color-warning); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .measurement-candidate.selected { opacity: 1; }
 .measurement-candidate.selected .measurement-line { stroke: var(--color-warning); stroke-width: 4; }
 .measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
@@ -787,6 +1144,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .candidate-card.selected { border-color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, var(--color-canvas)); }
 .candidate-card span, .candidate-card small { grid-column: 2; color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
 .candidate-line { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 2px; background: var(--color-info); }
+.candidate-hole { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 14px; border: 2px solid var(--color-warning); }
 .manual-card { display: flex; align-items: center; justify-content: center; gap: 6px; }
 
 .results-header { padding-bottom: 14px; }

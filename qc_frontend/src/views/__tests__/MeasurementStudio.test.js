@@ -59,6 +59,10 @@ function processed(sourceType = 'image') {
       confidence: 0.95,
       source: 'lsd',
     }],
+    holes: [
+      { center: [40, 30], radius_px: 20, diameter_px: 40, confidence: 0.94, source: 'hough_circle_alt' },
+      { center: [140, 30], radius_px: 20, diameter_px: 40, confidence: 0.94, source: 'hough_circle_alt' },
+    ],
   }
 }
 
@@ -83,6 +87,72 @@ describe('MeasurementStudio', () => {
 
     expect(wrapper.text()).toContain('bracket.png')
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
+  })
+
+  it('shows staged image calibration guidance before processing', async () => {
+    const wrapper = mount(MeasurementStudio)
+
+    await stage(wrapper)
+
+    expect(wrapper.find('.measurement-preview').exists()).toBe(true)
+    expect(wrapper.find('.calibration-draw-button').exists()).toBe(true)
+    expect(wrapper.find('#task-type').exists()).toBe(true)
+    expect(wrapper.find('#view-type').exists()).toBe(true)
+  })
+
+  it('sends the selected proper task and view to process', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('hole_diameter')
+    await wrapper.find('#view-type').setValue('top')
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      taskType: 'hole_diameter',
+      viewType: 'top',
+    }))
+  })
+
+  it('adds a hole diameter item with center geometry', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('hole_diameter')
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.find('.measurement-hole-candidate').trigger('click')
+
+    expect(wrapper.find('.measurement-item').text()).toContain('20.00')
+    expect(wrapper.find('.selected-measurement circle').exists()).toBe(true)
+  })
+
+  it('adds a hole center-distance item after selecting two holes', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('hole_center_distance')
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('.measurement-hole-candidate')[0].trigger('click')
+    expect(wrapper.findAll('.measurement-item')).toHaveLength(0)
+    await wrapper.findAll('.measurement-hole-candidate')[1].trigger('click')
+
+    expect(wrapper.find('.measurement-item').text()).toContain('50.00')
+  })
+
+  it('adds a hole center-to-edge item after selecting a hole and edge', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('hole_center_to_edge')
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('.measurement-hole-candidate')[0].trigger('click')
+    await wrapper.find('.measurement-candidate').trigger('click')
+
+    expect(wrapper.find('.measurement-item').text()).toContain('Hole H1')
   })
 
   it('keeps the Studio shell fixed and scopes scrolling to History and items', () => {
@@ -110,6 +180,41 @@ describe('MeasurementStudio', () => {
 
     expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({ file: expect.any(File) }))
     expect(wrapper.findAll('.measurement-candidate')).toHaveLength(1)
+  })
+
+  it('uses the selected inclination task when an edge is selected', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('inclination')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.find('.measurement-candidate').trigger('click')
+
+    expect(wrapper.vm.items[0].type).toBe('inclination')
+    expect(wrapper.vm.items[0].unit).toBe('deg')
+  })
+
+  it('builds a bend angle from two selected profile edges', async () => {
+    const wrapper = mount(MeasurementStudio)
+    mocks.processMeasurement.mockResolvedValueOnce({
+      ...processed(),
+      task_type: 'bend_angle',
+      view_type: 'profile',
+      candidates: [
+        { points: [[20, 90], [80, 30]], length_px: 84.85, angle: -45, confidence: 0.95, source: 'lsd' },
+        { points: [[80, 30], [140, 90]], length_px: 84.85, angle: 45, confidence: 0.95, source: 'lsd' },
+      ],
+    })
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('bend_angle')
+    await wrapper.find('#view-type').setValue('profile')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('.measurement-candidate')[0].trigger('click')
+    await wrapper.findAll('.measurement-candidate')[1].trigger('click')
+
+    expect(wrapper.vm.items[0].type).toBe('bend_angle')
+    expect(wrapper.vm.items[0].unit).toBe('deg')
   })
 
   it('keeps the image and overlay in one zoomable frame', async () => {
@@ -200,6 +305,7 @@ describe('MeasurementStudio', () => {
       calibration: processed().calibration,
       items: [{ id: 'E1', label: 'Edge E1', measured: 60, unit: 'mm', status: 'PASS', points: [[20, 30], [140, 30]] }],
       summary: { status: 'PASS' },
+      processing: { task_type: 'hole_diameter', view_type: 'top' },
       created_at: '2026-08-10',
     }])
     const wrapper = mount(MeasurementStudio)
@@ -213,5 +319,7 @@ describe('MeasurementStudio', () => {
 
     expect(wrapper.find('.measurement-item').text()).toContain('PASS')
     expect(wrapper.find('.measurement-image').attributes('src')).toBe('/saved/frame.jpg')
+    expect(wrapper.find('#task-type').element.value).toBe('hole_diameter')
+    expect(wrapper.find('#view-type').element.value).toBe('top')
   })
 })

@@ -35,6 +35,23 @@ describe('measurements api', () => {
     expect(JSON.parse(options.body.get('calibration')).known_mm).toBe(5)
   })
 
+  it('sends the proper task and view type with the process request', async () => {
+    const fetchMock = ok({ source_type: 'image' })
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['image'], 'holes.png', { type: 'image/png' })
+
+    await processMeasurement({
+      file,
+      taskType: 'hole_diameter',
+      viewType: 'top',
+      calibration: { point_a: [0, 0], point_b: [10, 0], known_mm: 5 },
+    })
+
+    const body = fetchMock.mock.calls[0][1].body
+    expect(body.get('task_type')).toBe('hole_diameter')
+    expect(body.get('view_type')).toBe('top')
+  })
+
   it('processes a Live Camera frame by camera id', async () => {
     const fetchMock = ok({ source_type: 'live_camera' })
     vi.stubGlobal('fetch', fetchMock)

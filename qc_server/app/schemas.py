@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CameraIn(BaseModel):
@@ -244,7 +244,10 @@ class MeasurementItemIn(BaseModel):
     id: str
     type: str
     label: str = ""
-    points: list[list[float]]
+    task_type: str | None = None
+    view_type: str = "top"
+    points: list[list[float]] = Field(default_factory=list)
+    geometry: dict | None = None
     nominal: float | None = None
     tolerance: float | None = None
     confidence: float = 0.0
@@ -259,9 +262,12 @@ class MeasurementProcessOut(BaseModel):
     width: int
     height: int
     calibration: dict
+    task_type: str = "linear_dimension"
+    view_type: str = "top"
     readiness: str
     reason: str
     candidates: list
+    holes: list = Field(default_factory=list)
 
 
 class MeasurementRunIn(BaseModel):
@@ -270,6 +276,8 @@ class MeasurementRunIn(BaseModel):
     source_filename: str
     source_type: str = "image"
     source_camera_id: str | None = None
+    task_type: str = "linear_dimension"
+    view_type: str = "top"
     calibration: dict
     items: list[MeasurementItemIn] = []
 

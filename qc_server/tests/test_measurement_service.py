@@ -3,9 +3,13 @@ import math
 import pytest
 
 from app.services.measurement import (
+    SUPPORTED_TASK_TYPES,
+    SUPPORTED_VIEW_TYPES,
     calibrate_reference,
     evaluate_item,
     measure_geometry,
+    task_requires_profile,
+    task_view_supported,
 )
 
 
@@ -57,6 +61,91 @@ def test_measure_geometry_supports_hole_diameter():
 
     assert result["value"] == 20
     assert result["unit"] == "mm"
+
+
+def test_proper_task_contract_exposes_planar_and_profile_tasks():
+    assert {
+        "linear_dimension",
+        "thickness_profile",
+        "bend_angle",
+        "inclination",
+        "hole_diameter",
+        "hole_center_distance",
+        "hole_edge_distance",
+        "hole_center_to_edge",
+    } <= SUPPORTED_TASK_TYPES
+    assert {"top", "profile", "side"} <= SUPPORTED_VIEW_TYPES
+    assert task_requires_profile("thickness_profile") is True
+    assert task_view_supported("thickness_profile", "top") is False
+    assert task_view_supported("hole_diameter", "top") is True
+
+
+def test_measure_geometry_uses_circle_radius_for_hole_diameter():
+    calibration = calibrate_reference((0, 0), (100, 0), 50)
+
+    result = measure_geometry(
+        "hole_diameter",
+        [],
+        calibration,
+        {"kind": "circle", "center": [40, 30], "radius_px": 20},
+    )
+
+    assert result["value"] == 20
+    assert result["unit"] == "mm"
+    assert result["pixel_value"] == 40
+    assert result["geometry"]["center"] == [40.0, 30.0]
+
+
+def test_measure_geometry_supports_hole_center_and_edge_distances():
+    calibration = calibrate_reference((0, 0), (100, 0), 50)
+    pair = {
+        "kind": "circle_pair",
+        "center_a": [0, 0],
+        "center_b": [100, 0],
+        "radius_a_px": 10,
+        "radius_b_px": 10,
+    }
+
+    center = measure_geometry("hole_center_distance", [], calibration, pair)
+    edge = measure_geometry("hole_edge_distance", [], calibration, pair)
+
+    assert center["value"] == 50
+    assert edge["value"] == 40
+    assert center["unit"] == edge["unit"] == "mm"
+
+
+def test_measure_geometry_supports_hole_center_to_component_edge():
+    calibration = calibrate_reference((0, 0), (100, 0), 50)
+
+    result = measure_geometry(
+        "hole_center_to_edge",
+        [],
+        calibration,
+        {
+            "kind": "circle_to_edge",
+            "center": [50, 20],
+            "edge_a": [0, 100],
+            "edge_b": [100, 100],
+        },
+    )
+
+    assert result["value"] == 40
+    assert result["unit"] == "mm"
+
+
+def test_measure_geometry_supports_canonical_angle_and_inclination_types():
+    calibration = calibrate_reference((0, 0), (100, 0), 50)
+
+    bend = measure_geometry(
+        "bend_angle",
+        [(0, 0), (100, 0), (0, 0), (0, 100)],
+        calibration,
+    )
+    inclination = measure_geometry("inclination", [(0, 0), (100, 100)], calibration)
+
+    assert bend["value"] == 90
+    assert inclination["value"] == 45
+    assert inclination["unit"] == "deg"
 
 
 def test_evaluate_item_passes_at_tolerance_bounds():

@@ -8,6 +8,51 @@ import {
 
 
 describe('measurement helpers', () => {
+  it('measures a circle geometry from its center and radius', () => {
+    expect(measureGeometry('hole_diameter', [], { mm_per_pixel: 0.5 }, {
+      kind: 'circle',
+      center: [40, 30],
+      radius_px: 20,
+    })).toEqual({
+      value: 20,
+      unit: 'mm',
+      pixel_value: 40,
+      geometry: { kind: 'circle', center: [40, 30], radius_px: 20 },
+    })
+  })
+
+  it('measures hole center and edge distances from two circles', () => {
+    const geometry = {
+      kind: 'circle_pair',
+      center_a: [0, 0],
+      center_b: [100, 0],
+      radius_a_px: 10,
+      radius_b_px: 10,
+    }
+
+    expect(measureGeometry('hole_center_distance', [], { mm_per_pixel: 0.5 }, geometry).value).toBe(50)
+    expect(measureGeometry('hole_edge_distance', [], { mm_per_pixel: 0.5 }, geometry).value).toBe(40)
+  })
+
+  it('measures hole center to edge from circle and line geometry', () => {
+    const result = measureGeometry('hole_center_to_edge', [], { mm_per_pixel: 0.5 }, {
+      kind: 'circle_to_edge',
+      center: [50, 20],
+      edge_a: [0, 100],
+      edge_b: [100, 100],
+    })
+
+    expect(result.value).toBe(40)
+    expect(result.unit).toBe('mm')
+  })
+
+  it('measures canonical inclination in degrees', () => {
+    expect(measureGeometry('inclination', [[0, 0], [100, 100]], { mm_per_pixel: 0.5 })).toEqual({
+      value: 45,
+      unit: 'deg',
+      pixel_value: null,
+    })
+  })
   it('converts a linear geometry to millimeters', () => {
     const result = measureGeometry('edge_length', [[0, 0], [100, 0]], { mm_per_pixel: 0.5 })
 

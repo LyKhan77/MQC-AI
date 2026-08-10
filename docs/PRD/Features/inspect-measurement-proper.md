@@ -1,15 +1,15 @@
 # PRD — Inspect Measurement Proper Version
 
-**Status:** Future improvement roadmap
-**Date:** 7 August 2026
+**Status:** P1-P3 planar proper vertical slice implemented; profile/3D phases planned
+**Date:** 10 August 2026
 **Related prototype:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
-**Milestone tracker:** [`inspect-measurement-prototype-milestones.md`](./inspect-measurement-prototype-milestones.md)
+**Milestone tracker:** [`inspect-measurement-proper-milestones.md`](./inspect-measurement-proper-milestones.md)
 
 ## 1. Vision
 
-Inspect Measurement menjadi Measurement Studio untuk QC Station. Inspector memberi nama seri komponen secara manual, mengambil beberapa foto dari sisi berbeda, mengukur feature yang relevan, membandingkan hasil dengan drawing/source of truth, lalu menyimpan evidence lengkap untuk History dan Audit.
+Inspect Measurement menjadi task-driven Measurement Studio untuk QC Station. Inspector memberi nama seri komponen secara manual, mengambil beberapa foto dari sisi berbeda, memilih task measurement yang relevan, membandingkan hasil dengan drawing/source of truth, lalu menyimpan evidence lengkap untuk History dan Audit.
 
-Prototype membuktikan measurement kernel pada satu image/frame. Versi proper menambahkan context inspeksi: session, dynamic views, station calibration, drawing recipe, 3D measurement strategy, dan review governance.
+Prototype membuktikan measurement kernel pada satu image/frame. Versi proper menambahkan context inspeksi: session, dynamic views, station calibration, task/feature recipe, deterministic hole geometry, drawing recipe, profile/3D measurement strategy, dan review governance.
 
 ## 2. Target workflow
 
@@ -83,26 +83,42 @@ Calibration dikelola sebagai profile, bukan angka sementara di UI:
 - station/camera/resolution/focus metadata;
 - calibration date, operator, revision, and validation result.
 
-Capture ditolak atau diberi `REVIEW` jika station profile invalid, resolution berbeda, marker tidak terbaca, atau calibration sudah expired menurut policy.
+Capture ditolak atau diberi `REVIEW` jika station profile invalid, resolution berbeda, marker tidak terbaca, atau calibration sudah expired menurut policy. Current P1 uses drawn reference-line calibration; automatic station matrix/homography application waits for validated station evidence.
 
 ### 4.4 Measurement engine
 
 Engine menggunakan pipeline berlapis:
 
 1. OpenCV candidate generation: LSD, Hough fallback, contours, circles/ellipse, morphology, and edge quality.
-2. Geometry refinement: endpoint snapping, line merge, circle fit, homography correction, and deterministic geometry.
+2. Geometry refinement: endpoint snapping, line merge, circle/ellipse fit, homography correction, and deterministic geometry.
 3. Optional AI assistance: component/feature segmentation atau semantic edge selection.
 4. Final measurement tetap dihitung dari calibrated geometry, bukan confidence AI.
 
-Supported capability berkembang bertahap:
+Supported capability menggunakan task type eksplisit:
 
-- planar length/width;
-- edge-to-edge and point-to-point;
-- hole diameter, center distance, and pitch;
-- 2D angle;
-- profile thickness;
-- bend angle dari dedicated profile/multi-view setup;
-- advanced 3D geometry hanya jika hardware dan calibration mendukung.
+| Task type | Geometry | Minimum view | Proper rule |
+|---|---|---|---|
+| `linear_dimension` | line/edge-to-edge/point-to-point | `top` atau `profile` | Menghasilkan panjang/lebar dalam mm. |
+| `thickness_profile` | dua edge parallel | `profile`/`side` | Tidak boleh PASS dari top-down view. |
+| `bend_angle` | dua line/face angle | `profile` | Membutuhkan profile plane atau calibrated multi-view. |
+| `inclination` | line terhadap datum axis | `top` atau `profile` | Datum/reference axis wajib tersedia. |
+| `hole_diameter` | circle center + radius | `top` | Image harus di-undistort dan di-rectify bila perspektif ada. |
+| `hole_center_distance` | center-to-center | `top` | Untuk pitch/bolt pattern. |
+| `hole_edge_distance` | center distance minus radii | `top` | Jarak clear edge-to-edge antar lubang. |
+| `hole_center_to_edge` | hole center ke component edge | `top` | Jarak center lubang ke edge komponen. |
+
+Hole pipeline proper:
+
+```text
+undistort + planar rectify
+  -> HoughCircles (candidate center)
+  -> ROI contour/edge extraction
+  -> fitEllipse or contour-derived radius
+  -> center/radius confidence
+  -> diameter, pitch, edge distance geometry
+```
+
+OpenCV 4.13 documents `HOUGH_GRADIENT_ALT`, `fitEllipse`, contour moments, and `LineSegmentDetector.detect()` metadata (`width`, `prec`, `nfa`). Hough circle radius remains a candidate, not the final authority; final diameter uses the refined contour/ellipse geometry. OpenCV has no single industrial metrology module, so the proper engine composes calibrated deterministic primitives.
 
 Setiap result membawa `method`, `calibration_revision`, `confidence`, `repeatability_class`, dan `review_required`.
 
@@ -149,12 +165,15 @@ Drawing revision, recipe revision, dan mapping reviewer ikut tersimpan pada hasi
 - View completion state.
 - Required/optional marker dari recipe.
 - Calibration status.
+- Measurement task selector with plain-language labels: `Length / Width`, `Thickness (Profile)`, `Bend Angle (Profile)`, `Inclination`, `Hole Diameter`, `Hole Pitch`, and `Hole Edge Distance`.
+- Unsupported view/task combinations are blocked with an operational explanation, not a technical error.
 
 ### Center — Inspection canvas
 
 - Live preview atau captured frame.
 - Candidate edge overlay.
 - Selected measurement geometry.
+- Hole candidate overlays with center crosshair, circle/ellipse boundary, diameter label, and candidate confidence.
 - Datum/reference overlay.
 - Drawing callout/feature ID.
 - Clear `Place next side` instruction.
@@ -192,6 +211,7 @@ Persist:
 - inspector, station, camera, and source;
 - all original frames and processed evidence;
 - dynamic view labels and order;
+- task type, required view, geometry schema, detection method, and feature identity;
 - calibration profile/revision;
 - drawing/recipe revision;
 - geometry, measured values, tolerance, confidence, and statuses;
@@ -226,7 +246,7 @@ The system reports measured error and repeatability before enabling a dimension 
 
 | Phase | Improvement | Exit gate |
 |---|---|---|
-| P1 | Station profile, fixed lighting, marker/homography, calibration validation | Stable calibrated planar measurement on approved station |
+| P1 | Station profile contract, interactive reference calibration, fixed lighting, marker/homography foundation, planar task types, hole center/diameter/pitch candidates | Software vertical slice implemented; station matrix/homography runtime requires approved calibration evidence |
 | P2 | Session + dynamic custom views + Live Camera trigger workflow | Inspector can inspect arbitrary side count with saved evidence |
 | P3 | Drawing revision + Measurement Recipe + manual mapping | Results compare against approved source-of-truth feature IDs |
 | P4 | Profile/multi-camera strategy for thickness and bend angle | 3D dimensions have hardware-specific validation evidence |
@@ -249,3 +269,14 @@ The system reports measured error and repeatability before enabling a dimension 
 - Who may approve recipe/tolerance overrides?
 - How long calibration remains valid and what triggers recalibration?
 - Which measurement failures require automatic reject versus inspector review?
+
+## 11. OpenCV implementation baseline
+
+The current proper baseline follows the stable OpenCV 4.13.0 documentation:
+
+- Camera setup: `calibrateCamera`/`calibrateCameraROExtended`, `undistort`, and `initUndistortRectifyMap`.
+- Planar correction: `findHomography`, `getPerspectiveTransform`, `perspectiveTransform`, and `warpPerspective`.
+- Lines: `LineSegmentDetector` with refinement metadata, then `HoughLinesP` fallback.
+- Holes: `HoughCircles` with `HOUGH_GRADIENT_ALT` for candidates, followed by contour/moments and `fitEllipse` refinement.
+
+References: [OpenCV calib3d 4.13](https://docs.opencv.org/4.13.0/d9/d0c/group__calib3d.html), [OpenCV HoughCircles](https://docs.opencv.org/4.13.0/javadoc/org/opencv/imgproc/Imgproc.html), [OpenCV shape analysis](https://docs.opencv.org/4.13.0/d3/dc0/group__imgproc__shape.html), [OpenCV LineSegmentDetector](https://docs.opencv.org/4.13.0/db/d73/classcv_1_1LineSegmentDetector.html).

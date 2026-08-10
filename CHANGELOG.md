@@ -11,6 +11,27 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-10 - Inspect Measurement Proper P1-P3 Vertical Slice
+
+### Added
+
+- Proper feature PRD, implementation specification, and milestone tracker under `docs/PRD/Features/`; Context7 verification documented against stable OpenCV 4.13 APIs.
+- Explicit task/view contract for `linear_dimension`, `inclination`, profile `bend_angle`, `hole_diameter`, `hole_center_distance`, `hole_edge_distance`, and `hole_center_to_edge`.
+- OpenCV hole candidates using `HoughCircles` (`HOUGH_GRADIENT_ALT` when available) with contour/`fitEllipse` radius refinement; final geometry remains deterministic and calibration-aware.
+- Measurement Studio drawn reference-line calibration, task/view selectors, hole center overlays, hole diameter/pair/center-to-edge selection, inclination, and two-edge bend-angle selection.
+
+### Changed
+
+- Measurement process/save responses now persist task type, expected view, geometry, detection method metadata, and History reopens task/view context.
+- Thickness profile remains `REVIEW`/profile-metrology boundary; station intrinsic/distortion/homography runtime, multi-view sessions, drawing recipes, and physical accuracy gate remain future work.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Inspect Measurement proper P1-P3 | 2026-08-10 | Prototype had linear-edge UI and kernel-only angle/hole math | Planar task-driven UI/backend vertical slice implemented; backend `213 passed`, frontend `174 passed`, build passed, and Measurement Studio Playwright `7 passed`. |
+| Accuracy boundary | 2026-08-10 | No station evidence | Reference-line calibration is functional; no production accuracy claim until station calibration, repeatability, and physical reference validation pass. |
+
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Studio UI Hardening
 
 ### Changed

@@ -25,6 +25,10 @@ const processed = {
     confidence: 0.95,
     source: 'lsd',
   }],
+  holes: [
+    { center: [40, 30], radius_px: 10, diameter_px: 20, confidence: 0.94, source: 'hough_circle_alt' },
+    { center: [140, 30], radius_px: 10, diameter_px: 20, confidence: 0.94, source: 'hough_circle_alt' },
+  ],
 }
 
 
@@ -75,9 +79,9 @@ test('processes an image, evaluates an edge, and saves the run', async ({ page }
 
   await expect(page.getByRole('heading', { name: 'Inspect Measurement' })).toBeVisible()
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'bracket.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('not-used-by-intercept'),
+    name: 'bracket.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
   await page.getByRole('button', { name: 'Process measurement' }).click()
   await expect(page.locator('.measurement-candidate')).toHaveCount(1)
@@ -192,4 +196,29 @@ test('shows Mobile Camera client capture controls', async ({ page }) => {
   await expect(page.locator('.open-mobile-camera')).toBeVisible()
   await expect(page.locator('.capture-mobile')).toBeDisabled()
   await expect(page.locator('.mobile-camera-panel')).toContainText(/HTTPS|kamera|camera/i)
+})
+
+
+test('selects a proper hole task and guides profile-only views', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'bracket.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
+  })
+  await page.locator('#task-type').selectOption('hole_diameter')
+  await page.locator('.calibration-draw-button').click()
+  const calibration = page.locator('.calibration-overlay')
+  await calibration.dragTo(calibration, { targetPosition: { x: 120, y: 20 } })
+  await page.getByRole('button', { name: 'Process measurement' }).click()
+
+  await expect(page.locator('.measurement-hole-candidate')).toHaveCount(2)
+  await page.locator('.measurement-hole-candidate').first().click()
+  await expect(page.locator('.measurement-item')).toContainText('Hole H1')
+
+  await page.locator('#task-type').selectOption('thickness_profile')
+  await page.locator('#view-type').selectOption('top')
+  await expect(page.locator('.task-warning')).toBeVisible()
 })

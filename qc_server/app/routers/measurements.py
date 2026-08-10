@@ -107,8 +107,9 @@ def _evaluate_items(items, calibration):
     calibration_valid = bool(calibration.get("valid"))
     for item in items:
         data = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+        item_type = data.get("task_type") or data["type"]
         try:
-            measured = measure_geometry(data["type"], data["points"], calibration)
+            measured = measure_geometry(item_type, data.get("points", []), calibration, data.get("geometry"))
         except (KeyError, TypeError, ValueError) as exc:
             raise HTTPException(422, f"invalid measurement geometry: {exc}") from exc
         evaluated = evaluate_item(
@@ -118,6 +119,8 @@ def _evaluate_items(items, calibration):
             tolerance=data.get("tolerance"),
             confidence=float(data.get("confidence", 0)),
             calibration_valid=calibration_valid,
+            task_type=item_type,
+            view_type=data.get("view_type", "top"),
         )
         result.append({
             **data,
@@ -134,6 +137,8 @@ async def process_measurement(
     file: UploadFile | None = File(default=None),
     camera_id: str | None = Form(default=None),
     source_type: str = Form(default="image"),
+    task_type: str = Form(default="linear_dimension"),
+    view_type: str = Form(default="top"),
     calibration: str = Form(...),
     options: str = Form(default="{}"),
     db: Session = Depends(get_db),
@@ -161,7 +166,7 @@ async def process_measurement(
 
     calibration_data = _calibration_from_payload(_json_form(calibration, "calibration"))
     options_data = _json_form(options, "options")
-    processed = process_image(frame, calibration_data, options_data)
+    processed = process_image(frame, calibration_data, options_data, task_type=task_type, view_type=view_type)
     key = gen_id("measurement")
     owner = f"tmp-{key}"
     directory = _base_dir() / owner
@@ -220,7 +225,13 @@ def save_measurement(payload: MeasurementRunIn, db: Session = Depends(get_db)):
             width=int(image.shape[1]),
             height=int(image.shape[0]),
             calibration=calibration,
-            processing={"engine": "opencv", "candidate_methods": ["lsd", "hough"]},
+            processing={
+                "engine": "opencv",
+                "candidate_methods": ["lsd", "hough"],
+                "hole_methods": ["hough_circle_alt", "fit_ellipse"],
+                "task_type": payload.task_type,
+                "view_type": payload.view_type,
+            },
             items=items,
             summary=_summary(items),
         )
