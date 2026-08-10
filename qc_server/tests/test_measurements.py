@@ -108,6 +108,57 @@ def test_process_live_camera_uses_registered_camera_and_grab_one(client, monkeyp
     assert body["source_filename"] == "cam-measure.jpg"
 
 
+def test_capture_live_camera_stages_frame_without_processing(client, monkeypatch):
+    from app.routers import measurements
+
+    client.post(
+        "/api/cameras",
+        json={"id": "cam-stage", "name": "QC Top", "type": "usb", "source": "0"},
+    )
+    monkeypatch.setattr(measurements, "grab_one", lambda source: cv2.imdecode(
+        np.frombuffer(_png_bytes(), np.uint8), cv2.IMREAD_COLOR
+    ))
+
+    response = client.post("/api/measurements/capture", data={"camera_id": "cam-stage"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "live_camera"
+    assert body["source_camera_id"] == "cam-stage"
+    assert body["source_filename"] == "cam-stage.jpg"
+    assert client.get(body["frame_url"]).status_code == 200
+
+
+def test_processes_a_staged_live_frame_after_calibration(client, monkeypatch):
+    from app.routers import measurements
+
+    client.post(
+        "/api/cameras",
+        json={"id": "cam-process-staged", "name": "QC Top", "type": "usb", "source": "0"},
+    )
+    monkeypatch.setattr(measurements, "grab_one", lambda source: cv2.imdecode(
+        np.frombuffer(_png_bytes(), np.uint8), cv2.IMREAD_COLOR
+    ))
+    captured = client.post("/api/measurements/capture", data={"camera_id": "cam-process-staged"}).json()
+
+    response = client.post(
+        "/api/measurements/process",
+        data={
+            "source_key": captured["source_key"],
+            "source_filename": captured["source_filename"],
+            "source_camera_id": captured["source_camera_id"],
+            "source_type": "live_camera",
+            "calibration": _calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_key"] == captured["source_key"]
+    assert body["source_type"] == "live_camera"
+    assert body["source_camera_id"] == "cam-process-staged"
+
+
 def test_process_mobile_camera_file_preserves_mobile_source_type(client):
     response = client.post(
         "/api/measurements/process",

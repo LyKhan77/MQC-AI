@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from ..config import settings as app_settings
 from ..database import get_db
 from ..models import AuditLog, Camera, MeasurementRun
-from ..schemas import MeasurementProcessOut, MeasurementRunIn, MeasurementRunOut
+from ..schemas import MeasurementCaptureOut, MeasurementProcessOut, MeasurementRunIn, MeasurementRunOut
 from ..services.measurement import (
     calibrate_reference,
     evaluate_item,
@@ -132,10 +132,44 @@ def _evaluate_items(items, calibration):
     return result
 
 
+@router.post("/capture", response_model=MeasurementCaptureOut)
+def capture_measurement(
+    camera_id: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    camera = db.get(Camera, camera_id)
+    if not camera:
+        raise HTTPException(404, "camera not found")
+    frame = grab_one(camera.source)
+    if frame is None:
+        raise HTTPException(503, "camera frame unavailable")
+    owner = f"tmp-{gen_id('measurement')}"
+    directory = _base_dir() / owner
+    directory.mkdir(parents=True, exist_ok=False)
+    if not cv2.imwrite(str(directory / "frame.jpg"), frame):
+        shutil.rmtree(directory, ignore_errors=True)
+        raise HTTPException(500, "could not store frame")
+    source_filename = f"{camera_id}.jpg"
+    _audit(db, "MEASUREMENT_CAPTURED", f"live_camera:{source_filename}")
+    db.commit()
+    return {
+        "source_key": owner,
+        "source_type": "live_camera",
+        "source_filename": source_filename,
+        "source_camera_id": camera_id,
+        "frame_url": f"/api/measurements/files/{owner}/frame.jpg",
+        "width": int(frame.shape[1]),
+        "height": int(frame.shape[0]),
+    }
+
+
 @router.post("/process", response_model=MeasurementProcessOut)
 async def process_measurement(
     file: UploadFile | None = File(default=None),
     camera_id: str | None = Form(default=None),
+    source_key: str | None = Form(default=None),
+    source_filename: str | None = Form(default=None),
+    source_camera_id: str | None = Form(default=None),
     source_type: str = Form(default="image"),
     task_type: str = Form(default="linear_dimension"),
     view_type: str = Form(default="top"),
@@ -143,10 +177,19 @@ async def process_measurement(
     options: str = Form(default="{}"),
     db: Session = Depends(get_db),
 ):
-    if file is not None and camera_id:
-        raise HTTPException(400, "choose file or camera_id")
-    source_camera_id = None
-    if file is not None:
+    if sum(value is not None for value in (file, camera_id, source_key)) > 1:
+        raise HTTPException(400, "choose one measurement source")
+    if source_key:
+        if source_type != "live_camera":
+            raise HTTPException(400, "invalid source_type")
+        if not source_key.startswith("tmp-"):
+            raise HTTPException(400, "invalid source_key")
+        source_path = _file_path(source_key, "frame.jpg")
+        frame = cv2.imread(str(source_path))
+        if frame is None:
+            raise HTTPException(400, "invalid measurement frame")
+        source_filename = source_filename or f"{source_key}.jpg"
+    elif file is not None:
         if source_type not in {"image", "mobile_camera"}:
             raise HTTPException(400, "invalid source_type")
         frame = _decode_frame(await file.read())
@@ -167,13 +210,16 @@ async def process_measurement(
     calibration_data = _calibration_from_payload(_json_form(calibration, "calibration"))
     options_data = _json_form(options, "options")
     processed = process_image(frame, calibration_data, options_data, task_type=task_type, view_type=view_type)
-    key = gen_id("measurement")
-    owner = f"tmp-{key}"
+    owner = source_key or f"tmp-{gen_id('measurement')}"
     directory = _base_dir() / owner
-    directory.mkdir(parents=True, exist_ok=False)
-    if not cv2.imwrite(str(directory / "frame.jpg"), frame):
-        shutil.rmtree(directory, ignore_errors=True)
-        raise HTTPException(500, "could not store frame")
+    if source_key:
+        if not directory.is_dir() or not (directory / "frame.jpg").is_file():
+            raise HTTPException(400, "measurement source not found")
+    else:
+        directory.mkdir(parents=True, exist_ok=False)
+        if not cv2.imwrite(str(directory / "frame.jpg"), frame):
+            shutil.rmtree(directory, ignore_errors=True)
+            raise HTTPException(500, "could not store frame")
     _audit(db, "MEASUREMENT_PROCESSED", f"{source_type}:{source_filename}")
     db.commit()
     return {

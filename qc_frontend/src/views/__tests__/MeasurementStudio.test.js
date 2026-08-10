@@ -7,6 +7,7 @@ import MeasurementStudio from '../MeasurementStudio.vue'
 
 
 const mocks = vi.hoisted(() => ({
+  captureMeasurement: vi.fn(),
   processMeasurement: vi.fn(),
   saveMeasurementRun: vi.fn(),
   listMeasurementRuns: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('../../composables/useCameras.js', () => ({
   useCameras: () => ({ cameras: ref([{ id: 'cam-1', name: 'QC Top Camera', status: 'online' }]), refresh: vi.fn() }),
 }))
 vi.mock('../../api/measurements.js', () => ({
+  captureMeasurement: mocks.captureMeasurement,
   processMeasurement: mocks.processMeasurement,
   saveMeasurementRun: mocks.saveMeasurementRun,
   listMeasurementRuns: mocks.listMeasurementRuns,
@@ -76,6 +78,15 @@ describe('MeasurementStudio', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.listMeasurementRuns.mockResolvedValue([])
+    mocks.captureMeasurement.mockResolvedValue({
+      source_key: 'tmp-live-capture',
+      source_type: 'live_camera',
+      source_filename: 'cam-1.jpg',
+      source_camera_id: 'cam-1',
+      frame_url: '/api/measurements/files/tmp-live-capture/frame.jpg',
+      width: 160,
+      height: 120,
+    })
     mocks.processMeasurement.mockResolvedValue(processed())
     mocks.saveMeasurementRun.mockResolvedValue({ id: 'measurement-1', name: 'BRKT-001' })
   })
@@ -235,17 +246,28 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.measurement-zoom-value').text()).toBe('120%')
   })
 
-  it('triggers one Live Camera capture through the same process API', async () => {
+  it('stages one Live Camera capture before processing', async () => {
     const wrapper = mount(MeasurementStudio)
-    mocks.processMeasurement.mockResolvedValueOnce(processed('live'))
 
     await wrapper.find('.source-live').trigger('click')
     await wrapper.find('.camera-select').setValue('cam-1')
     await wrapper.find('.trigger-capture').trigger('click')
     await flushPromises()
 
-    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({ cameraId: 'cam-1' }))
+    expect(mocks.captureMeasurement).toHaveBeenCalledWith({ cameraId: 'cam-1' })
+    expect(mocks.processMeasurement).not.toHaveBeenCalled()
+    expect(wrapper.find('.measurement-preview').exists()).toBe(true)
     expect(wrapper.text()).toContain('cam-1.jpg')
+
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      sourceKey: 'tmp-live-capture',
+      sourceType: 'live_camera',
+      sourceCameraId: 'cam-1',
+    }))
   })
 
   it('offers Mobile Camera as a client-side capture source', async () => {
@@ -256,6 +278,53 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.mobile-camera-panel').exists()).toBe(true)
     expect(wrapper.find('.open-mobile-camera').exists()).toBe(true)
     expect(wrapper.find('.capture-mobile').exists()).toBe(true)
+  })
+
+  it('stages a Mobile Camera capture before processing', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop: vi.fn() }],
+          getVideoTracks: () => [{ getSettings: () => ({ width: 640, height: 480 }) }],
+        }),
+      },
+    })
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    const context = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() })
+    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['frame'], { type: 'image/jpeg' })))
+    const wrapper = mount(MeasurementStudio)
+
+    await wrapper.find('.source-mobile').trigger('click')
+    await wrapper.find('.open-mobile-camera').trigger('click')
+    const video = wrapper.find('video')
+    Object.defineProperties(video.element, {
+      videoWidth: { value: 640 },
+      videoHeight: { value: 480 },
+    })
+    expect(wrapper.vm.mobileCameraOpen).toBe(true)
+    expect(wrapper.vm.processing).toBe(false)
+    expect(video.element.videoWidth).toBe(640)
+    await wrapper.vm.captureMobile()
+    await flushPromises()
+
+    expect(toBlob).toHaveBeenCalled()
+    expect(wrapper.vm.localFileName).toBe('mobile.jpg')
+    expect(mocks.processMeasurement).not.toHaveBeenCalled()
+    expect(wrapper.find('.measurement-preview').exists()).toBe(true)
+    expect(wrapper.find('.process-measurement').attributes('disabled')).toBeUndefined()
+
+    await wrapper.find('.calibration-draw-button').trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      sourceType: 'mobile_camera',
+      file: expect.any(File),
+    }))
+
+    play.mockRestore()
+    context.mockRestore()
+    toBlob.mockRestore()
   })
 
   it('evaluates a selected edge with editable per-item tolerance', async () => {

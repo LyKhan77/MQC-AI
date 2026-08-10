@@ -11,6 +11,21 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-10 - Inspect Measurement Staged Camera Calibration
+
+### Changed
+
+- Live Camera now uses `POST /api/measurements/capture` to stage a raw frame; inspector draws calibration and explicitly clicks Process Measurement.
+- Mobile Camera now stages the captured JPEG in the same preview/calibration flow instead of immediately running OpenCV.
+- Staged server-camera source keys preserve camera identity through processing and History/Audit persistence.
+
+### Current Codebase State
+
+| Area / Feature | Timeline | What Was Developed | After the Change |
+|---|---|---|---|
+| Live/Mobile measurement flow | 2026-08-10 | Capture immediately triggered measurement | Both sources now follow capture -> calibration -> explicit process, with regression coverage. |
+| Verification | 2026-08-10 | — | Backend `215 passed`; frontend `177 passed`; build passed; staged Live Camera E2E `1 passed`. |
+
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Proper P1-P3 Vertical Slice
 
 ### Added

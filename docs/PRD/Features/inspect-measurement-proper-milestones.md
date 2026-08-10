@@ -21,3 +21,4 @@
 |---|---|---|---|
 | 2026-08-10 | Proper scope + OpenCV 4.13 review | PRD, P1 spec, and Context7-verified API baseline | Planar task types, hole pipeline, and profile boundary agreed. |
 | 2026-08-10 | P1-P3 proper vertical slice | Backend `213 passed`; frontend `174 passed`; build passed; Measurement Studio Playwright `7 passed` | Drawn reference calibration, task/view contracts, LSD/Hough lines, Hough circle + ellipse refinement, hole geometry, bend/inclination UI, History metadata, and audit persistence verified. |
+| 2026-08-10 | Camera staging calibration correction | Backend `215 passed`; frontend `177 passed`; build passed; staged Live Camera E2E `1 passed` | Live and Mobile Camera now stage captured images before calibration; LSD runs only after explicit Process Measurement. |

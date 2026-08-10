@@ -253,6 +253,16 @@ class MeasurementItemIn(BaseModel):
     confidence: float = 0.0
 
 
+class MeasurementCaptureOut(BaseModel):
+    source_key: str
+    source_type: str
+    source_filename: str
+    source_camera_id: str | None = None
+    frame_url: str
+    width: int
+    height: int
+
+
 class MeasurementProcessOut(BaseModel):
     source_key: str
     source_type: str

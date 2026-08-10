@@ -5,6 +5,7 @@ import { useAuditLog } from '../composables/useAuditLog.js'
 import { useCameras } from '../composables/useCameras.js'
 import { useToast } from '../composables/useToast.js'
 import {
+  captureMeasurement,
   deleteMeasurementRun,
   listMeasurementRuns,
   processMeasurement,
@@ -32,6 +33,7 @@ const viewType = ref('top')
 const previewUrl = ref('')
 const previewWidth = ref(1)
 const previewHeight = ref(1)
+const capturedSource = ref(null)
 const calibrationPoints = ref([])
 const calibrationMode = ref(false)
 const calibrationDragging = ref(false)
@@ -69,7 +71,9 @@ const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
   : readiness.value.toUpperCase())
 const canProcess = computed(() => !processing.value && (
-  source.value === 'image' ? Boolean(selectedFile.value) : source.value === 'live' ? Boolean(selectedCameraId.value) : false
+  source.value === 'image' || source.value === 'mobile'
+    ? Boolean(selectedFile.value)
+    : Boolean(capturedSource.value)
 ))
 const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
 const taskNeedsEdgeCandidate = computed(() => taskType.value === 'hole_center_to_edge')
@@ -98,10 +102,21 @@ function calibrationInput() {
 }
 
 function clearPreview() {
-  if (previewUrl.value && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(previewUrl.value)
+  if (previewUrl.value?.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = ''
   previewWidth.value = 1
   previewHeight.value = 1
+}
+
+function resetStagedMeasurement() {
+  processed.value = null
+  items.value = []
+  evaluated.value = false
+  readOnly.value = false
+  calibrationPoints.value = []
+  calibrationMode.value = false
+  selectedHoleIndexes.value = []
+  selectedAngleIndexes.value = []
 }
 
 function startCalibration() {
@@ -139,32 +154,51 @@ function onCalibrationPointerUp(event) {
 }
 
 function chooseSource(value) {
+  if (value !== source.value) {
+    clearPreview()
+    selectedFile.value = null
+    capturedSource.value = null
+    localFileName.value = ''
+    resetStagedMeasurement()
+  }
   source.value = value
   errorMessage.value = ''
   if (value === 'image') selectedCameraId.value = ''
   if (value !== 'mobile') stopMobileCamera()
 }
 
-function onFileChange(event) {
+function stageFile(file) {
   clearPreview()
-  selectedFile.value = event.target.files?.[0] || null
+  selectedFile.value = file
+  capturedSource.value = null
   localFileName.value = selectedFile.value?.name || ''
   runName.value = selectedFile.value?.name?.replace(/\.[^.]+$/, '') || runName.value
-  processed.value = null
-  items.value = []
-  evaluated.value = false
-  readOnly.value = false
-  calibrationPoints.value = []
-  calibrationMode.value = false
+  resetStagedMeasurement()
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
   if (selectedFile.value) {
-    previewUrl.value = typeof URL.createObjectURL === 'function'
-      ? URL.createObjectURL(selectedFile.value)
-      : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+    const objectUrl = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(selectedFile.value) : ''
+    previewUrl.value = objectUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
     previewWidth.value = 160
     previewHeight.value = 120
   }
+  errorMessage.value = ''
+}
+
+function onFileChange(event) {
+  stageFile(event.target.files?.[0] || null)
+}
+
+function stageCapturedFrame(capture) {
+  clearPreview()
+  selectedFile.value = null
+  capturedSource.value = capture
+  localFileName.value = capture.source_filename || ''
+  runName.value = capture.source_filename?.replace(/\.[^.]+$/, '') || runName.value
+  resetStagedMeasurement()
+  previewUrl.value = capture.frame_url
+  previewWidth.value = capture.width || 1
+  previewHeight.value = capture.height || 1
   errorMessage.value = ''
 }
 
@@ -237,9 +271,30 @@ function zoomOut() {
 async function processCurrent() {
   if (!canProcess.value) return
   return runMeasurement({
-    file: source.value === 'image' ? selectedFile.value : undefined,
-    cameraId: source.value === 'live' ? selectedCameraId.value : undefined,
+    file: source.value === 'image' || source.value === 'mobile' ? selectedFile.value : undefined,
+    sourceKey: source.value === 'live' ? capturedSource.value.source_key : undefined,
+    sourceFilename: source.value === 'live' ? capturedSource.value.source_filename : undefined,
+    sourceCameraId: source.value === 'live' ? capturedSource.value.source_camera_id : undefined,
+    sourceType: source.value === 'mobile' ? 'mobile_camera' : source.value === 'live' ? 'live_camera' : 'image',
   })
+}
+
+async function captureCurrent() {
+  if (!selectedCameraId.value || processing.value) return
+  processing.value = true
+  errorMessage.value = ''
+  clearPreview()
+  capturedSource.value = null
+  resetStagedMeasurement()
+  try {
+    const capture = await captureMeasurement({ cameraId: selectedCameraId.value })
+    stageCapturedFrame(capture)
+    log('MEASUREMENT_CAPTURED', `${capture.source_type}:${capture.source_filename}`)
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    processing.value = false
+  }
 }
 
 async function openMobileCamera() {
@@ -296,10 +351,7 @@ async function captureMobile() {
   canvas.getContext('2d').drawImage(video, 0, 0)
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.98))
   if (blob) {
-    await runMeasurement({
-      file: new File([blob], 'mobile.jpg', { type: 'image/jpeg' }),
-      sourceType: 'mobile_camera',
-    })
+    stageFile(new File([blob], 'mobile.jpg', { type: 'image/jpeg' }))
   }
 }
 
@@ -544,6 +596,8 @@ function openRun(run) {
   runName.value = run.name
   taskType.value = run.processing?.task_type || run.items?.[0]?.task_type || run.items?.[0]?.type || 'linear_dimension'
   viewType.value = run.processing?.view_type || run.items?.[0]?.view_type || 'top'
+  clearPreview()
+  capturedSource.value = null
   selectedFile.value = null
   localFileName.value = run.source_filename
   source.value = run.source_type === 'live_camera' ? 'live' : run.source_type === 'mobile_camera' ? 'mobile' : 'image'
@@ -664,7 +718,7 @@ onBeforeUnmount(() => {
               <img v-if="cameraStreamUrl" :src="cameraStreamUrl" :alt="t('measurement.cameraPreview')">
               <span v-else>{{ t('measurement.cameraWaiting') }}</span>
             </div>
-            <button type="button" class="btn btn-primary trigger-capture" :disabled="!selectedCameraId || processing" @click="processCurrent">
+            <button type="button" class="btn btn-primary trigger-capture" :disabled="!selectedCameraId || processing" @click="captureCurrent">
               {{ processing ? t('measurement.processing') : t('measurement.triggerCapture') }}
             </button>
           </template>
@@ -718,11 +772,11 @@ onBeforeUnmount(() => {
           <div class="measurement-canvas-tools" @mousedown.stop>
             <div>
               <span class="toolbar-label">{{ t('measurement.currentSource') }}</span>
-              <strong>{{ processed?.source_filename || t('measurement.noInput') }}</strong>
+              <strong>{{ processed?.source_filename || localFileName || t('measurement.noInput') }}</strong>
             </div>
             <div class="measurement-canvas-actions">
               <span class="canvas-status mono" :class="`status-${summaryStatus.toLowerCase()}`">{{ summaryStatus }}</span>
-              <button type="button" class="btn btn-primary process-measurement" :disabled="!canProcess || source === 'live'" @click="processCurrent">
+              <button type="button" class="btn btn-primary process-measurement" :disabled="!canProcess" @click="processCurrent">
                 {{ processing ? t('measurement.processing') : t('measurement.process') }}
               </button>
             </div>

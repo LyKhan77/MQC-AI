@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
 import {
+  captureMeasurement,
   deleteMeasurementRun,
   getMeasurementRun,
   listMeasurementRuns,
@@ -64,6 +65,37 @@ describe('measurements api', () => {
     const body = fetchMock.mock.calls[0][1].body
     expect(body.get('camera_id')).toBe('cam-1')
     expect(body.get('file')).toBeNull()
+  })
+
+  it('captures a Live Camera frame without running measurement', async () => {
+    const fetchMock = ok({ source_key: 'tmp-live-capture', source_type: 'live_camera' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await captureMeasurement({ cameraId: 'cam-1' })
+
+    const [path, options] = fetchMock.mock.calls[0]
+    expect(path).toBe('/api/measurements/capture')
+    expect(options.method).toBe('POST')
+    expect(options.body.get('camera_id')).toBe('cam-1')
+  })
+
+  it('processes a staged Live Camera frame by source key after calibration', async () => {
+    const fetchMock = ok({ source_type: 'live_camera' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await processMeasurement({
+      sourceKey: 'tmp-live-capture',
+      sourceFilename: 'cam-1.jpg',
+      sourceCameraId: 'cam-1',
+      sourceType: 'live_camera',
+      calibration: { point_a: [0, 0], point_b: [100, 0], known_mm: 50 },
+    })
+
+    const body = fetchMock.mock.calls[0][1].body
+    expect(body.get('source_key')).toBe('tmp-live-capture')
+    expect(body.get('source_filename')).toBe('cam-1.jpg')
+    expect(body.get('source_camera_id')).toBe('cam-1')
+    expect(body.get('source_type')).toBe('live_camera')
   })
 
   it('preserves Mobile Camera as the client capture source', async () => {

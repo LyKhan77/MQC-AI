@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 
+const frameUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>')}`
+
+
 const processed = {
   source_key: 'tmp-browser-measurement',
   source_type: 'image',
@@ -50,6 +53,18 @@ async function mockMeasurementApi(page) {
     const request = route.request()
     if (request.method() === 'GET') {
       await route.fulfill({ json: [] })
+    } else if (request.method() === 'POST' && request.url().endsWith('/capture')) {
+      await route.fulfill({
+        json: {
+          source_key: 'tmp-live-capture',
+          source_type: 'live_camera',
+          source_filename: 'cam-1.jpg',
+          source_camera_id: 'cam-1',
+          frame_url: frameUrl,
+          width: 100,
+          height: 100,
+        },
+      })
     } else if (request.method() === 'POST' && request.url().endsWith('/process')) {
       const body = request.postData() || ''
       await route.fulfill({
@@ -127,7 +142,7 @@ test('uses the QC Studio full-height shell and application top bar', async ({ pa
 })
 
 
-test('triggers Live Camera capture into the same measurement pipeline', async ({ page }) => {
+test('stages Live Camera capture before calibration and processing', async ({ page }) => {
   await mockMeasurementApi(page)
   await page.goto('/measurement')
 
@@ -135,8 +150,19 @@ test('triggers Live Camera capture into the same measurement pipeline', async ({
   await page.locator('.camera-select').selectOption('cam-1')
   await page.locator('.trigger-capture').click()
 
-  await expect(page.locator('.candidate-strip')).toBeVisible()
+  await expect(page.locator('.measurement-preview')).toBeVisible()
   await expect(page.locator('.measurement-canvas-tools')).toContainText('cam-1.jpg')
+  await expect(page.locator('.process-measurement')).toBeEnabled()
+  await page.locator('.calibration-draw-button').click()
+  const calibration = page.locator('.calibration-overlay')
+  const box = await calibration.boundingBox()
+  await page.mouse.move(box.x + 10, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 10, box.y + box.height / 2)
+  await page.mouse.up()
+  await page.locator('.process-measurement').click()
+
+  await expect(page.locator('.candidate-strip')).toBeVisible()
   await expect(page.locator('.measurement-candidate')).toHaveCount(1)
 })
 

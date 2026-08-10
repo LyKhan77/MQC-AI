@@ -17,9 +17,10 @@ Prototype membuktikan measurement kernel pada satu image/frame. Versi proper men
 Create inspection session
   -> Manual component/series name
   -> Select input: Image / Live Camera / Mobile Camera / Server Camera
-  -> Capture or upload one view
+  -> Capture or upload one view into a staged frame
   -> Label dynamic custom view
   -> Calibrate station/view
+  -> Draw reference line
   -> Process measurement candidates
   -> Confirm or correct geometry
   -> Apply drawing measurement recipe

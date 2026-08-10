@@ -98,12 +98,15 @@ P1 stores the station-profile shape and supports reference-line calibration. Aut
 
 ## Process contract
 
+`POST /api/measurements/capture` stages a server-camera frame without running detection. The response returns `source_key`, frame dimensions, and frame URL.
+
 `POST /api/measurements/process` accepts:
 
 - `task_type`: canonical task type, default `linear_dimension`.
 - `view_type`: `top`, `profile`, or `side`, default `top`.
 - `calibration`: reference-line or station profile JSON.
 - `options`: detector options.
+- `source_key`: staged Live Camera frame key; mutually exclusive with upload/camera capture.
 
 Response adds:
 
