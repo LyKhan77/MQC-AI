@@ -119,6 +119,34 @@ class QuantityCheck(Base):
     notes: Mapped[str] = mapped_column(String, default="")
 
 
+class MeasurementSession(Base):
+    __tablename__ = "measurement_sessions"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[str] = mapped_column(String)
+    updated_at: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String, default="in_progress")
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class MeasurementProfile(Base):
+    __tablename__ = "measurement_profiles"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    station_id: Mapped[str] = mapped_column(String, default="")
+    camera_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    scale_type: Mapped[str] = mapped_column(String, default="GLOBAL")
+    resolution_width: Mapped[int] = mapped_column(Integer, default=0)
+    resolution_height: Mapped[int] = mapped_column(Integer, default=0)
+    fov_width_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    working_distance_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    revision: Mapped[str] = mapped_column(String, default="")
+    calibration: Mapped[dict] = mapped_column(JSON, default=dict)
+    capability: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String, default="draft")
+    validated_at: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class MeasurementRun(Base):
     __tablename__ = "measurement_runs"
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -135,3 +163,8 @@ class MeasurementRun(Base):
     processing: Mapped[dict] = mapped_column(JSON, default=dict)
     items: Mapped[list] = mapped_column(JSON, default=list)
     summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    session_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    view_label: Mapped[str] = mapped_column(String, default="")
+    pose_type: Mapped[str] = mapped_column(String, default="TOP_FACE")
+    scale_profile_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    view_status: Mapped[str] = mapped_column(String, default="saved")

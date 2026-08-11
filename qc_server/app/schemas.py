@@ -253,6 +253,36 @@ class MeasurementItemIn(BaseModel):
     confidence: float = 0.0
 
 
+class MeasurementProfileIn(BaseModel):
+    name: str
+    station_id: str = ""
+    camera_id: str | None = None
+    scale_type: str = "GLOBAL"
+    resolution_width: int = 0
+    resolution_height: int = 0
+    fov_width_mm: float | None = None
+    working_distance_mm: float | None = None
+    revision: str = ""
+    calibration: dict = Field(default_factory=dict)
+    capability: dict = Field(default_factory=dict)
+    status: str = "draft"
+    validated_at: str | None = None
+
+
+class MeasurementProfileOut(MeasurementProfileIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+
+
+class MeasurementSessionCreate(BaseModel):
+    name: str
+
+
+class MeasurementSessionPatch(BaseModel):
+    name: str | None = None
+    status: str | None = None
+
+
 class MeasurementCaptureOut(BaseModel):
     source_key: str
     source_type: str
@@ -288,6 +318,10 @@ class MeasurementRunIn(BaseModel):
     source_camera_id: str | None = None
     task_type: str = "linear_dimension"
     view_type: str = "top"
+    session_id: str | None = None
+    view_label: str = ""
+    pose_type: str = "TOP_FACE"
+    scale_profile_id: str | None = None
     calibration: dict
     items: list[MeasurementItemIn] = []
 
@@ -303,7 +337,22 @@ class MeasurementRunOut(BaseModel):
     source_url: str
     width: int
     height: int
+    session_id: str | None = None
+    view_label: str = ""
+    pose_type: str = "TOP_FACE"
+    scale_profile_id: str | None = None
+    view_status: str = "saved"
     calibration: dict
     processing: dict
     items: list
     summary: dict
+
+
+class MeasurementSessionOut(BaseModel):
+    id: str
+    created_at: str
+    updated_at: str
+    name: str
+    status: str
+    summary: dict
+    views: list[MeasurementRunOut] = Field(default_factory=list)

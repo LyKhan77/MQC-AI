@@ -290,3 +290,30 @@ def test_save_rejects_missing_tolerance_with_review_not_pass(client):
 
     assert response.status_code == 201
     assert response.json()["summary"]["status"] == "REVIEW"
+
+
+def test_measurement_profile_and_session_rows_persist():
+    from app.database import SessionLocal
+    from app.models import MeasurementProfile, MeasurementSession
+
+    with SessionLocal() as db:
+        db.add(MeasurementProfile(
+            id="profile-global",
+            name="Global top-down",
+            station_id="QC-01",
+            scale_type="GLOBAL",
+            capability={"minimum_supported_feature_mm": 8},
+        ))
+        db.add(MeasurementSession(
+            id="session-1",
+            created_at="2026-08-11T00:00:00Z",
+            updated_at="2026-08-11T00:00:00Z",
+            name="BRKT-001",
+        ))
+        db.commit()
+
+    with SessionLocal() as db:
+        profile = db.get(MeasurementProfile, "profile-global")
+        session = db.get(MeasurementSession, "session-1")
+        assert profile.capability["minimum_supported_feature_mm"] == 8
+        assert session.status == "in_progress"
