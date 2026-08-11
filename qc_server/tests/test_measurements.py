@@ -317,3 +317,143 @@ def test_measurement_profile_and_session_rows_persist():
         session = db.get(MeasurementSession, "session-1")
         assert profile.capability["minimum_supported_feature_mm"] == 8
         assert session.status == "in_progress"
+
+
+def test_measurement_profile_crud_and_audit(client):
+    payload = {
+        "name": "Global top-down",
+        "station_id": "QC-01",
+        "camera_id": "cam-global",
+        "scale_type": "GLOBAL",
+        "resolution_width": 2560,
+        "resolution_height": 1440,
+        "revision": "cal-01",
+        "calibration": {"valid": True, "mm_per_pixel": 0.8},
+        "capability": {
+            "minimum_supported_feature_mm": 8,
+            "maximum_supported_span_mm": 2100,
+        },
+        "status": "valid",
+    }
+
+    created = client.post("/api/measurement-profiles", json=payload)
+
+    assert created.status_code == 201
+    profile_id = created.json()["id"]
+    assert client.get("/api/measurement-profiles").json()[0]["id"] == profile_id
+
+    updated = client.patch(
+        f"/api/measurement-profiles/{profile_id}",
+        json={"name": "Global top-down v2", "revision": "cal-02"},
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Global top-down v2"
+    assert updated.json()["revision"] == "cal-02"
+
+    deleted = client.delete(f"/api/measurement-profiles/{profile_id}")
+
+    assert deleted.status_code == 200
+    assert client.get(f"/api/measurement-profiles/{profile_id}").status_code == 404
+    actions = [entry["action"] for entry in client.get("/api/audit").json()]
+    assert "MEASUREMENT_PROFILE_CREATED" in actions
+    assert "MEASUREMENT_PROFILE_UPDATED" in actions
+    assert "MEASUREMENT_PROFILE_DELETED" in actions
+
+
+def test_measurement_session_view_lifecycle_and_audit(client):
+    session = client.post("/api/measurement-sessions", json={"name": "BRKT-001"})
+    assert session.status_code == 201
+    session_id = session.json()["id"]
+    processed = _process_upload(client).json()
+
+    saved = client.post(
+        f"/api/measurement-sessions/{session_id}/views",
+        json={
+            "name": "BRKT-001",
+            "source_key": processed["source_key"],
+            "source_filename": processed["source_filename"],
+            "source_type": "image",
+            "view_label": "top face",
+            "pose_type": "TOP_FACE",
+            "task_type": "linear_dimension",
+            "view_type": "top",
+            "calibration": processed["calibration"],
+            "items": [],
+        },
+    )
+
+    assert saved.status_code == 201
+    view_id = saved.json()["id"]
+    assert saved.json()["session_id"] == session_id
+    assert saved.json()["view_label"] == "top face"
+    assert saved.json()["pose_type"] == "TOP_FACE"
+
+    reopened = client.get(f"/api/measurement-sessions/{session_id}")
+    assert reopened.status_code == 200
+    assert reopened.json()["views"][0]["id"] == view_id
+    assert reopened.json()["summary"]["view_count"] == 1
+
+    completed = client.patch(
+        f"/api/measurement-sessions/{session_id}",
+        json={"status": "complete"},
+    )
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "complete"
+
+    deleted = client.delete(f"/api/measurement-sessions/{session_id}")
+    assert deleted.status_code == 200
+    assert client.get(f"/api/measurement-sessions/{session_id}").status_code == 404
+    actions = [entry["action"] for entry in client.get("/api/audit").json()]
+    assert "MEASUREMENT_SESSION_CREATED" in actions
+    assert "MEASUREMENT_VIEW_SAVED" in actions
+    assert "MEASUREMENT_SESSION_COMPLETED" in actions
+
+
+def test_process_binds_valid_measurement_profile_metadata(client):
+    profile = client.post("/api/measurement-profiles", json={
+        "name": "Development detail",
+        "scale_type": "DETAIL",
+        "resolution_width": 160,
+        "resolution_height": 120,
+        "calibration": {"valid": True, "mm_per_pixel": 0.1},
+        "capability": {
+            "minimum_supported_feature_mm": 1,
+            "maximum_supported_span_mm": 250,
+        },
+        "status": "valid",
+    }).json()
+
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("detail.png", _png_bytes(), "image/png")},
+        data={
+            "profile_id": profile["id"],
+            "pose_type": "TOP_FACE",
+            "view_label": "detail face",
+            "calibration": _calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scale_profile_id"] == profile["id"]
+    assert body["pose_type"] == "TOP_FACE"
+    assert body["view_label"] == "detail face"
+
+
+def test_process_rejects_profile_task_with_flat_top_pose(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("profile.png", _png_bytes(), "image/png")},
+        data={
+            "task_type": "thickness_profile",
+            "view_type": "profile",
+            "pose_type": "TOP_FACE",
+            "calibration": _calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "review"
+    assert response.json()["reason"] == "unsupported_pose"

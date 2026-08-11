@@ -274,6 +274,22 @@ class MeasurementProfileOut(MeasurementProfileIn):
     id: str
 
 
+class MeasurementProfilePatch(BaseModel):
+    name: str | None = None
+    station_id: str | None = None
+    camera_id: str | None = None
+    scale_type: str | None = None
+    resolution_width: int | None = None
+    resolution_height: int | None = None
+    fov_width_mm: float | None = None
+    working_distance_mm: float | None = None
+    revision: str | None = None
+    calibration: dict | None = None
+    capability: dict | None = None
+    status: str | None = None
+    validated_at: str | None = None
+
+
 class MeasurementSessionCreate(BaseModel):
     name: str
 
@@ -304,6 +320,9 @@ class MeasurementProcessOut(BaseModel):
     calibration: dict
     task_type: str = "linear_dimension"
     view_type: str = "top"
+    view_label: str = ""
+    pose_type: str = "TOP_FACE"
+    scale_profile_id: str | None = None
     readiness: str
     reason: str
     candidates: list
