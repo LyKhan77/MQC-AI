@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from '../composables/useI18n.js'
 import { useAuditLog } from '../composables/useAuditLog.js'
 import { useCameras } from '../composables/useCameras.js'
+import { useMeasurementSession } from '../composables/useMeasurementSession.js'
 import { useToast } from '../composables/useToast.js'
 import {
   captureMeasurement,
@@ -21,15 +22,39 @@ const { t } = useI18n()
 const { cameras } = useCameras()
 const { log } = useAuditLog()
 const { showToast } = useToast()
+const measurementSession = useMeasurementSession()
+const {
+  session,
+  views: stagedViews,
+  selectedView,
+  selectedViewId,
+  profiles,
+  startSession,
+  stageImage,
+  stageServerCapture,
+  stageMobileCapture,
+  selectView,
+  updateViewMetadata,
+  removeStagedView,
+  saveSelectedView,
+  completeSession,
+  clearSession,
+  loadProfiles,
+} = measurementSession
 
 const source = ref('image')
 const selectedFile = ref(null)
 const localFileName = ref('')
 const runName = ref('')
+const sessionNameError = ref('')
+const sessionStarting = ref(false)
 const selectedCameraId = ref('')
 const knownMm = ref(50)
 const taskType = ref('linear_dimension')
 const viewType = ref('top')
+const viewLabel = ref('')
+const poseType = ref('TOP_FACE')
+const scaleProfileId = ref('')
 const previewUrl = ref('')
 const previewWidth = ref(1)
 const previewHeight = ref(1)
@@ -70,7 +95,7 @@ const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
   : readiness.value.toUpperCase())
-const canProcess = computed(() => !processing.value && (
+const canProcess = computed(() => !processing.value && taskViewSupported.value && (
   source.value === 'image' || source.value === 'mobile'
     ? Boolean(selectedFile.value)
     : Boolean(capturedSource.value)
@@ -78,16 +103,22 @@ const canProcess = computed(() => !processing.value && (
 const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
 const taskNeedsEdgeCandidate = computed(() => taskType.value === 'hole_center_to_edge')
 const taskRequiresProfile = computed(() => ['thickness_profile', 'bend_angle'].includes(taskType.value))
-const taskViewSupported = computed(() => !taskRequiresProfile.value || ['profile', 'side'].includes(viewType.value))
+const poseSupported = computed(() => !taskRequiresProfile.value || poseType.value === 'PROFILE_FACE')
+const taskViewSupported = computed(() => poseSupported.value && (!taskRequiresProfile.value || ['profile', 'side'].includes(viewType.value)))
+const selectedProfile = computed(() => profiles.value.find((profile) => profile.id === scaleProfileId.value) || null)
 const canEvaluate = computed(() => (
   !readOnly.value && Boolean(processed.value) && readiness.value === 'ready' && items.value.length > 0
 ))
 const canSave = computed(() => Boolean(runName.value.trim()) && evaluated.value && items.value.length > 0 && !readOnly.value)
+const canSaveView = computed(() => Boolean(session.value?.id) && canSave.value)
+const canCompleteSession = computed(() => Boolean(session.value?.id) && stagedViews.value.length > 0 && stagedViews.value.every((view) => view.status === 'saved'))
 const filteredRuns = computed(() => {
   const query = historyQuery.value.trim().toLowerCase()
   if (!query) return recentRuns.value
   return recentRuns.value.filter((run) => `${run.name} ${run.source_filename}`.toLowerCase().includes(query))
 })
+
+const selectedSourceName = computed(() => selectedView.value?.sourceFilename || localFileName.value || t('measurement.noInput'))
 
 function calibrationInput() {
   const points = calibrationPoints.value.length === 2
@@ -102,7 +133,6 @@ function calibrationInput() {
 }
 
 function clearPreview() {
-  if (previewUrl.value?.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = ''
   previewWidth.value = 1
   previewHeight.value = 1
@@ -117,6 +147,131 @@ function resetStagedMeasurement() {
   calibrationMode.value = false
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
+}
+
+function syncActiveView() {
+  if (!selectedViewId.value) return
+  updateViewMetadata(selectedViewId.value, {
+    taskType: taskType.value,
+    viewType: viewType.value,
+    viewLabel: viewLabel.value,
+    poseType: poseType.value,
+    scaleProfileId: scaleProfileId.value || null,
+    knownMm: knownMm.value,
+    calibrationPoints: calibrationPoints.value,
+    processed: processed.value,
+    items: items.value,
+    status: processed.value ? (evaluated.value ? 'evaluated' : 'processed') : 'captured',
+  })
+}
+
+function loadActiveView(view = selectedView.value) {
+  if (!view) {
+    clearPreview()
+    selectedFile.value = null
+    capturedSource.value = null
+    localFileName.value = ''
+    resetStagedMeasurement()
+    return
+  }
+  source.value = view.sourceType === 'live_camera' || view.sourceType === 'server_camera'
+    ? 'live'
+    : view.sourceType === 'mobile_camera' ? 'mobile' : 'image'
+  selectedFile.value = view.file || null
+  capturedSource.value = view.sourceKey
+    ? {
+        source_key: view.sourceKey,
+        source_type: view.sourceType,
+        source_filename: view.sourceFilename,
+        source_camera_id: view.sourceCameraId,
+        frame_url: view.previewUrl,
+        width: view.width,
+        height: view.height,
+      }
+    : null
+  localFileName.value = view.sourceFilename || ''
+  previewUrl.value = view.previewUrl || ''
+  previewWidth.value = view.width || 1
+  previewHeight.value = view.height || 1
+  taskType.value = view.taskType || 'linear_dimension'
+  viewType.value = view.viewType || 'top'
+  viewLabel.value = view.viewLabel || ''
+  poseType.value = view.poseType || 'TOP_FACE'
+  scaleProfileId.value = view.scaleProfileId || ''
+  knownMm.value = view.knownMm || 50
+  calibrationPoints.value = view.calibrationPoints || []
+  processed.value = view.processed || null
+  items.value = view.items || []
+  evaluated.value = Boolean(view.status === 'evaluated' || view.status === 'saved')
+  readOnly.value = false
+  selectedHoleIndexes.value = []
+  selectedAngleIndexes.value = []
+  resetZoom()
+}
+
+function selectStagedView(id) {
+  if (id === selectedViewId.value) return
+  syncActiveView()
+  selectView(id)
+  loadActiveView()
+}
+
+function removeView(id) {
+  const wasSelected = id === selectedViewId.value
+  removeStagedView(id)
+  if (wasSelected) loadActiveView()
+}
+
+async function startMeasurementSession() {
+  sessionNameError.value = ''
+  if (!runName.value.trim()) {
+    sessionNameError.value = t('measurement.sessionNameRequired')
+    return
+  }
+  sessionStarting.value = true
+  try {
+    await startSession(runName.value.trim())
+    showToast(t('measurement.sessionStarted'))
+  } catch (error) {
+    sessionNameError.value = error.message
+  } finally {
+    sessionStarting.value = false
+  }
+}
+
+async function saveCurrentView() {
+  if (!canSaveView.value) return
+  syncActiveView()
+  const view = selectedView.value
+  try {
+    await saveSelectedView({
+      name: runName.value.trim(),
+      source_key: view.sourceKey,
+      source_filename: view.sourceFilename,
+      source_type: view.sourceType,
+      source_camera_id: view.sourceCameraId,
+      task_type: view.taskType,
+      view_type: view.viewType,
+      view_label: view.viewLabel,
+      pose_type: view.poseType,
+      scale_profile_id: view.scaleProfileId,
+      calibration: view.processed?.calibration || calibrationInput(),
+      items: view.items || items.value,
+    })
+    showToast(t('measurement.viewSaved'))
+  } catch (error) {
+    errorMessage.value = error.message
+  }
+}
+
+async function completeMeasurementSession() {
+  if (!canCompleteSession.value) return
+  try {
+    await completeSession()
+    showToast(t('measurement.sessionCompleted'))
+  } catch (error) {
+    errorMessage.value = error.message
+  }
 }
 
 function startCalibration() {
@@ -154,51 +309,29 @@ function onCalibrationPointerUp(event) {
 }
 
 function chooseSource(value) {
-  if (value !== source.value) {
-    clearPreview()
-    selectedFile.value = null
-    capturedSource.value = null
-    localFileName.value = ''
-    resetStagedMeasurement()
-  }
   source.value = value
   errorMessage.value = ''
   if (value === 'image') selectedCameraId.value = ''
   if (value !== 'mobile') stopMobileCamera()
 }
 
-function stageFile(file) {
-  clearPreview()
-  selectedFile.value = file
-  capturedSource.value = null
-  localFileName.value = selectedFile.value?.name || ''
-  runName.value = selectedFile.value?.name?.replace(/\.[^.]+$/, '') || runName.value
-  resetStagedMeasurement()
-  selectedHoleIndexes.value = []
-  selectedAngleIndexes.value = []
-  if (selectedFile.value) {
-    const objectUrl = typeof URL.createObjectURL === 'function' ? URL.createObjectURL(selectedFile.value) : ''
-    previewUrl.value = objectUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
-    previewWidth.value = 160
-    previewHeight.value = 120
-  }
+function stageFile(fileInput) {
+  const files = fileInput instanceof File ? [fileInput] : Array.from(fileInput || [])
+  if (!files.length) return
+  const staged = stageImage(files)
+  if (!runName.value.trim()) runName.value = files[0].name?.replace(/\.[^.]+$/, '') || ''
+  loadActiveView(staged.at(-1))
   errorMessage.value = ''
 }
 
 function onFileChange(event) {
-  stageFile(event.target.files?.[0] || null)
+  stageFile(event.target.files)
 }
 
 function stageCapturedFrame(capture) {
-  clearPreview()
-  selectedFile.value = null
-  capturedSource.value = capture
-  localFileName.value = capture.source_filename || ''
-  runName.value = capture.source_filename?.replace(/\.[^.]+$/, '') || runName.value
-  resetStagedMeasurement()
-  previewUrl.value = capture.frame_url
-  previewWidth.value = capture.width || 1
-  previewHeight.value = capture.height || 1
+  const staged = stageServerCapture(capture)
+  if (!runName.value.trim()) runName.value = capture.source_filename?.replace(/\.[^.]+$/, '') || ''
+  loadActiveView(staged)
   errorMessage.value = ''
 }
 
@@ -208,6 +341,7 @@ function onPreviewLoad(event) {
 }
 
 async function runMeasurement(input) {
+  if (!taskViewSupported.value) return
   processing.value = true
   errorMessage.value = ''
   readOnly.value = false
@@ -217,6 +351,9 @@ async function runMeasurement(input) {
       calibration: calibrationInput(),
       taskType: taskType.value,
       viewType: viewType.value,
+      viewLabel: viewLabel.value,
+      poseType: poseType.value,
+      scaleProfileId: scaleProfileId.value || undefined,
     })
     items.value = []
     evaluated.value = false
@@ -224,6 +361,7 @@ async function runMeasurement(input) {
     selectedHoleIndexes.value = []
     selectedAngleIndexes.value = []
     resetZoom()
+    syncActiveView()
     log('MEASUREMENT_PROCESSED', `${processed.value.source_type}:${processed.value.source_filename}`)
   } catch (error) {
     errorMessage.value = error.message
@@ -269,7 +407,7 @@ function zoomOut() {
 }
 
 async function processCurrent() {
-  if (!canProcess.value) return
+  if (!canProcess.value || !selectedView.value) return
   return runMeasurement({
     file: source.value === 'image' || source.value === 'mobile' ? selectedFile.value : undefined,
     sourceKey: source.value === 'live' ? capturedSource.value.source_key : undefined,
@@ -351,7 +489,8 @@ async function captureMobile() {
   canvas.getContext('2d').drawImage(video, 0, 0)
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.98))
   if (blob) {
-    stageFile(new File([blob], 'mobile.jpg', { type: 'image/jpeg' }))
+    const staged = stageMobileCapture(new File([blob], 'mobile.jpg', { type: 'image/jpeg' }))
+    loadActiveView(staged)
   }
 }
 
@@ -596,6 +735,9 @@ function openRun(run) {
   runName.value = run.name
   taskType.value = run.processing?.task_type || run.items?.[0]?.task_type || run.items?.[0]?.type || 'linear_dimension'
   viewType.value = run.processing?.view_type || run.items?.[0]?.view_type || 'top'
+  viewLabel.value = run.view_label || ''
+  poseType.value = run.pose_type || 'TOP_FACE'
+  scaleProfileId.value = run.scale_profile_id || ''
   clearPreview()
   capturedSource.value = null
   selectedFile.value = null
@@ -632,10 +774,19 @@ async function removeRun(run) {
   }
 }
 
-onMounted(loadHistory)
+onMounted(async () => {
+  clearSession()
+  await loadHistory()
+  try {
+    await loadProfiles()
+  } catch {
+    // Manual calibration remains available when profile API is offline.
+  }
+})
 onBeforeUnmount(() => {
   stopMobileCamera()
   clearPreview()
+  clearSession()
 })
 </script>
 
@@ -644,6 +795,15 @@ onBeforeUnmount(() => {
     <div class="measurement-studio">
       <aside class="measurement-rail">
         <div class="measurement-rail-body scroll-region">
+        <section class="rail-section session-section">
+          <div class="panel-section-title">{{ t('measurement.session') }}</div>
+          <label class="field-label" for="session-name">{{ t('measurement.sessionName') }}</label>
+          <input id="session-name" v-model="runName" type="text" :placeholder="t('measurement.runNamePlaceholder')">
+          <button id="start-session" type="button" class="btn btn-secondary session-start" :disabled="sessionStarting || Boolean(session)" @click="startMeasurementSession">
+            {{ session ? t('measurement.sessionStarted') : t('measurement.startSession') }}
+          </button>
+          <p v-if="sessionNameError" class="session-name-error error-message">{{ sessionNameError }}</p>
+        </section>
         <section class="rail-section">
           <div class="panel-section-title">{{ t('measurement.input') }}</div>
           <div class="source-tabs">
@@ -681,11 +841,37 @@ onBeforeUnmount(() => {
               </select>
             </label>
           </div>
+          <div class="task-grid pose-grid">
+            <label class="field-label" for="pose-type">
+              {{ t('measurement.poseType') }}
+              <select id="pose-type" v-model="poseType">
+                <option value="TOP_FACE">{{ t('measurement.poseTop') }}</option>
+                <option value="REVERSE_FACE">{{ t('measurement.poseReverse') }}</option>
+                <option value="PROFILE_FACE">{{ t('measurement.poseProfile') }}</option>
+                <option value="CUSTOM_FACE">{{ t('measurement.poseCustom') }}</option>
+              </select>
+            </label>
+            <label class="field-label" for="scale-profile">
+              {{ t('measurement.scaleProfile') }}
+              <select id="scale-profile" v-model="scaleProfileId">
+                <option value="">{{ t('measurement.manualCalibration') }}</option>
+                <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }} · {{ profile.scale_type }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="field-label" for="view-label">
+            {{ t('measurement.viewLabel') }}
+            <input id="view-label" v-model="viewLabel" type="text" :placeholder="t('measurement.viewLabelPlaceholder')">
+          </label>
+          <p v-if="selectedProfile" class="profile-capability">
+            {{ selectedProfile.status }} · {{ selectedProfile.revision || t('measurement.unversionedProfile') }}
+          </p>
+          <p v-if="!poseSupported" class="task-warning pose-warning">{{ t('measurement.poseProfileRequired') }}</p>
           <p v-if="!taskViewSupported" class="task-warning">{{ t('measurement.profileViewRequired') }}</p>
 
           <template v-if="source === 'image'">
             <label class="field-label" for="measurement-file">{{ t('measurement.selectImage') }}</label>
-            <input id="measurement-file" type="file" accept="image/*" @change="onFileChange">
+            <input id="measurement-file" type="file" accept="image/*" multiple @change="onFileChange">
             <div v-if="localFileName" class="file-chip">{{ localFileName }}</div>
           </template>
 
@@ -722,6 +908,23 @@ onBeforeUnmount(() => {
               {{ processing ? t('measurement.processing') : t('measurement.triggerCapture') }}
             </button>
           </template>
+
+          <div v-if="stagedViews.length" class="measurement-view-list">
+            <div class="panel-section-title">{{ t('measurement.stagedViews') }}</div>
+            <button
+              v-for="view in stagedViews"
+              :key="view.id"
+              type="button"
+              class="measurement-view-card"
+              :class="{ active: view.id === selectedViewId }"
+              @click="selectStagedView(view.id)"
+            >
+              <span class="view-card-name">{{ view.sourceFilename }}</span>
+              <span class="view-card-meta">{{ view.sourceType }} · {{ view.status }}</span>
+              <span class="view-card-pose">{{ view.poseType }}</span>
+              <span class="view-card-remove" role="button" tabindex="0" @click.stop="removeView(view.id)">×</span>
+            </button>
+          </div>
         </section>
 
         <section class="rail-section">
@@ -772,7 +975,7 @@ onBeforeUnmount(() => {
           <div class="measurement-canvas-tools" @mousedown.stop>
             <div>
               <span class="toolbar-label">{{ t('measurement.currentSource') }}</span>
-              <strong>{{ processed?.source_filename || localFileName || t('measurement.noInput') }}</strong>
+              <strong>{{ selectedSourceName }}</strong>
             </div>
             <div class="measurement-canvas-actions">
               <span class="canvas-status mono" :class="`status-${summaryStatus.toLowerCase()}`">{{ summaryStatus }}</span>
@@ -964,6 +1167,8 @@ onBeforeUnmount(() => {
           </div>
           <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
           <button type="button" class="btn btn-secondary evaluate-measurement" :disabled="!canEvaluate" @click="evaluate">{{ t('measurement.evaluateDimension') }}</button>
+          <button type="button" class="btn btn-secondary save-view" :disabled="!canSaveView" @click="saveCurrentView">{{ t('measurement.saveView') }}</button>
+          <button type="button" class="btn btn-secondary complete-session" :disabled="!canCompleteSession" @click="completeMeasurementSession">{{ t('measurement.completeSession') }}</button>
           <button type="button" class="btn btn-primary save-measurement" :disabled="!canSave" @click="save">{{ t('measurement.save') }}</button>
         </section>
       </aside>
@@ -1052,6 +1257,16 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--color-hairline);
 }
 
+.session-section { background: var(--color-surface-1); }
+.session-start { width: 100%; margin-top: 10px; }
+.measurement-view-list { display: grid; gap: 6px; margin-top: 16px; }
+.measurement-view-list .panel-section-title { margin-bottom: 4px; }
+.measurement-view-card { position: relative; display: grid; gap: 3px; width: 100%; padding: 10px 28px 10px 10px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); color: var(--color-ink); text-align: left; cursor: pointer; font: inherit; }
+.measurement-view-card.active { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-canvas)); }
+.view-card-name { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.view-card-meta, .view-card-pose, .profile-capability { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
+.view-card-remove { position: absolute; top: 7px; right: 9px; color: var(--color-ink-muted); font-size: 17px; line-height: 1; }
+
 .panel-section-title {
   margin: 0 0 14px;
   color: var(--color-ink);
@@ -1084,6 +1299,7 @@ onBeforeUnmount(() => {
 .task-grid .field-label { margin-top: 0; }
 .task-grid select { margin-top: 5px; min-height: 42px; font-size: 11px; }
 .task-warning { margin: 12px 0 0; padding: 9px; border-left: 3px solid var(--color-warning); background: var(--color-surface-1); color: var(--color-warning); font-size: 11px; line-height: 1.4; }
+.profile-capability { margin: 10px 0 0; }
 
 .field-label,
 .item-fields label {

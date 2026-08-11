@@ -10,7 +10,7 @@ export async function captureMeasurement({ cameraId }) {
   return response.json()
 }
 
-export async function processMeasurement({ file, cameraId, sourceKey, sourceFilename, sourceCameraId, sourceType = 'image', calibration, options = {}, taskType = 'linear_dimension', viewType = 'top' }) {
+export async function processMeasurement({ file, cameraId, sourceKey, sourceFilename, sourceCameraId, sourceType = 'image', calibration, options = {}, taskType = 'linear_dimension', viewType = 'top', viewLabel = '', poseType = 'TOP_FACE', scaleProfileId }) {
   const fd = new FormData()
   if (file) fd.append('file', file)
   if (cameraId) fd.append('camera_id', cameraId)
@@ -20,6 +20,9 @@ export async function processMeasurement({ file, cameraId, sourceKey, sourceFile
   if (file || sourceKey) fd.append('source_type', sourceType)
   fd.append('task_type', taskType)
   fd.append('view_type', viewType)
+  fd.append('view_label', viewLabel)
+  fd.append('pose_type', poseType)
+  if (scaleProfileId) fd.append('scale_profile_id', scaleProfileId)
   fd.append('calibration', JSON.stringify(calibration || {}))
   fd.append('options', JSON.stringify(options))
   const response = await fetch(`${BASE}/measurements/process`, { method: 'POST', body: fd })

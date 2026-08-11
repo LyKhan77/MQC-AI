@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   listMeasurementRuns: vi.fn(),
   getMeasurementRun: vi.fn(),
   deleteMeasurementRun: vi.fn(),
+  createMeasurementSession: vi.fn(),
+  listMeasurementProfiles: vi.fn(),
+  saveMeasurementView: vi.fn(),
+  updateMeasurementSession: vi.fn(),
+  getMeasurementSession: vi.fn(),
   log: vi.fn(),
   showToast: vi.fn(),
 }))
@@ -30,6 +35,11 @@ vi.mock('../../api/measurements.js', () => ({
   listMeasurementRuns: mocks.listMeasurementRuns,
   getMeasurementRun: mocks.getMeasurementRun,
   deleteMeasurementRun: mocks.deleteMeasurementRun,
+  createMeasurementSession: mocks.createMeasurementSession,
+  listMeasurementProfiles: mocks.listMeasurementProfiles,
+  saveMeasurementView: mocks.saveMeasurementView,
+  updateMeasurementSession: mocks.updateMeasurementSession,
+  getMeasurementSession: mocks.getMeasurementSession,
 }))
 
 function file(name = 'bracket.png') {
@@ -68,9 +78,9 @@ function processed(sourceType = 'image') {
   }
 }
 
-async function stage(wrapper) {
+async function stage(wrapper, files = [file()]) {
   const input = wrapper.find('input[type="file"]')
-  Object.defineProperty(input.element, 'files', { value: [file()], configurable: true })
+  Object.defineProperty(input.element, 'files', { value: files, configurable: true })
   await input.trigger('change')
 }
 
@@ -89,6 +99,8 @@ describe('MeasurementStudio', () => {
     })
     mocks.processMeasurement.mockResolvedValue(processed())
     mocks.saveMeasurementRun.mockResolvedValue({ id: 'measurement-1', name: 'BRKT-001' })
+    mocks.listMeasurementProfiles.mockResolvedValue([])
+    mocks.createMeasurementSession.mockResolvedValue({ id: 'session-1', name: 'BRKT-001', status: 'in_progress', views: [] })
   })
 
   it('stages an upload without processing it', async () => {
@@ -98,6 +110,47 @@ describe('MeasurementStudio', () => {
 
     expect(wrapper.text()).toContain('bracket.png')
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
+  })
+
+  it('stages multiple images as selectable measurement views', async () => {
+    const wrapper = mount(MeasurementStudio)
+
+    await stage(wrapper, [file('top.png'), file('reverse.png')])
+
+    expect(wrapper.find('input[type="file"]').attributes('multiple')).toBeDefined()
+    expect(wrapper.findAll('.measurement-view-card')).toHaveLength(2)
+    expect(wrapper.find('.measurement-view-card.active').text()).toContain('reverse.png')
+    expect(mocks.processMeasurement).not.toHaveBeenCalled()
+  })
+
+  it('processes only selected second view', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper, [file('top.png'), file('reverse.png')])
+    await wrapper.findAll('.measurement-view-card')[0].trigger('click')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      file: expect.objectContaining({ name: 'top.png' }),
+    }))
+  })
+
+  it('blocks thickness on TOP_FACE with plain pose guidance', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('thickness_profile')
+    await wrapper.find('#pose-type').setValue('TOP_FACE')
+
+    expect(wrapper.find('.pose-warning').exists()).toBe(true)
+    expect(wrapper.find('.process-measurement').attributes('disabled')).toBeDefined()
+  })
+
+  it('requires a component name before starting a session', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await wrapper.find('#start-session').trigger('click')
+
+    expect(mocks.createMeasurementSession).not.toHaveBeenCalled()
+    expect(wrapper.find('.session-name-error').exists()).toBe(true)
   })
 
   it('shows staged image calibration guidance before processing', async () => {
@@ -219,6 +272,7 @@ describe('MeasurementStudio', () => {
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('bend_angle')
     await wrapper.find('#view-type').setValue('profile')
+    await wrapper.find('#pose-type').setValue('PROFILE_FACE')
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.findAll('.measurement-candidate')[0].trigger('click')
@@ -268,6 +322,18 @@ describe('MeasurementStudio', () => {
       sourceType: 'live_camera',
       sourceCameraId: 'cam-1',
     }))
+  })
+
+  it('appends Live Camera capture to existing staged image', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper, [file('top.png')])
+    await wrapper.find('.source-live').trigger('click')
+    await wrapper.find('.camera-select').setValue('cam-1')
+    await wrapper.find('.trigger-capture').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.measurement-view-card')).toHaveLength(2)
+    expect(mocks.processMeasurement).not.toHaveBeenCalled()
   })
 
   it('offers Mobile Camera as a client-side capture source', async () => {

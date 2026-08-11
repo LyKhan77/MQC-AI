@@ -56,12 +56,18 @@ describe('measurements api', () => {
       file,
       taskType: 'hole_diameter',
       viewType: 'top',
+      viewLabel: 'reverse face',
+      poseType: 'REVERSE_FACE',
+      scaleProfileId: 'detail-1',
       calibration: { point_a: [0, 0], point_b: [10, 0], known_mm: 5 },
     })
 
     const body = fetchMock.mock.calls[0][1].body
     expect(body.get('task_type')).toBe('hole_diameter')
     expect(body.get('view_type')).toBe('top')
+    expect(body.get('view_label')).toBe('reverse face')
+    expect(body.get('pose_type')).toBe('REVERSE_FACE')
+    expect(body.get('scale_profile_id')).toBe('detail-1')
   })
 
   it('processes a Live Camera frame by camera id', async () => {

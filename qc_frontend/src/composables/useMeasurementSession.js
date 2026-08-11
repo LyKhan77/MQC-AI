@@ -26,7 +26,9 @@ function revokePreview(url) {
 }
 
 function previewFor(file) {
-  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : ''
+  return typeof URL.createObjectURL === 'function'
+    ? URL.createObjectURL(file)
+    : 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
 }
 
 function createView(fields = {}) {
@@ -116,6 +118,7 @@ async function startSession(name) {
 }
 
 async function loadProfiles() {
+  if (typeof listMeasurementProfiles !== 'function') return profiles.value
   profiles.value = await listMeasurementProfiles()
   return profiles.value
 }
