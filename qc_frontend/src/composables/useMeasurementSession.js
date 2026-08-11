@@ -1,0 +1,185 @@
+import { computed, ref } from 'vue'
+
+import {
+  createMeasurementSession,
+  getMeasurementSession,
+  listMeasurementProfiles,
+  saveMeasurementView,
+  updateMeasurementSession,
+} from '../api/measurements.js'
+
+const session = ref(null)
+const views = ref([])
+const selectedViewId = ref(null)
+const profiles = ref([])
+let sequence = 0
+
+function nextViewId() {
+  sequence += 1
+  return `view-${Date.now()}-${sequence}`
+}
+
+function revokePreview(url) {
+  if (url?.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function previewFor(file) {
+  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : ''
+}
+
+function createView(fields = {}) {
+  return {
+    id: nextViewId(),
+    sourceType: 'image',
+    sourceKey: null,
+    sourceFilename: '',
+    sourceCameraId: null,
+    file: null,
+    previewUrl: '',
+    width: 0,
+    height: 0,
+    viewLabel: '',
+    poseType: 'TOP_FACE',
+    taskType: 'linear_dimension',
+    viewType: 'top',
+    scaleProfileId: null,
+    status: 'captured',
+    processed: null,
+    calibrationPoints: [],
+    knownMm: '',
+    ...fields,
+  }
+}
+
+function appendView(view) {
+  views.value.push(view)
+  selectedViewId.value = view.id
+  return view
+}
+
+function stageImage(input, sourceType = 'image') {
+  const files = input instanceof File ? [input] : Array.from(input || [])
+  return files.map((file) => appendView(createView({
+    sourceType,
+    sourceFilename: file.name || 'capture.jpg',
+    file,
+    previewUrl: previewFor(file),
+  })))
+}
+
+function stageServerCapture(capture) {
+  return appendView(createView({
+    sourceType: capture.source_type || 'server_camera',
+    sourceKey: capture.source_key || null,
+    sourceFilename: capture.source_filename || 'camera-capture.jpg',
+    sourceCameraId: capture.source_camera_id || null,
+    previewUrl: capture.frame_url || '',
+    width: capture.width || 0,
+    height: capture.height || 0,
+  }))
+}
+
+function stageMobileCapture(file) {
+  return stageImage(file, 'mobile_camera')[0] || null
+}
+
+function selectView(id) {
+  if (views.value.some((view) => view.id === id)) selectedViewId.value = id
+}
+
+function removeStagedView(id) {
+  const view = views.value.find((item) => item.id === id)
+  if (!view) return
+  revokePreview(view.previewUrl)
+  views.value = views.value.filter((item) => item.id !== id)
+  if (selectedViewId.value === id) selectedViewId.value = views.value.at(-1)?.id || null
+}
+
+function updateViewMetadata(id, patch) {
+  const view = views.value.find((item) => item.id === id)
+  if (view) Object.assign(view, patch)
+  return view || null
+}
+
+function clearSession() {
+  views.value.forEach((view) => revokePreview(view.previewUrl))
+  session.value = null
+  views.value = []
+  selectedViewId.value = null
+}
+
+async function startSession(name) {
+  session.value = await createMeasurementSession(name)
+  return session.value
+}
+
+async function loadProfiles() {
+  profiles.value = await listMeasurementProfiles()
+  return profiles.value
+}
+
+async function loadSession(id) {
+  session.value = await getMeasurementSession(id)
+  views.value = (session.value.views || []).map((view) => createView({
+    ...view,
+    id: view.id,
+    sourceType: view.source_type || view.sourceType || 'image',
+    sourceKey: view.source_key || view.sourceKey || null,
+    sourceFilename: view.source_filename || view.sourceFilename || '',
+    sourceCameraId: view.source_camera_id || view.sourceCameraId || null,
+    previewUrl: view.frame_url || view.preview_url || view.previewUrl || '',
+    viewLabel: view.view_label || view.viewLabel || '',
+    poseType: view.pose_type || view.poseType || 'TOP_FACE',
+    scaleProfileId: view.scale_profile_id || view.scaleProfileId || null,
+  }))
+  selectedViewId.value = views.value[0]?.id || null
+  return session.value
+}
+
+async function saveSelectedView(payload = {}) {
+  if (!session.value?.id || !selectedViewId.value) return null
+  const view = views.value.find((item) => item.id === selectedViewId.value)
+  const saved = await saveMeasurementView(session.value.id, {
+    ...payload,
+    view_label: payload.view_label ?? view?.viewLabel,
+    pose_type: payload.pose_type ?? view?.poseType,
+    scale_profile_id: payload.scale_profile_id ?? view?.scaleProfileId,
+  })
+  updateViewMetadata(selectedViewId.value, {
+    ...saved,
+    status: saved.status || 'saved',
+  })
+  return saved
+}
+
+async function completeSession() {
+  if (!session.value?.id) return null
+  session.value = await updateMeasurementSession(session.value.id, { status: 'complete' })
+  return session.value
+}
+
+const selectedView = computed(() => views.value.find((view) => view.id === selectedViewId.value) || null)
+
+export function useMeasurementSession() {
+  return {
+    session,
+    views,
+    selectedView,
+    selectedViewId,
+    profiles,
+    stageImage,
+    stageServerCapture,
+    stageMobileCapture,
+    selectView,
+    removeStagedView,
+    updateViewMetadata,
+    clearSession,
+    startSession,
+    loadProfiles,
+    loadSession,
+    saveSelectedView,
+    completeSession,
+  }
+}

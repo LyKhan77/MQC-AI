@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from './client.js'
+import { apiDelete, apiGet, apiPatch, apiPost } from './client.js'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
@@ -41,4 +41,48 @@ export function getMeasurementRun(id) {
 
 export function deleteMeasurementRun(id) {
   return apiDelete(`/measurements/${id}`)
+}
+
+export function createMeasurementProfile(payload) {
+  return apiPost('/measurement-profiles', payload)
+}
+
+export function listMeasurementProfiles() {
+  return apiGet('/measurement-profiles')
+}
+
+export function updateMeasurementProfile(id, patch) {
+  return apiPatch(`/measurement-profiles/${id}`, patch)
+}
+
+export function deleteMeasurementProfile(id) {
+  return apiDelete(`/measurement-profiles/${id}`)
+}
+
+export function createMeasurementSession(name) {
+  return apiPost('/measurement-sessions', { name })
+}
+
+export function listMeasurementSessions() {
+  return apiGet('/measurement-sessions')
+}
+
+export function getMeasurementSession(id) {
+  return apiGet(`/measurement-sessions/${id}`)
+}
+
+export function updateMeasurementSession(id, patch) {
+  return apiPatch(`/measurement-sessions/${id}`, patch)
+}
+
+export function saveMeasurementView(sessionId, payload) {
+  return apiPost(`/measurement-sessions/${sessionId}/views`, payload)
+}
+
+export function deleteMeasurementView(sessionId, viewId) {
+  return apiDelete(`/measurement-sessions/${sessionId}/views/${viewId}`)
+}
+
+export function deleteMeasurementSession(id) {
+  return apiDelete(`/measurement-sessions/${id}`)
 }

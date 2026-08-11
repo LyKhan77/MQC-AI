@@ -2,11 +2,22 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 
 import {
   captureMeasurement,
+  createMeasurementProfile,
+  createMeasurementSession,
   deleteMeasurementRun,
+  deleteMeasurementProfile,
+  deleteMeasurementSession,
+  deleteMeasurementView,
+  getMeasurementSession,
   getMeasurementRun,
+  listMeasurementProfiles,
+  listMeasurementSessions,
   listMeasurementRuns,
   processMeasurement,
   saveMeasurementRun,
+  saveMeasurementView,
+  updateMeasurementProfile,
+  updateMeasurementSession,
 } from './measurements.js'
 
 
@@ -127,5 +138,39 @@ describe('measurements api', () => {
       'GET /api/measurements/measurement-1',
       'DELETE /api/measurements/measurement-1',
     ])
+  })
+
+  it('uses measurement profile and session endpoints', async () => {
+    const fetchMock = ok({ id: 'measurement-1', views: [] })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await createMeasurementProfile({ name: 'Global' })
+    await listMeasurementProfiles()
+    await updateMeasurementProfile('profile-1', { status: 'valid' })
+    await deleteMeasurementProfile('profile-1')
+    await createMeasurementSession('BRKT-001')
+    await listMeasurementSessions()
+    await getMeasurementSession('session-1')
+    await updateMeasurementSession('session-1', { status: 'complete' })
+    await saveMeasurementView('session-1', { source_key: 'tmp-1' })
+    await deleteMeasurementView('session-1', 'view-1')
+    await deleteMeasurementSession('session-1')
+
+    expect(fetchMock.mock.calls.map(([path, options]) => `${options.method} ${path}`)).toEqual([
+      'POST /api/measurement-profiles',
+      'GET /api/measurement-profiles',
+      'PATCH /api/measurement-profiles/profile-1',
+      'DELETE /api/measurement-profiles/profile-1',
+      'POST /api/measurement-sessions',
+      'GET /api/measurement-sessions',
+      'GET /api/measurement-sessions/session-1',
+      'PATCH /api/measurement-sessions/session-1',
+      'POST /api/measurement-sessions/session-1/views',
+      'DELETE /api/measurement-sessions/session-1/views/view-1',
+      'DELETE /api/measurement-sessions/session-1',
+    ])
+    expect(fetchMock.mock.calls[0][1].body).toBe(JSON.stringify({ name: 'Global' }))
+    expect(fetchMock.mock.calls[7][1].body).toBe(JSON.stringify({ status: 'complete' }))
+    expect(fetchMock.mock.calls[8][1].body).toBe(JSON.stringify({ source_key: 'tmp-1' }))
   })
 })
