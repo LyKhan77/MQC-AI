@@ -36,6 +36,24 @@ const processed = {
 
 
 async function mockMeasurementApi(page) {
+  await page.route('**/api/measurement-profiles', async (route) => {
+    if (route.request().method() === 'GET') await route.fulfill({ json: [] })
+    else await route.fallback()
+  })
+  await page.route('**/api/measurement-sessions**', async (route) => {
+    const request = route.request()
+    if (request.method() === 'GET') {
+      await route.fulfill({ json: [] })
+    } else if (request.method() === 'POST' && request.url().endsWith('/views')) {
+      await route.fulfill({ status: 201, json: { id: 'view-1', view_status: 'saved', status: 'saved' } })
+    } else if (request.method() === 'POST') {
+      await route.fulfill({ status: 201, json: { id: 'session-1', name: 'BRKT-SESSION', status: 'in_progress', views: [] } })
+    } else if (request.method() === 'PATCH') {
+      await route.fulfill({ json: { id: 'session-1', name: 'BRKT-SESSION', status: 'complete', views: [] } })
+    } else {
+      await route.fallback()
+    }
+  })
   await page.route('**/api/measurements/files/**', async (route) => {
     await route.fulfill({
       contentType: 'image/png',
@@ -246,5 +264,28 @@ test('selects a proper hole task and guides profile-only views', async ({ page }
 
   await page.locator('#task-type').selectOption('thickness_profile')
   await page.locator('#view-type').selectOption('top')
-  await expect(page.locator('.task-warning')).toBeVisible()
+  await expect(page.locator('.task-warning').first()).toBeVisible()
+})
+
+
+test('stages multiple views and saves then completes a named session', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+
+  await page.locator('#session-name').fill('BRKT-SESSION')
+  await page.locator('#start-session').click()
+  await page.locator('input[type="file"]').setInputFiles([
+    { name: 'top.png', mimeType: 'image/png', buffer: Buffer.from('top') },
+    { name: 'reverse.png', mimeType: 'image/png', buffer: Buffer.from('reverse') },
+  ])
+  await expect(page.locator('.measurement-view-card')).toHaveCount(2)
+  await page.locator('.measurement-view-card').first().click()
+  await page.getByRole('button', { name: 'Process measurement' }).click()
+  await page.locator('.measurement-candidate').click()
+  await page.locator('.item-nominal').fill('60')
+  await page.locator('.item-tolerance').fill('2')
+  await page.getByRole('button', { name: 'Evaluate dimension' }).click()
+  await page.locator('.save-view').click()
+  await expect(page.locator('.measurement-view-card').first()).toContainText('saved')
+  await expect(page.locator('.complete-session')).toBeDisabled()
 })

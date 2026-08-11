@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   saveMeasurementView: vi.fn(),
   updateMeasurementSession: vi.fn(),
   getMeasurementSession: vi.fn(),
+  listMeasurementSessions: vi.fn(),
+  deleteMeasurementSession: vi.fn(),
+  deleteMeasurementView: vi.fn(),
   log: vi.fn(),
   showToast: vi.fn(),
 }))
@@ -40,6 +43,9 @@ vi.mock('../../api/measurements.js', () => ({
   saveMeasurementView: mocks.saveMeasurementView,
   updateMeasurementSession: mocks.updateMeasurementSession,
   getMeasurementSession: mocks.getMeasurementSession,
+  listMeasurementSessions: mocks.listMeasurementSessions,
+  deleteMeasurementSession: mocks.deleteMeasurementSession,
+  deleteMeasurementView: mocks.deleteMeasurementView,
 }))
 
 function file(name = 'bracket.png') {
@@ -101,6 +107,9 @@ describe('MeasurementStudio', () => {
     mocks.saveMeasurementRun.mockResolvedValue({ id: 'measurement-1', name: 'BRKT-001' })
     mocks.listMeasurementProfiles.mockResolvedValue([])
     mocks.createMeasurementSession.mockResolvedValue({ id: 'session-1', name: 'BRKT-001', status: 'in_progress', views: [] })
+    mocks.listMeasurementSessions.mockResolvedValue([])
+    mocks.saveMeasurementView.mockResolvedValue({ id: 'view-1', view_status: 'saved', status: 'saved' })
+    mocks.updateMeasurementSession.mockResolvedValue({ id: 'session-1', name: 'BRKT-001', status: 'complete', views: [] })
   })
 
   it('stages an upload without processing it', async () => {
@@ -151,6 +160,71 @@ describe('MeasurementStudio', () => {
 
     expect(mocks.createMeasurementSession).not.toHaveBeenCalled()
     expect(wrapper.find('.session-name-error').exists()).toBe(true)
+  })
+
+  it('saves selected evaluated view and marks its card saved', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await wrapper.find('#session-name').setValue('BRKT-001')
+    await wrapper.find('#start-session').trigger('click')
+    await flushPromises()
+    await stage(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.find('.measurement-candidate').trigger('click')
+    await wrapper.find('.item-nominal').setValue('60')
+    await wrapper.find('.item-tolerance').setValue('2')
+    await wrapper.find('.evaluate-measurement').trigger('click')
+    await wrapper.find('.save-view').trigger('click')
+    await flushPromises()
+
+    expect(mocks.saveMeasurementView).toHaveBeenCalledWith('session-1', expect.objectContaining({
+      name: 'BRKT-001',
+      source_key: 'tmp-measurement-1',
+      items: expect.arrayContaining([expect.objectContaining({ status: 'PASS' })]),
+    }))
+    expect(wrapper.find('.measurement-view-card').text()).toContain('saved')
+  })
+
+  it('blocks completion while a staged view remains unsaved', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await wrapper.find('#session-name').setValue('BRKT-001')
+    await wrapper.find('#start-session').trigger('click')
+    await flushPromises()
+    await stage(wrapper)
+
+    expect(wrapper.find('.complete-session').attributes('disabled')).toBeDefined()
+    expect(mocks.updateMeasurementSession).not.toHaveBeenCalled()
+  })
+
+  it('reopens a saved session with all view cards', async () => {
+    mocks.listMeasurementSessions.mockResolvedValueOnce([{
+      id: 'session-2',
+      name: 'BRKT-002',
+      status: 'complete',
+      created_at: '2026-08-10',
+      summary: { status: 'PASS', view_count: 2 },
+      views: [],
+    }])
+    mocks.getMeasurementSession.mockResolvedValueOnce({
+      id: 'session-2',
+      name: 'BRKT-002',
+      status: 'complete',
+      summary: { status: 'PASS', view_count: 2 },
+      views: [
+        { id: 'view-1', source_type: 'image', source_filename: 'top.png', source_url: '/saved/top.png', width: 160, height: 120, pose_type: 'TOP_FACE', view_status: 'saved', processing: { task_type: 'linear_dimension', view_type: 'top' }, calibration: processed().calibration, items: [] },
+        { id: 'view-2', source_type: 'image', source_filename: 'reverse.png', source_url: '/saved/reverse.png', width: 160, height: 120, pose_type: 'REVERSE_FACE', view_status: 'saved', processing: { task_type: 'linear_dimension', view_type: 'top' }, calibration: processed().calibration, items: [] },
+      ],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await flushPromises()
+
+    expect(wrapper.findAll('.history-session')).toHaveLength(1)
+    await wrapper.find('.history-session .history-run').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.measurement-view-card')).toHaveLength(2)
+    expect(wrapper.find('.measurement-image').attributes('src')).toBe('/saved/top.png')
+    expect(wrapper.find('#pose-type').element.value).toBe('TOP_FACE')
   })
 
   it('shows staged image calibration guidance before processing', async () => {

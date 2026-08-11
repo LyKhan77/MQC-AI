@@ -29,6 +29,7 @@ const {
   selectedView,
   selectedViewId,
   profiles,
+  sessions,
   startSession,
   stageImage,
   stageServerCapture,
@@ -38,8 +39,11 @@ const {
   removeStagedView,
   saveSelectedView,
   completeSession,
+  deleteSavedView,
+  deleteSession,
   clearSession,
   loadProfiles,
+  loadSessions,
 } = measurementSession
 
 const source = ref('image')
@@ -117,6 +121,11 @@ const filteredRuns = computed(() => {
   if (!query) return recentRuns.value
   return recentRuns.value.filter((run) => `${run.name} ${run.source_filename}`.toLowerCase().includes(query))
 })
+const filteredSessions = computed(() => {
+  const query = historyQuery.value.trim().toLowerCase()
+  if (!query) return sessions.value
+  return sessions.value.filter((item) => `${item.name} ${item.status}`.toLowerCase().includes(query))
+})
 
 const selectedSourceName = computed(() => selectedView.value?.sourceFilename || localFileName.value || t('measurement.noInput'))
 
@@ -152,6 +161,10 @@ function resetStagedMeasurement() {
 function syncActiveView() {
   if (!selectedViewId.value) return
   updateViewMetadata(selectedViewId.value, {
+    sourceKey: processed.value?.source_key || selectedView.value?.sourceKey || null,
+    sourceFilename: processed.value?.source_filename || selectedView.value?.sourceFilename || localFileName.value,
+    sourceType: processed.value?.source_type || selectedView.value?.sourceType || source.value,
+    sourceCameraId: processed.value?.source_camera_id || selectedView.value?.sourceCameraId || null,
     taskType: taskType.value,
     viewType: viewType.value,
     viewLabel: viewLabel.value,
@@ -216,9 +229,13 @@ function selectStagedView(id) {
   loadActiveView()
 }
 
-function removeView(id) {
+async function removeView(id) {
+  const view = stagedViews.value.find((item) => item.id === id)
+  if (!view) return
+  if (view.status === 'saved' && !window.confirm(t('measurement.confirmDeleteView'))) return
   const wasSelected = id === selectedViewId.value
-  removeStagedView(id)
+  if (view.status === 'saved') await deleteSavedView(id)
+  else removeStagedView(id)
   if (wasSelected) loadActiveView()
 }
 
@@ -731,6 +748,25 @@ async function loadHistory() {
   }
 }
 
+async function loadSessionHistory() {
+  try {
+    await loadSessions()
+  } catch {
+    sessions.value = []
+  }
+}
+
+async function openSession(item) {
+  try {
+    await measurementSession.loadSession(item.id)
+    runName.value = session.value?.name || item.name || ''
+    loadActiveView(selectedView.value)
+    errorMessage.value = ''
+  } catch (error) {
+    errorMessage.value = error.message
+  }
+}
+
 function openRun(run) {
   runName.value = run.name
   taskType.value = run.processing?.task_type || run.items?.[0]?.task_type || run.items?.[0]?.type || 'linear_dimension'
@@ -774,9 +810,20 @@ async function removeRun(run) {
   }
 }
 
+async function removeSession(item) {
+  if (!window.confirm(t('measurement.confirmDeleteSession'))) return
+  try {
+    await deleteSession(item.id)
+    showToast(t('measurement.sessionDeleted'))
+  } catch (error) {
+    errorMessage.value = error.message
+  }
+}
+
 onMounted(async () => {
   clearSession()
   await loadHistory()
+  await loadSessionHistory()
   try {
     await loadProfiles()
   } catch {
@@ -911,19 +958,21 @@ onBeforeUnmount(() => {
 
           <div v-if="stagedViews.length" class="measurement-view-list">
             <div class="panel-section-title">{{ t('measurement.stagedViews') }}</div>
-            <button
+            <div
               v-for="view in stagedViews"
               :key="view.id"
-              type="button"
               class="measurement-view-card"
               :class="{ active: view.id === selectedViewId }"
+              role="button"
+              tabindex="0"
               @click="selectStagedView(view.id)"
+              @keydown.enter="selectStagedView(view.id)"
             >
               <span class="view-card-name">{{ view.sourceFilename }}</span>
               <span class="view-card-meta">{{ view.sourceType }} · {{ view.status }}</span>
               <span class="view-card-pose">{{ view.poseType }}</span>
-              <span class="view-card-remove" role="button" tabindex="0" @click.stop="removeView(view.id)">×</span>
-            </button>
+              <button type="button" class="view-card-remove" :aria-label="t('measurement.deleteView')" @click.stop="removeView(view.id)">×</button>
+            </div>
           </div>
         </section>
 
@@ -950,8 +999,15 @@ onBeforeUnmount(() => {
 
         <section class="rail-section history-section scroll-region">
           <div class="panel-section-title">{{ t('measurement.history') }}</div>
-          <input v-if="recentRuns.length" v-model="historyQuery" class="history-search" type="search" :placeholder="t('measurement.historySearch')">
-          <div v-if="!filteredRuns.length" class="empty-small">{{ recentRuns.length ? t('measurement.noHistoryResults') : t('measurement.noHistory') }}</div>
+          <input v-if="recentRuns.length || sessions.length" v-model="historyQuery" class="history-search" type="search" :placeholder="t('measurement.historySearch')">
+          <div v-if="!filteredRuns.length && !filteredSessions.length" class="empty-small">{{ recentRuns.length || sessions.length ? t('measurement.noHistoryResults') : t('measurement.noHistory') }}</div>
+          <div v-for="item in filteredSessions" :key="item.id" class="history-row history-session">
+            <button type="button" class="history-run" @click="openSession(item)">
+              <strong>{{ item.name }}</strong>
+              <span>{{ item.summary?.status || item.status }} · {{ item.summary?.view_count || 0 }} {{ t('measurement.stagedViews') }} · {{ item.created_at }}</span>
+            </button>
+            <button type="button" class="history-delete" :aria-label="t('measurement.deleteSession')" @click.stop="removeSession(item)">×</button>
+          </div>
           <div v-for="run in filteredRuns" :key="run.id" class="history-row">
             <button type="button" class="history-run" @click="openRun(run)">
               <strong>{{ run.name }}</strong>
@@ -1265,7 +1321,7 @@ onBeforeUnmount(() => {
 .measurement-view-card.active { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-canvas)); }
 .view-card-name { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .view-card-meta, .view-card-pose, .profile-capability { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
-.view-card-remove { position: absolute; top: 7px; right: 9px; color: var(--color-ink-muted); font-size: 17px; line-height: 1; }
+.view-card-remove { position: absolute; top: 7px; right: 9px; border: 0; padding: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font: inherit; font-size: 17px; line-height: 1; }
 
 .panel-section-title {
   margin: 0 0 14px;
