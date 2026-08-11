@@ -1,7 +1,7 @@
 # PRD — Inspect Measurement Proper Version
 
-**Status:** P1-P3 planar proper vertical slice implemented; profile/3D phases planned
-**Date:** 10 August 2026
+**Status:** P1-P2 software vertical slice implemented; station accuracy, drawing recipe, and profile metrology planned
+**Date:** 11 August 2026
 **Related prototype:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
 **Milestone tracker:** [`inspect-measurement-proper-milestones.md`](./inspect-measurement-proper-milestones.md)
 
@@ -9,7 +9,7 @@
 
 Inspect Measurement menjadi task-driven Measurement Studio untuk QC Station. Inspector memberi nama seri komponen secara manual, mengambil beberapa foto dari sisi berbeda, memilih task measurement yang relevan, membandingkan hasil dengan drawing/source of truth, lalu menyimpan evidence lengkap untuk History dan Audit.
 
-Prototype membuktikan measurement kernel pada satu image/frame. Versi proper menambahkan context inspeksi: session, dynamic views, station calibration, task/feature recipe, deterministic hole geometry, drawing recipe, profile/3D measurement strategy, dan review governance.
+Prototype membuktikan measurement kernel dan session multi-view pada image/frame. Versi proper menambahkan station calibration tervalidasi, task/feature recipe, deterministic hole geometry, drawing recipe, profile/3D measurement strategy, dan review governance.
 
 ## 2. Target workflow
 
@@ -17,7 +17,7 @@ Prototype membuktikan measurement kernel pada satu image/frame. Versi proper men
 Create inspection session
   -> Manual component/series name
   -> Select input: Image / Live Camera / Mobile Camera / Server Camera
-  -> Capture or upload one view into a staged frame
+  -> Capture or upload one or more views into staged frames
   -> Label dynamic custom view
   -> Calibrate station/view
   -> Draw reference line
@@ -25,7 +25,7 @@ Create inspection session
   -> Confirm or correct geometry
   -> Apply drawing measurement recipe
   -> Evaluate per feature and per view
-  -> Rotate/reposition component
+  -> Rotate/reposition component for next face
   -> Capture next required view
   -> Complete session
   -> Save History + Audit + evidence
@@ -49,6 +49,9 @@ Pilot menyiapkan station profile, drawing recipe, datum, tolerance, expected vie
 - Controlled lighting dan fixed focus/exposure/white balance.
 - Camera registration, station identity, resolution, lens, dan calibration revision disimpan.
 - Trigger capture menghasilkan satu evidence frame per view.
+- Inspector memutar/reposition komponen di desk matte; jumlah view tidak fixed.
+- Rotasi horizontal pada bidang desk tetap face yang sama; membalik komponen memilih face baru.
+- Free tilt/lift tidak diterima sebagai measurement valid.
 
 Top-down station tidak cukup untuk semua dimensi. Ketebalan dan true 3D bend angle memerlukan profile camera, calibrated multi-camera, structured light, laser gauge, atau fixture measurement yang sesuai.
 
@@ -62,6 +65,17 @@ Top-down station tidak cukup untuk semua dimensi. Ketebalan dan true 3D bend ang
 - View order dan jumlah view tidak fixed.
 - Setiap view menyimpan source frame, camera/source, calibration revision, selected geometry, result, dan operator note.
 - Session dapat incomplete dengan alasan; sistem tidak menganggap semua part memiliki view yang sama.
+
+Software slice saat ini menyediakan `MeasurementSession`, dynamic staged view cards, save/delete view, reopen, completion guard, History, dan Audit. Session tidak boleh selesai ketika masih ada staged view yang belum disimpan.
+
+### 4.1.1 Global and Detail measurement profiles
+
+- `GLOBAL`: coverage komponen besar sampai sekitar 2100 mm; tidak otomatis mendukung feature 1 mm.
+- `DETAIL`: area lebih kecil dengan resolusi lebih tinggi untuk feature kecil, hole, dan edge refinement.
+- Profile menyimpan station/camera binding, resolution, FOV/working distance, calibration, revision, capability range, dan status validasi.
+- Frame resolution dan camera binding wajib cocok dengan profile; mismatch menghasilkan `REVIEW`.
+- Profile tidak boleh mengklaim support jika capability minimum/maksimum tidak tersedia.
+- Satu development camera pada dua jarak/scale hanya untuk eksperimen; production disarankan dual fixed top-down camera atau setup optik tervalidasi.
 
 ### 4.2 Input sources
 
@@ -229,7 +243,28 @@ Audit minimum:
 - result approved/rejected;
 - drawing/recipe revision changed.
 
-## 7. Accuracy and validation strategy
+## 7. Software contract delivered by current slice
+
+Session/profile endpoints:
+
+```text
+POST/GET/PATCH/DELETE /api/measurement-profiles[/{profile_id}]
+POST/GET              /api/measurement-sessions
+GET/PATCH/DELETE      /api/measurement-sessions/{session_id}
+POST/DELETE           /api/measurement-sessions/{session_id}/views[/{view_id}]
+```
+
+Process metadata includes `view_label`, `pose_type`, and `scale_profile_id`. Pose rules:
+
+| Pose | Supported checks |
+|---|---|
+| `TOP_FACE`, `REVERSE_FACE` | length/width, inclination, hole geometry on planar face |
+| `PROFILE_FACE` | thickness and bend/profile checks |
+| `CUSTOM_FACE` | saved label; task capability requires explicit approval |
+
+`TOP_FACE` is not accepted as a valid thickness/bend pose. Invalid profile, camera/resolution mismatch, unsupported pose, and insufficient capability return `REVIEW`.
+
+## 8. Accuracy and validation strategy
 
 Accuracy is a station property, not only an algorithm property.
 
@@ -243,18 +278,18 @@ Validation levels:
 
 The system reports measured error and repeatability before enabling a dimension as an automatic quality gate. `±2 mm` linear and `±0.5°` angle are configuration defaults only; they are not accuracy guarantees.
 
-## 8. Future improvement phases
+## 9. Future improvement phases
 
 | Phase | Improvement | Exit gate |
 |---|---|---|
 | P1 | Station profile contract, interactive reference calibration, fixed lighting, marker/homography foundation, planar task types, hole center/diameter/pitch candidates | Software vertical slice implemented; station matrix/homography runtime requires approved calibration evidence |
-| P2 | Session + dynamic custom views + Live Camera trigger workflow | Inspector can inspect arbitrary side count with saved evidence |
+| P2 | Session + dynamic custom views + Live Camera trigger workflow | **Software slice implemented:** arbitrary side count, staged Image/Live/Mobile inputs, session/profile APIs, save/reopen/audit evidence. Physical station validation remains open. |
 | P3 | Drawing revision + Measurement Recipe + manual mapping | Results compare against approved source-of-truth feature IDs |
 | P4 | Profile/multi-camera strategy for thickness and bend angle | 3D dimensions have hardware-specific validation evidence |
 | P5 | AI-assisted segmentation/semantic edge selection | False-edge rate improves without changing deterministic measurement authority |
 | P6 | Approval policy, reports, station monitoring, drift detection | Measurement can operate as controlled QC quality gate |
 
-## 9. Explicit non-goals
+## 10. Explicit non-goals
 
 - One universal AI model that understands every component without calibration.
 - Inferring thickness or 3D bend angle reliably from one top-down photo.
@@ -262,7 +297,7 @@ The system reports measured error and repeatability before enabling a dimension 
 - Using default tolerance as a substitute for engineering drawing requirements.
 - Declaring high accuracy before station validation.
 
-## 10. Open decisions before implementation
+## 11. Open decisions before implementation
 
 - Which camera model/resolution/lens becomes the first approved QC Station?
 - Is the first proper station planar-only or includes a profile camera?
@@ -271,7 +306,7 @@ The system reports measured error and repeatability before enabling a dimension 
 - How long calibration remains valid and what triggers recalibration?
 - Which measurement failures require automatic reject versus inspector review?
 
-## 11. OpenCV implementation baseline
+## 12. OpenCV implementation baseline
 
 The current proper baseline follows the stable OpenCV 4.13.0 documentation:
 

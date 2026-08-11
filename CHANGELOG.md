@@ -11,6 +11,26 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-11 - Inspect Measurement Multi-View Station Slice
+
+### Added
+
+- `MeasurementSession` and `MeasurementProfile` persistence plus profile/session/view CRUD and audit events.
+- Global/Detail profile capability checks for camera binding, frame resolution, calibration status, and supported feature range.
+- Measurement Studio dynamic staged views from multiple Image files, Live Camera trigger captures, and Mobile Camera captures.
+- Pose guidance for `TOP_FACE`, `REVERSE_FACE`, `PROFILE_FACE`, and `CUSTOM_FACE`; thickness/bend processing is blocked unless profile pose is selected.
+- Selected-view-only processing, Save View, completion guard, session History reopen/delete, and view deletion confirmation.
+
+### Changed
+
+- Live/Mobile capture stays staged until explicit Process Measurement; process metadata now includes `view_label`, `pose_type`, and `scale_profile_id`.
+- README, AGENTS, and feature PRDs now document the multi-view software boundary, Global/Detail scale strategy, C50 development limitation, and future station/drawing accuracy gates.
+
+### Verification
+
+- Frontend `189 passed`, backend `223 passed`, frontend build passed, and Measurement Studio Playwright `8 passed`.
+- Physical accuracy remains unvalidated; no production `+/-2 mm` or `+/-0.5 deg` claim.
+
 ## [Unreleased] - 2026-08-10 - Inspect Measurement Staged Camera Calibration
 
 ### Changed

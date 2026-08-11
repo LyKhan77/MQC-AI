@@ -2,7 +2,7 @@
 
 **Feature PRD:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
 **Status terakhir:** M0–M5 implemented; M6 accuracy validation pending
-**Last updated:** 10 August 2026
+**Last updated:** 11 August 2026
 
 Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone selesai. Status `DONE` membutuhkan evidence berupa file/commit dan test atau browser verification yang relevan.
 
@@ -103,6 +103,21 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 - [ ] Invalid-calibration sample menghasilkan `REVIEW`.
 - [ ] Absolute error dan repeatability dicatat.
 - [ ] Tidak ada klaim produksi ±2 mm atau ±0.5° tanpa evidence station.
+
+## M7 - Multi-view session and scale profile slice
+
+**Status:** `DONE` (software); physical accuracy remains pending.
+
+- [x] Manual component/series naming.
+- [x] Multiple Image inputs staged as separate views.
+- [x] Live Camera trigger and Mobile Camera capture append views without implicit processing.
+- [x] Selected-view calibration -> explicit Process Measurement -> evaluate flow.
+- [x] `TOP_FACE`, `REVERSE_FACE`, `PROFILE_FACE`, `CUSTOM_FACE` guidance and thickness/bend pose gate.
+- [x] Global/Detail profile CRUD, camera/resolution validation, capability warning.
+- [x] Save/reopen/delete views, session completion guard, History, and Audit persistence.
+- [ ] Physical station calibration, repeatability, and production accuracy gate.
+
+Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f018`; focused backend/frontend tests, build, and Measurement Studio Playwright coverage.
 
 ## Update protocol
 

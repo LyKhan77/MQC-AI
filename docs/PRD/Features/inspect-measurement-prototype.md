@@ -1,7 +1,7 @@
 # PRD — Inspect Measurement Prototype
 
-**Status:** Implemented prototype; M6 accuracy validation pending
-**Date:** 7 August 2026
+**Status:** Implemented multi-view prototype; station accuracy validation pending
+**Date:** 11 August 2026
 **Owner:** GSPE / MQC-AI
 
 ## 1. Keputusan ringkas
@@ -9,7 +9,7 @@
 Prototype menggunakan alur vertical slice berikut:
 
 ```text
-Input image
+Create manual component/series session and stage Image / Live / Mobile views
   → Process one side
   → Tampilkan kandidat edge + hasil ukuran
   → Inspector atur nominal dan toleransi per measurement item
@@ -30,6 +30,8 @@ Auto-measurement penuh berisiko menghasilkan PASS palsu ketika edge tertutup, gl
 ### Tujuan
 
 - Mengukur satu sisi dari satu image.
+- Menyimpan beberapa view dalam satu session dengan nama komponen/seri manual.
+- Memproses hanya view yang dipilih setelah capture atau upload selesai.
 - Menghasilkan ukuran dalam mm, bukan hanya pixel.
 - Mendukung beberapa measurement item pada sisi yang sama.
 - Mengatur nominal dan toleransi setiap item secara manual.
@@ -56,10 +58,14 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 
 ### In scope
 
-- Input satu image melalui file upload, satu frame dari registered Live Camera, atau satu frame dari Mobile Camera client.
+- Input satu atau beberapa image melalui file upload, satu atau beberapa frame dari registered Live Camera, atau beberapa frame dari Mobile Camera client.
 - Live Camera menampilkan preview camera terdaftar dan memakai trigger capture; frame hasil capture masuk ke pipeline yang sama seperti upload.
 - Mobile Camera memakai `getUserMedia()` browser pada HTTPS; inspector membuka preview lalu mengambil satu still frame ke pipeline yang sama.
 - Nama run/seri/komponen diisi manual.
+- Session memiliki dynamic custom views; inspector menambah view saat komponen diputar/reposition.
+- Pose `TOP_FACE`/`REVERSE_FACE` untuk planar, `PROFILE_FACE` untuk thickness/bend guidance.
+- Global/Detail measurement profile selector dengan resolution/camera/capability warning.
+- Save/reopen/delete view dan completion guard untuk session.
 - Kalibrasi skala image dengan reference distance pada bidang yang sama.
 - Process server-side menggunakan OpenCV tanpa trained model.
 - Kandidat garis/edge dari `LineSegmentDetector` atau `HoughLinesP`, dengan preprocessing sederhana.
@@ -85,7 +91,7 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 ### Out of scope
 
 - Live Camera continuous auto-measurement atau continuous video processing; prototype hanya preview + one-shot trigger capture.
-- Satu komponen dengan banyak foto atau dynamic custom views.
+- Fixed required view checklist; prototype memakai dynamic custom views tanpa jumlah sisi fixed.
 - QC Station hardware workflow.
 - CAD/PDF import, OCR drawing, automatic callout mapping, atau CAD parsing.
 - Automatic source-of-truth recipe dari drawing.
