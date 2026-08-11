@@ -8,8 +8,11 @@ from app.services.measurement import (
     calibrate_reference,
     evaluate_item,
     measure_geometry,
+    pose_task_supported,
+    profile_supports_measurement,
     task_requires_profile,
     task_view_supported,
+    validate_measurement_profile,
 )
 
 
@@ -221,3 +224,45 @@ def test_evaluate_item_requires_nominal_and_tolerance():
 
     assert result["status"] == "REVIEW"
     assert result["reason"] == "missing_nominal_or_tolerance"
+
+
+def test_pose_task_rules_separate_planar_and_profile_measurements():
+    assert pose_task_supported("linear_dimension", "TOP_FACE") is True
+    assert pose_task_supported("linear_dimension", "REVERSE_FACE") is True
+    assert pose_task_supported("thickness_profile", "TOP_FACE") is False
+    assert pose_task_supported("thickness_profile", "PROFILE_FACE") is True
+
+
+def test_global_profile_rejects_one_mm_feature_at_large_scale():
+    profile = {
+        "resolution_width": 2560,
+        "resolution_height": 1440,
+        "camera_id": "global",
+        "capability": {
+            "minimum_supported_feature_mm": 8,
+            "maximum_supported_span_mm": 2100,
+        },
+    }
+
+    assert profile_supports_measurement(profile, nominal=1) is False
+    assert profile_supports_measurement(profile, nominal=2100) is True
+
+
+def test_valid_measurement_profile_matches_frame_and_camera():
+    profile = {
+        "id": "profile-global",
+        "status": "valid",
+        "camera_id": "global",
+        "resolution_width": 2560,
+        "resolution_height": 1440,
+        "calibration": {"valid": True, "mm_per_pixel": 0.8},
+    }
+
+    result = validate_measurement_profile(profile, 2560, 1440, "global")
+
+    assert result == {
+        "valid": True,
+        "reason": "",
+        "profile_id": "profile-global",
+        "calibration": profile["calibration"],
+    }

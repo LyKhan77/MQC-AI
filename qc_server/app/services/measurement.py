@@ -17,6 +17,7 @@ SUPPORTED_TASK_TYPES = {
 }
 SUPPORTED_VIEW_TYPES = {"top", "profile", "side"}
 PROFILE_TASK_TYPES = {"thickness_profile", "bend_angle"}
+POSE_TYPES = {"TOP_FACE", "REVERSE_FACE", "PROFILE_FACE", "CUSTOM_FACE"}
 MIN_CONFIDENCE = 0.5
 
 
@@ -81,6 +82,66 @@ def task_view_supported(task_type, view_type):
     if task_requires_profile(task_type):
         return view_type in {"profile", "side"}
     return True
+
+
+def pose_task_supported(task_type, pose_type):
+    if pose_type not in POSE_TYPES:
+        return False
+    if task_type in PROFILE_TASK_TYPES:
+        return pose_type == "PROFILE_FACE"
+    return task_type in LINEAR_TYPES or task_type in SUPPORTED_TASK_TYPES
+
+
+def profile_supports_measurement(profile, nominal, measured=None):
+    if not isinstance(profile, dict) or nominal is None:
+        return False
+    capability = profile.get("capability")
+    if not isinstance(capability, dict):
+        return False
+    try:
+        requested = float(nominal if measured is None else measured)
+        minimum = float(capability.get("minimum_supported_feature_mm", 0))
+        maximum = float(capability.get("maximum_supported_span_mm", 0))
+    except (TypeError, ValueError):
+        return False
+    if requested <= 0 or minimum < 0 or maximum < 0:
+        return False
+    if minimum and requested < minimum:
+        return False
+    if maximum and requested > maximum:
+        return False
+    return True
+
+
+def validate_measurement_profile(profile, frame_width, frame_height, source_camera_id=None):
+    if not isinstance(profile, dict):
+        return {"valid": False, "reason": "missing_profile"}
+    if profile.get("status") not in {"valid", "approved"}:
+        return {"valid": False, "reason": "invalid_profile_status"}
+    try:
+        width = int(profile.get("resolution_width", 0))
+        height = int(profile.get("resolution_height", 0))
+    except (TypeError, ValueError):
+        return {"valid": False, "reason": "invalid_profile_resolution"}
+    if width and height and (width != int(frame_width) or height != int(frame_height)):
+        return {"valid": False, "reason": "profile_resolution_mismatch"}
+    profile_camera_id = profile.get("camera_id")
+    if profile_camera_id and source_camera_id and profile_camera_id != source_camera_id:
+        return {"valid": False, "reason": "profile_camera_mismatch"}
+    calibration = profile.get("calibration")
+    if not isinstance(calibration, dict) or not calibration.get("valid"):
+        return {"valid": False, "reason": "invalid_calibration"}
+    try:
+        if float(calibration.get("mm_per_pixel", 0)) <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return {"valid": False, "reason": "invalid_calibration"}
+    return {
+        "valid": True,
+        "reason": "",
+        "profile_id": profile.get("id"),
+        "calibration": calibration,
+    }
 
 
 def _angle_degrees(points):
