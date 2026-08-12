@@ -7,9 +7,11 @@ from app.services.measurement import (
     SUPPORTED_VIEW_TYPES,
     calibrate_axes,
     calibrate_reference,
+    calibration_quality,
     calibration_verdict_eligible,
     evaluate_item,
     measure_geometry,
+    normalize_task_types,
     pose_task_supported,
     profile_supports_measurement,
     scaled_distance,
@@ -311,3 +313,27 @@ def test_valid_measurement_profile_matches_frame_and_camera():
         "profile_id": "profile-global",
         "calibration": profile["calibration"],
     }
+
+
+def test_manual_axes_profile_is_valid_and_task_types_are_normalized():
+    calibration = calibrate_axes(
+        {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+        "independent_artifact",
+    )
+    profile = {
+        "id": "profile-axes",
+        "status": "approved",
+        "resolution_width": 2560,
+        "resolution_height": 1440,
+        "calibration": calibration,
+    }
+
+    result = validate_measurement_profile(profile, 2560, 1440)
+
+    assert result["valid"] is True
+    assert normalize_task_types('["linear_dimension", "bend_angle", "linear_dimension"]', "linear_dimension") == [
+        "linear_dimension",
+        "bend_angle",
+    ]
+    assert calibration_quality(calibration)["verdict_eligible"] is True

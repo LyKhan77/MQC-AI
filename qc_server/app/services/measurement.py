@@ -1,3 +1,4 @@
+import json
 from math import acos, atan2, degrees, hypot
 
 import cv2
@@ -132,6 +133,46 @@ def calibration_verdict_eligible(calibration):
     return True
 
 
+def calibration_quality(calibration):
+    quality = {
+        "mode": calibration.get("mode", "reference_line") if isinstance(calibration, dict) else "reference_line",
+        "source": calibration.get("source", "manual") if isinstance(calibration, dict) else "manual",
+        "valid": False,
+        "verdict_eligible": False,
+    }
+    try:
+        scale_x, scale_y = calibration_scales(calibration)
+    except (TypeError, ValueError):
+        return quality
+    quality.update({
+        "valid": True,
+        "verdict_eligible": calibration_verdict_eligible(calibration),
+        "scale_x_mm_per_px": scale_x,
+        "scale_y_mm_per_px": scale_y,
+        "scale_delta_ratio": abs(scale_x - scale_y) / max(scale_x, scale_y),
+    })
+    return quality
+
+
+def normalize_task_types(raw_task_types, fallback_task_type="linear_dimension"):
+    if raw_task_types:
+        try:
+            values = raw_task_types if isinstance(raw_task_types, list) else json.loads(raw_task_types)
+        except (TypeError, ValueError):
+            raise ValueError("invalid task_types")
+    else:
+        values = [fallback_task_type]
+    if not isinstance(values, list) or not values:
+        raise ValueError("task_types must be a non-empty list")
+    normalized = []
+    for value in values:
+        if value not in SUPPORTED_TASK_TYPES:
+            raise ValueError(f"unsupported task_type: {value}")
+        if value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
 def _calibration_scale(calibration):
     scale_x, scale_y = calibration_scales(calibration)
     return (scale_x + scale_y) / 2
@@ -199,8 +240,7 @@ def validate_measurement_profile(profile, frame_width, frame_height, source_came
     if not isinstance(calibration, dict) or not calibration.get("valid"):
         return {"valid": False, "reason": "invalid_calibration"}
     try:
-        if float(calibration.get("mm_per_pixel", 0)) <= 0:
-            raise ValueError
+        calibration_scales(calibration)
     except (TypeError, ValueError):
         return {"valid": False, "reason": "invalid_calibration"}
     return {

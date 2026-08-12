@@ -28,9 +28,11 @@ from ..schemas import (
 from ..services.measurement import (
     calibrate_axes,
     calibrate_reference,
+    calibration_quality,
     calibration_verdict_eligible,
     evaluate_item,
     measure_geometry,
+    normalize_task_types,
     pose_task_supported,
     process_image,
     task_view_supported,
@@ -288,6 +290,7 @@ def _persist_measurement_view(db: Session, payload: MeasurementRunIn, session_id
                 "candidate_methods": ["lsd", "hough"],
                 "hole_methods": ["hough_circle_alt", "fit_ellipse"],
                 "task_type": payload.task_type,
+                "task_types": payload.task_types or [payload.task_type],
                 "view_type": payload.view_type,
                 "pose_type": payload.pose_type,
                 "scale_profile_id": payload.scale_profile_id,
@@ -489,6 +492,7 @@ async def process_measurement(
     source_camera_id: str | None = Form(default=None),
     source_type: str = Form(default="image"),
     task_type: str = Form(default="linear_dimension"),
+    task_types: str | None = Form(default=None),
     view_type: str = Form(default="top"),
     view_label: str = Form(default=""),
     pose_type: str = Form(default="TOP_FACE"),
@@ -551,16 +555,34 @@ async def process_measurement(
     calibration_data = _calibration_from_payload(_json_form(calibration, "calibration"))
     if profile_validation["valid"] and profile:
         calibration_data = profile.calibration
+    try:
+        requested_task_types = normalize_task_types(task_types, task_type)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    task_type = requested_task_types[0]
     options_data = _json_form(options, "options")
     if not task_view_supported(task_type, view_type):
-        processed = {"readiness": "review", "reason": "unsupported_view", "candidates": [], "holes": []}
+        processed = {
+            "readiness": "review",
+            "reason": "unsupported_view",
+            "candidates": [],
+            "logical_edges": [],
+            "holes": [],
+        }
     elif not pose_task_supported(task_type, pose_type):
-        processed = {"readiness": "review", "reason": "unsupported_pose", "candidates": [], "holes": []}
+        processed = {
+            "readiness": "review",
+            "reason": "unsupported_pose",
+            "candidates": [],
+            "logical_edges": [],
+            "holes": [],
+        }
     elif not profile_validation["valid"]:
         processed = {
             "readiness": "review",
             "reason": profile_validation["reason"],
             "candidates": [],
+            "logical_edges": [],
             "holes": [],
         }
     else:
@@ -586,6 +608,9 @@ async def process_measurement(
         "width": int(frame.shape[1]),
         "height": int(frame.shape[0]),
         "calibration": calibration_data,
+        "task_type": task_type,
+        "task_types": requested_task_types,
+        "calibration_quality": calibration_quality(calibration_data),
         "view_label": view_label,
         "pose_type": pose_type,
         "scale_profile_id": profile_id,
@@ -634,6 +659,7 @@ def save_measurement(payload: MeasurementRunIn, db: Session = Depends(get_db)):
                 "candidate_methods": ["lsd", "hough"],
                 "hole_methods": ["hough_circle_alt", "fit_ellipse"],
                 "task_type": payload.task_type,
+                "task_types": payload.task_types or [payload.task_type],
                 "view_type": payload.view_type,
             },
             items=items,

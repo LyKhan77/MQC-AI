@@ -28,6 +28,15 @@ def _calibration():
     })
 
 
+def _axes_calibration():
+    return json.dumps({
+        "mode": "manual_axes",
+        "source": "independent_artifact",
+        "x": {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        "y": {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+    })
+
+
 def _process_upload(client):
     return client.post(
         "/api/measurements/process",
@@ -47,6 +56,23 @@ def test_process_upload_returns_candidates_and_serves_frame(client):
     assert body["candidates"]
     assert body["frame_url"].startswith("/api/measurements/files/tmp-")
     assert client.get(body["frame_url"]).status_code == 200
+
+
+def test_process_accepts_dual_axes_and_returns_logical_edges(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("bracket.png", _png_bytes(), "image/png")},
+        data={
+            "task_types": json.dumps(["linear_dimension"]),
+            "calibration": _axes_calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_types"] == ["linear_dimension"]
+    assert body["logical_edges"]
+    assert body["calibration_quality"]["verdict_eligible"] is True
 
 
 def test_process_hole_task_returns_circle_candidates(client):

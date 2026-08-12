@@ -327,6 +327,11 @@ class MeasurementProcessOut(BaseModel):
     reason: str
     candidates: list
     holes: list = Field(default_factory=list)
+    task_types: list[str] = Field(default_factory=list)
+    logical_edges: list = Field(default_factory=list)
+    corner_arcs: list = Field(default_factory=list)
+    bend_candidates: list = Field(default_factory=list)
+    calibration_quality: dict = Field(default_factory=dict)
 
 
 class MeasurementRunIn(BaseModel):
@@ -336,6 +341,7 @@ class MeasurementRunIn(BaseModel):
     source_type: str = "image"
     source_camera_id: str | None = None
     task_type: str = "linear_dimension"
+    task_types: list[str] = Field(default_factory=list)
     view_type: str = "top"
     session_id: str | None = None
     view_label: str = ""
