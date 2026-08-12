@@ -1,13 +1,35 @@
 import { describe, it, expect } from 'vitest'
 
 import {
+  calibrationScales,
   evaluateMeasurementItem,
   measureGeometry,
+  normalizeTaskTypes,
   summarizeMeasurement,
 } from './measurement.js'
 
 
 describe('measurement helpers', () => {
+  it('uses independent x and y calibration scales for linear geometry', () => {
+    const calibration = {
+      mode: 'manual_axes',
+      valid: true,
+      scale_x_mm_per_px: 0.5,
+      scale_y_mm_per_px: 1,
+    }
+
+    expect(calibrationScales(calibration)).toEqual({ x: 0.5, y: 1 })
+    expect(measureGeometry('edge_length', [[0, 0], [100, 0]], calibration).value).toBe(50)
+    expect(measureGeometry('edge_length', [[0, 0], [0, 100]], calibration).value).toBe(100)
+  })
+
+  it('normalizes task types without duplicate work', () => {
+    expect(normalizeTaskTypes(['linear_dimension', 'bend_angle', 'linear_dimension'])).toEqual([
+      'linear_dimension',
+      'bend_angle',
+    ])
+  })
+
   it('measures a circle geometry from its center and radius', () => {
     expect(measureGeometry('hole_diameter', [], { mm_per_pixel: 0.5 }, {
       kind: 'circle',

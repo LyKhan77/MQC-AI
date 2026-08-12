@@ -238,6 +238,40 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('#view-type').exists()).toBe(true)
   })
 
+  it('shows dual-axis calibration and prefers merged logical edges', async () => {
+    mocks.processMeasurement.mockResolvedValue({
+      ...processed(),
+      calibration: {
+        mode: 'manual_axes',
+        valid: true,
+        x: { point_a: [20, 30], point_b: [140, 30], known_mm: 60 },
+        y: { point_a: [20, 30], point_b: [20, 90], known_mm: 30 },
+        scale_x_mm_per_px: 0.5,
+        scale_y_mm_per_px: 0.5,
+      },
+      logical_edges: [{
+        id: 'LE1',
+        points: [[20, 30], [140, 30]],
+        length_px: 120,
+        confidence: 0.98,
+      }],
+      candidates: [
+        ...processed().candidates,
+        { points: [[20, 30], [20, 90]], length_px: 60, confidence: 0.9, source: 'lsd' },
+      ],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+
+    expect(wrapper.find('.calibration-draw-button-y').exists()).toBe(true)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.measurement-logical-edge')).toHaveLength(1)
+    expect(wrapper.findAll('.measurement-candidate')).toHaveLength(1)
+    expect(wrapper.text()).toContain('LE1')
+  })
+
   it('sends the selected proper task and view to process', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)

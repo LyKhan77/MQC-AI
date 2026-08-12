@@ -70,6 +70,22 @@ describe('measurements api', () => {
     expect(body.get('scale_profile_id')).toBe('detail-1')
   })
 
+  it('sends multiple measurement task types', async () => {
+    const fetchMock = ok({ source_type: 'image' })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await processMeasurement({
+      file: new File(['image'], 'bracket.png', { type: 'image/png' }),
+      taskTypes: ['linear_dimension', 'bend_angle'],
+      calibration: { point_a: [0, 0], point_b: [10, 0], known_mm: 5 },
+    })
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body.get('task_types'))).toEqual([
+      'linear_dimension',
+      'bend_angle',
+    ])
+  })
+
   it('processes a Live Camera frame by camera id', async () => {
     const fetchMock = ok({ source_type: 'live_camera' })
     vi.stubGlobal('fetch', fetchMock)

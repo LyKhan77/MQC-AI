@@ -54,6 +54,7 @@ const sessionNameError = ref('')
 const sessionStarting = ref(false)
 const selectedCameraId = ref('')
 const knownMm = ref(50)
+const knownMmY = ref(50)
 const taskType = ref('linear_dimension')
 const viewType = ref('top')
 const viewLabel = ref('')
@@ -63,9 +64,11 @@ const previewUrl = ref('')
 const previewWidth = ref(1)
 const previewHeight = ref(1)
 const capturedSource = ref(null)
-const calibrationPoints = ref([])
+const calibrationAxes = ref({ x: [], y: [] })
+const calibrationAxis = ref('x')
 const calibrationMode = ref(false)
 const calibrationDragging = ref(false)
+const showCalibrationReference = ref(true)
 const processed = ref(null)
 const items = ref([])
 const recentRuns = ref([])
@@ -93,7 +96,17 @@ const cameraStreamUrl = computed(() => (
   selectedCameraId.value ? `/api/cameras/${selectedCameraId.value}/stream` : ''
 ))
 const displayUrl = computed(() => processed.value?.frame_url || '')
-const calibrationReady = computed(() => calibrationPoints.value.length === 2 && Number(knownMm.value) > 0)
+const calibrationPoints = computed({
+  get: () => calibrationAxes.value.x,
+  set: (value) => { calibrationAxes.value = { ...calibrationAxes.value, x: value } },
+})
+const activeCalibrationPoints = computed(() => calibrationAxes.value[calibrationAxis.value] || [])
+const calibrationReady = computed(() => (
+  calibrationAxes.value.x.length === 2
+  && calibrationAxes.value.y.length === 2
+  && Number(knownMm.value) > 0
+  && Number(knownMmY.value) > 0
+))
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
 const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
@@ -126,18 +139,33 @@ const filteredSessions = computed(() => {
   if (!query) return sessions.value
   return sessions.value.filter((item) => `${item.name} ${item.status}`.toLowerCase().includes(query))
 })
+const logicalEdges = computed(() => processed.value?.logical_edges || [])
+const visibleCandidates = computed(() => logicalEdges.value.length ? logicalEdges.value : (processed.value?.candidates || []))
+const calibrationReferences = computed(() => {
+  const calibration = processed.value?.calibration || {}
+  if (calibration.mode === 'manual_axes') {
+    return ['x', 'y'].filter((axis) => calibration[axis]?.point_a && calibration[axis]?.point_b).map((axis) => ({
+      axis: axis.toUpperCase(),
+      point_a: calibration[axis].point_a,
+      point_b: calibration[axis].point_b,
+      known_mm: calibration[axis].known_mm,
+    }))
+  }
+  return calibration.point_a && calibration.point_b
+    ? [{ axis: 'REF', point_a: calibration.point_a, point_b: calibration.point_b, known_mm: calibration.known_mm }]
+    : []
+})
 
 const selectedSourceName = computed(() => selectedView.value?.sourceFilename || localFileName.value || t('measurement.noInput'))
 
 function calibrationInput() {
-  const points = calibrationPoints.value.length === 2
-    ? calibrationPoints.value
-    : [[20, 20], [120, 20]]
+  const xPoints = calibrationAxes.value.x.length === 2 ? calibrationAxes.value.x : [[20, 20], [120, 20]]
+  const yPoints = calibrationAxes.value.y.length === 2 ? calibrationAxes.value.y : [[20, 20], [20, 120]]
   return {
-    mode: 'reference_line',
-    point_a: points[0],
-    point_b: points[1],
-    known_mm: Number(knownMm.value),
+    mode: 'manual_axes',
+    source: 'independent_artifact',
+    x: { point_a: xPoints[0], point_b: xPoints[1], known_mm: Number(knownMm.value) },
+    y: { point_a: yPoints[0], point_b: yPoints[1], known_mm: Number(knownMmY.value) },
   }
 }
 
@@ -153,7 +181,10 @@ function resetStagedMeasurement() {
   evaluated.value = false
   readOnly.value = false
   calibrationPoints.value = []
+  calibrationAxes.value = { x: [], y: [] }
   calibrationMode.value = false
+  calibrationAxis.value = 'x'
+  showCalibrationReference.value = true
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
 }
@@ -166,12 +197,15 @@ function syncActiveView() {
     sourceType: processed.value?.source_type || selectedView.value?.sourceType || source.value,
     sourceCameraId: processed.value?.source_camera_id || selectedView.value?.sourceCameraId || null,
     taskType: taskType.value,
+    taskTypes: [taskType.value],
     viewType: viewType.value,
     viewLabel: viewLabel.value,
     poseType: poseType.value,
     scaleProfileId: scaleProfileId.value || null,
     knownMm: knownMm.value,
     calibrationPoints: calibrationPoints.value,
+    knownMmY: knownMmY.value,
+    calibrationAxes: calibrationAxes.value,
     processed: processed.value,
     items: items.value,
     status: processed.value ? (evaluated.value ? 'evaluated' : 'processed') : 'captured',
@@ -212,7 +246,11 @@ function loadActiveView(view = selectedView.value) {
   poseType.value = view.poseType || 'TOP_FACE'
   scaleProfileId.value = view.scaleProfileId || ''
   knownMm.value = view.knownMm || 50
-  calibrationPoints.value = view.calibrationPoints || []
+  knownMmY.value = view.knownMmY || 50
+  const persistedAxes = view.calibrationAxes || (view.processed?.calibration?.mode === 'manual_axes'
+    ? { x: view.processed.calibration.x?.point_a ? [view.processed.calibration.x.point_a, view.processed.calibration.x.point_b] : [], y: view.processed.calibration.y?.point_a ? [view.processed.calibration.y.point_a, view.processed.calibration.y.point_b] : [] }
+    : { x: view.calibrationPoints || [], y: [] })
+  calibrationAxes.value = { x: persistedAxes.x || [], y: persistedAxes.y || [] }
   processed.value = view.processed || null
   items.value = view.items || []
   evaluated.value = Boolean(view.status === 'evaluated' || view.status === 'saved')
@@ -268,6 +306,7 @@ async function saveCurrentView() {
       source_type: view.sourceType,
       source_camera_id: view.sourceCameraId,
       task_type: view.taskType,
+      task_types: view.taskTypes || [view.taskType],
       view_type: view.viewType,
       view_label: view.viewLabel,
       pose_type: view.poseType,
@@ -291,8 +330,9 @@ async function completeMeasurementSession() {
   }
 }
 
-function startCalibration() {
-  calibrationPoints.value = []
+function startCalibration(axis = 'x') {
+  calibrationAxis.value = axis
+  calibrationAxes.value = { ...calibrationAxes.value, [axis]: [] }
   calibrationMode.value = true
   errorMessage.value = ''
 }
@@ -309,19 +349,21 @@ function previewPoint(event) {
 
 function onCalibrationPointerDown(event) {
   if (!calibrationMode.value || event.button !== 0) return
-  calibrationPoints.value = [previewPoint(event)]
+  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [previewPoint(event)] }
   calibrationDragging.value = true
 }
 
 function onCalibrationPointerMove(event) {
   if (!calibrationDragging.value) return
-  calibrationPoints.value = [calibrationPoints.value[0], previewPoint(event)]
+  const points = activeCalibrationPoints.value
+  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [points[0], previewPoint(event)] }
 }
 
 function onCalibrationPointerUp(event) {
   if (!calibrationDragging.value) return
   calibrationDragging.value = false
-  calibrationPoints.value = [calibrationPoints.value[0], previewPoint(event)]
+  const points = activeCalibrationPoints.value
+  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [points[0], previewPoint(event)] }
   calibrationMode.value = false
 }
 
@@ -367,6 +409,7 @@ async function runMeasurement(input) {
       ...input,
       calibration: calibrationInput(),
       taskType: taskType.value,
+      taskTypes: [taskType.value],
       viewType: viewType.value,
       viewLabel: viewLabel.value,
       poseType: poseType.value,
@@ -512,8 +555,8 @@ async function captureMobile() {
 }
 
 function candidateKey(candidate, index) {
-  const geometry = candidate.center ? candidate.center.join('-') : candidate.points.flat().join('-')
-  return `${candidate.source}-${index}-${geometry}`
+  const geometry = candidate.center ? candidate.center.join('-') : (candidate.points || []).flat().join('-')
+  return `${candidate.id || candidate.source || 'candidate'}-${index}-${geometry}`
 }
 
 function selectCandidate(candidate, index) {
@@ -525,7 +568,7 @@ function selectCandidate(candidate, index) {
     selectedAngleIndexes.value = nextIndexes.slice(-2)
     selectedCandidate.value = index
     if (selectedAngleIndexes.value.length < 2) return
-    const [first, second] = selectedAngleIndexes.value.map((value) => processed.value.candidates[value])
+    const [first, second] = selectedAngleIndexes.value.map((value) => visibleCandidates.value[value])
     const shared = first.points.find((point) => second.points.some((other) => point[0] === other[0] && point[1] === other[1]))
     const otherPoint = (points) => points.find((point) => !shared || point[0] !== shared[0] || point[1] !== shared[1])
     const points = shared
@@ -716,7 +759,8 @@ function removeItem(index) {
 
 function evaluate() {
   if (!canEvaluate.value) return
-  items.value = items.value.map((item) => evaluateMeasurementItem(item, processed.value.calibration.valid))
+  const calibrationValid = processed.value.calibration_quality?.verdict_eligible ?? processed.value.calibration?.valid
+  items.value = items.value.map((item) => evaluateMeasurementItem(item, calibrationValid))
   evaluated.value = true
   log('MEASUREMENT_EVALUATED', `${runName.value || processed.value.source_filename}:${summaryStatus.value}`)
 }
@@ -731,6 +775,8 @@ async function save() {
       source_type: processed.value.source_type,
       source_camera_id: processed.value.source_camera_id,
       calibration: processed.value.calibration,
+      task_type: taskType.value,
+      task_types: [taskType.value],
       items: items.value,
     })
     await loadHistory()
@@ -979,21 +1025,37 @@ onBeforeUnmount(() => {
         <section class="rail-section">
           <div class="panel-section-title">{{ t('measurement.calibration') }}</div>
           <p class="section-help">{{ t('measurement.calibrationHelp') }}</p>
-          <button type="button" class="btn btn-secondary calibration-draw-button" :disabled="!previewUrl || readOnly" @click="startCalibration">
-            {{ calibrationMode ? t('measurement.calibrationDrawing') : t('measurement.drawReference') }}
-          </button>
-          <label class="field-label" for="known-mm">{{ t('measurement.knownLength') }}</label>
-          <div class="input-unit">
-            <input id="known-mm" v-model.number="knownMm" type="number" min="0.01" step="0.01">
-            <span>mm</span>
+          <div class="calibration-axis-actions">
+            <button type="button" class="btn btn-secondary calibration-draw-button" :class="{ active: calibrationAxis === 'x' && calibrationMode }" :disabled="!previewUrl || readOnly" @click="startCalibration('x')">
+              {{ calibrationMode && calibrationAxis === 'x' ? t('measurement.calibrationDrawing') : t('measurement.drawHorizontal') }}
+            </button>
+            <button type="button" class="btn btn-secondary calibration-draw-button-y" :class="{ active: calibrationAxis === 'y' && calibrationMode }" :disabled="!previewUrl || readOnly" @click="startCalibration('y')">
+              {{ calibrationMode && calibrationAxis === 'y' ? t('measurement.calibrationDrawing') : t('measurement.drawVertical') }}
+            </button>
+          </div>
+          <div class="calibration-axis-fields">
+            <label class="field-label" for="known-mm">{{ t('measurement.horizontalLength') }}<div class="input-unit">
+              <input id="known-mm" v-model.number="knownMm" type="number" min="0.01" step="0.01">
+              <span>mm</span>
+            </div></label>
+            <label class="field-label" for="known-mm-y">{{ t('measurement.verticalLength') }}<div class="input-unit">
+              <input id="known-mm-y" v-model.number="knownMmY" type="number" min="0.01" step="0.01">
+              <span>mm</span>
+            </div></label>
           </div>
           <p class="calibration-state" :class="{ valid: calibrationReady }">
             {{ calibrationReady ? t('measurement.calibrationReady') : t('measurement.calibrationPending') }}
           </p>
           <div class="calibration-readout">
             <span>{{ t('measurement.scale') }}</span>
-            <strong>{{ processed?.calibration?.mm_per_pixel?.toFixed?.(4) || '—' }} mm/px</strong>
+            <strong>
+              X {{ processed?.calibration?.scale_x_mm_per_px?.toFixed?.(4) || processed?.calibration?.mm_per_pixel?.toFixed?.(4) || '—' }} ·
+              Y {{ processed?.calibration?.scale_y_mm_per_px?.toFixed?.(4) || processed?.calibration?.mm_per_pixel?.toFixed?.(4) || '—' }} mm/px
+            </strong>
           </div>
+          <button v-if="processed" type="button" class="btn btn-secondary calibration-reference-toggle" @click="showCalibrationReference = !showCalibrationReference">
+            {{ showCalibrationReference ? t('measurement.hideReference') : t('measurement.showReference') }}
+          </button>
         </section>
         </div>
 
@@ -1052,15 +1114,18 @@ onBeforeUnmount(() => {
                 @mousemove.stop="onCalibrationPointerMove"
                 @mouseup.stop="onCalibrationPointerUp"
               >
-                <line
-                  v-if="calibrationPoints.length === 2"
-                  class="calibration-drawn-line"
-                  :x1="calibrationPoints[0][0]"
-                  :y1="calibrationPoints[0][1]"
-                  :x2="calibrationPoints[1][0]"
-                  :y2="calibrationPoints[1][1]"
-                ></line>
-                <circle v-for="(point, index) in calibrationPoints" :key="`calibration-point-${index}`" class="calibration-drawn-point" :cx="point[0]" :cy="point[1]" r="6"></circle>
+                <g v-for="axis in ['x', 'y']" :key="`calibration-axis-${axis}`">
+                  <line
+                    v-if="calibrationAxes[axis].length === 2"
+                    class="calibration-drawn-line"
+                    :class="`calibration-axis-${axis}`"
+                    :x1="calibrationAxes[axis][0][0]"
+                    :y1="calibrationAxes[axis][0][1]"
+                    :x2="calibrationAxes[axis][1][0]"
+                    :y2="calibrationAxes[axis][1][1]"
+                  ></line>
+                  <circle v-for="(point, index) in calibrationAxes[axis]" :key="`calibration-point-${axis}-${index}`" class="calibration-drawn-point" :cx="point[0]" :cy="point[1]" r="6"></circle>
+                </g>
               </svg>
             </div>
             <span class="preview-guidance">{{ calibrationMode ? t('measurement.calibrationDrawHint') : t('measurement.previewHint') }}</span>
@@ -1075,10 +1140,10 @@ onBeforeUnmount(() => {
               <img class="measurement-image" :src="displayUrl" :alt="processed.source_filename" draggable="false">
               <svg class="measurement-overlay" :viewBox="`0 0 ${processed.width} ${processed.height}`" preserveAspectRatio="none" role="img" :aria-label="t('measurement.edgeOverlay')">
               <g
-                v-for="(candidate, index) in processed.candidates"
+                v-for="(candidate, index) in visibleCandidates"
                 :key="candidateKey(candidate, index)"
                 class="measurement-candidate"
-                :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }"
+                :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index), 'measurement-logical-edge': logicalEdges.length > 0 }"
                 @click="selectCandidate(candidate, index)"
               >
                 <line class="measurement-line-halo" :x1="candidate.points[0][0]" :y1="candidate.points[0][1]" :x2="candidate.points[1][0]" :y2="candidate.points[1][1]"></line>
@@ -1100,14 +1165,21 @@ onBeforeUnmount(() => {
                 <line class="measurement-hole-crosshair" :x1="hole.center[0] - 10" :y1="hole.center[1]" :x2="hole.center[0] + 10" :y2="hole.center[1]"></line>
                 <line class="measurement-hole-crosshair" :x1="hole.center[0]" :y1="hole.center[1] - 10" :x2="hole.center[0]" :y2="hole.center[1] + 10"></line>
               </g>
-              <g v-if="processed.calibration.point_a && processed.calibration.point_b" class="calibration-reference">
+              <g v-if="showCalibrationReference" class="calibration-reference">
                 <line
-                  :x1="processed.calibration.point_a[0]"
-                  :y1="processed.calibration.point_a[1]"
-                  :x2="processed.calibration.point_b[0]"
-                  :y2="processed.calibration.point_b[1]"
+                  v-for="reference in calibrationReferences"
+                  :key="`reference-${reference.axis}`"
+                  :x1="reference.point_a[0]"
+                  :y1="reference.point_a[1]"
+                  :x2="reference.point_b[0]"
+                  :y2="reference.point_b[1]"
                 ></line>
-                <text :x="processed.calibration.point_a[0]" :y="processed.calibration.point_a[1] + 13">REF {{ processed.calibration.known_mm }} mm</text>
+                <text
+                  v-for="reference in calibrationReferences"
+                  :key="`reference-label-${reference.axis}`"
+                  :x="reference.point_a[0]"
+                  :y="reference.point_a[1] + 13"
+                >REF {{ reference.axis }} {{ reference.known_mm }} mm</text>
               </g>
               <g v-for="item in items" :key="`item-${item.id}`" class="selected-measurement">
                 <template v-if="item.geometry?.kind === 'circle'">
@@ -1147,14 +1219,14 @@ onBeforeUnmount(() => {
         <div v-if="processed" class="candidate-strip">
           <div class="strip-header">
             <span>{{ t('measurement.candidates') }}</span>
-            <span>{{ taskIsHole ? (processed.holes || []).length : processed.candidates.length }} {{ t('measurement.detected') }}</span>
+            <span>{{ taskIsHole ? (processed.holes || []).length : visibleCandidates.length }} {{ t('measurement.detected') }}</span>
           </div>
           <template v-if="!taskIsHole">
-            <button v-for="(candidate, index) in processed.candidates" :key="candidateKey(candidate, index)" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
+            <button v-for="(candidate, index) in visibleCandidates" :key="candidateKey(candidate, index)" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
               <span class="candidate-line"></span>
-              <strong>L{{ index + 1 }}</strong>
+              <strong>{{ candidate.id || `L${index + 1}` }}</strong>
               <span>{{ candidate.length_px.toFixed(1) }} px</span>
-              <small>{{ candidate.source }} · {{ candidate.confidence.toFixed(2) }}</small>
+              <small>{{ candidate.source || 'logical-edge' }} · {{ candidate.confidence.toFixed(2) }}</small>
             </button>
           </template>
           <template v-else>
@@ -1166,7 +1238,7 @@ onBeforeUnmount(() => {
             </button>
           </template>
           <template v-if="taskNeedsEdgeCandidate">
-            <button v-for="(candidate, index) in processed.candidates" :key="`edge-${candidateKey(candidate, index)}`" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
+            <button v-for="(candidate, index) in visibleCandidates" :key="`edge-${candidateKey(candidate, index)}`" type="button" class="candidate-card" :class="{ selected: selectedCandidate === index || selectedAngleIndexes.includes(index) }" @click="selectCandidate(candidate, index)">
               <span class="candidate-line"></span>
               <strong>E{{ index + 1 }}</strong>
               <span>{{ candidate.length_px.toFixed(1) }} px</span>
@@ -1390,6 +1462,11 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .input-unit span { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 12px; }
 .calibration-readout { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; color: var(--color-ink-muted); font-size: 11px; }
 .calibration-readout strong { color: var(--color-primary); font-family: var(--font-mono); font-weight: 400; }
+.calibration-axis-actions,
+.calibration-axis-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.calibration-axis-actions { margin-bottom: 8px; }
+.calibration-axis-actions .btn.active { border-color: var(--color-primary); color: var(--color-primary); }
+.calibration-axis-fields .field-label { margin-top: 0; }
 
 .camera-preview { display: grid; place-items: center; min-height: 120px; margin: 12px 0; overflow: hidden; background: var(--color-inverse-canvas); color: var(--color-inverse-ink-muted); font-size: 11px; }
 .camera-preview img { display: block; width: 100%; height: 120px; object-fit: cover; }
@@ -1405,7 +1482,9 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
 .btn-secondary { border-color: var(--color-hairline-strong); background: var(--color-canvas); color: var(--color-ink); }
 .trigger-capture { width: 100%; }
-.calibration-draw-button { width: 100%; margin-bottom: 4px; }
+.calibration-draw-button,
+.calibration-draw-button-y,
+.calibration-reference-toggle { width: 100%; margin-bottom: 4px; }
 .calibration-state { margin: 10px 0 0; color: var(--color-warning); font-family: var(--font-mono); font-size: 11px; }
 .calibration-state.valid { color: var(--color-success); }
 
@@ -1441,8 +1520,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
 .measurement-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
 .measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.9; }
-.measurement-line-halo { stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
-.measurement-line { stroke: var(--color-info); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.measurement-line-halo { stroke: var(--color-canvas); stroke-width: 4; vector-effect: non-scaling-stroke; }
+.measurement-line { stroke: var(--color-info); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .measurement-point-halo { fill: var(--color-canvas); }
 .measurement-point { fill: var(--color-info); }
 .measurement-hole-candidate { cursor: pointer; opacity: 0.92; }
@@ -1453,6 +1532,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-candidate.selected { opacity: 1; }
 .measurement-candidate.selected .measurement-line { stroke: var(--color-warning); stroke-width: 4; }
 .measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
+.measurement-logical-edge { opacity: 1; }
+.measurement-logical-edge .measurement-line { stroke: var(--color-primary); stroke-width: 2.5; }
 .selected-measurement { pointer-events: none; }
 .selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
 .selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }

@@ -2,6 +2,11 @@ import { apiDelete, apiGet, apiPatch, apiPost } from './client.js'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
+function normalizeTaskTypes(taskTypes, fallback) {
+  const values = Array.isArray(taskTypes) && taskTypes.length ? taskTypes : [fallback]
+  return [...new Set(values)]
+}
+
 export async function captureMeasurement({ cameraId }) {
   const fd = new FormData()
   fd.append('camera_id', cameraId)
@@ -10,7 +15,7 @@ export async function captureMeasurement({ cameraId }) {
   return response.json()
 }
 
-export async function processMeasurement({ file, cameraId, sourceKey, sourceFilename, sourceCameraId, sourceType = 'image', calibration, options = {}, taskType = 'linear_dimension', viewType = 'top', viewLabel = '', poseType = 'TOP_FACE', scaleProfileId }) {
+export async function processMeasurement({ file, cameraId, sourceKey, sourceFilename, sourceCameraId, sourceType = 'image', calibration, options = {}, taskType = 'linear_dimension', taskTypes = [], viewType = 'top', viewLabel = '', poseType = 'TOP_FACE', scaleProfileId }) {
   const fd = new FormData()
   if (file) fd.append('file', file)
   if (cameraId) fd.append('camera_id', cameraId)
@@ -19,6 +24,7 @@ export async function processMeasurement({ file, cameraId, sourceKey, sourceFile
   if (sourceCameraId) fd.append('source_camera_id', sourceCameraId)
   if (file || sourceKey) fd.append('source_type', sourceType)
   fd.append('task_type', taskType)
+  fd.append('task_types', JSON.stringify(normalizeTaskTypes(taskTypes, taskType)))
   fd.append('view_type', viewType)
   fd.append('view_label', viewLabel)
   fd.append('pose_type', poseType)

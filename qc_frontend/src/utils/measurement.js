@@ -1,5 +1,23 @@
 const MIN_CONFIDENCE = 0.5
 
+export function calibrationScales(calibration = {}) {
+  const legacy = Number(calibration.mm_per_pixel)
+  const x = Number(calibration.scale_x_mm_per_px ?? legacy)
+  const y = Number(calibration.scale_y_mm_per_px ?? legacy)
+  if (!(x > 0) || !(y > 0)) throw new Error('invalid calibration')
+  return { x, y }
+}
+
+function scalarCalibrationScale(calibration) {
+  const { x, y } = calibrationScales(calibration)
+  return (x + y) / 2
+}
+
+export function normalizeTaskTypes(taskTypes, fallback = 'linear_dimension') {
+  const values = Array.isArray(taskTypes) && taskTypes.length ? taskTypes : [fallback]
+  return [...new Set(values)]
+}
+
 function distance(a, b) {
   return Math.hypot(Number(b[0]) - Number(a[0]), Number(b[1]) - Number(a[1]))
 }
@@ -36,8 +54,7 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
   }
   if (geometry?.kind === 'circle_pair') {
     const centerDistance = distance(geometry.center_a, geometry.center_b)
-    const scale = Number(calibration.mm_per_pixel)
-    if (!(scale > 0)) throw new Error('invalid calibration')
+    const scale = scalarCalibrationScale(calibration)
     const edgeDistance = centerDistance - Number(geometry.radius_a_px) - Number(geometry.radius_b_px)
     const pixelValue = type === 'hole_edge_distance' ? edgeDistance : centerDistance
     if (type !== 'hole_center_distance' && type !== 'hole_edge_distance') throw new Error('unsupported circle pair measurement type')
@@ -45,8 +62,7 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
     return { value: pixelValue * scale, unit: 'mm', pixel_value: pixelValue, geometry }
   }
   if (type === 'hole_center_to_edge' && geometry?.kind === 'circle_to_edge') {
-    const scale = Number(calibration.mm_per_pixel)
-    if (!(scale > 0)) throw new Error('invalid calibration')
+    const scale = scalarCalibrationScale(calibration)
     const pixelValue = distanceToSegment(geometry.center, geometry.edge_a, geometry.edge_b)
     return { value: pixelValue * scale, unit: 'mm', pixel_value: pixelValue, geometry }
   }
@@ -54,8 +70,7 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
       const radius = Number(geometry.radius_px)
       if (!(radius > 0)) throw new Error('circle radius must be positive')
       const center = [Number(geometry.center[0]), Number(geometry.center[1])]
-      const scale = Number(calibration.mm_per_pixel)
-      if (!(scale > 0)) throw new Error('invalid calibration')
+      const scale = scalarCalibrationScale(calibration)
       return {
         value: radius * 2 * scale,
         unit: 'mm',
@@ -64,11 +79,13 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
       }
   }
   if (points.length !== 2) throw new Error('linear measurement requires two points')
-  const pixelValue = distance(points[0], points[1])
-  const scale = Number(calibration.mm_per_pixel)
-  if (!(scale > 0)) throw new Error('invalid calibration')
+  const [first, second] = points
+  const { x, y } = calibrationScales(calibration)
+  const dx = (Number(second[0]) - Number(first[0])) * x
+  const dy = (Number(second[1]) - Number(first[1])) * y
+  const pixelValue = distance(first, second)
   const multiplier = type === 'hole_diameter' ? 2 : 1
-  return { value: pixelValue * scale * multiplier, unit: 'mm', pixel_value: pixelValue }
+  return { value: Math.hypot(dx, dy) * multiplier, unit: 'mm', pixel_value: pixelValue }
 }
 
 export function evaluateMeasurementItem(item, calibrationValid) {

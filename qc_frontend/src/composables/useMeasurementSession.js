@@ -49,12 +49,15 @@ function createView(fields = {}) {
     viewLabel: '',
     poseType: 'TOP_FACE',
     taskType: 'linear_dimension',
+    taskTypes: ['linear_dimension'],
     viewType: 'top',
     scaleProfileId: null,
     status: 'captured',
     processed: null,
     calibrationPoints: [],
+    calibrationAxes: { x: [], y: [] },
     knownMm: '',
+    knownMmY: '',
     ...fields,
   }
 }
@@ -143,11 +146,19 @@ async function loadSession(id) {
     poseType: view.pose_type || view.poseType || 'TOP_FACE',
     scaleProfileId: view.scale_profile_id || view.scaleProfileId || null,
     taskType: view.processing?.task_type || view.task_type || 'linear_dimension',
+    taskTypes: view.processing?.task_types || view.task_types || [view.processing?.task_type || view.task_type || 'linear_dimension'],
     viewType: view.processing?.view_type || view.view_type || 'top',
     calibrationPoints: view.calibration?.point_a && view.calibration?.point_b
       ? [view.calibration.point_a, view.calibration.point_b]
       : [],
+    calibrationAxes: view.calibration?.mode === 'manual_axes'
+      ? {
+          x: view.calibration.x?.point_a ? [view.calibration.x.point_a, view.calibration.x.point_b] : [],
+          y: view.calibration.y?.point_a ? [view.calibration.y.point_a, view.calibration.y.point_b] : [],
+        }
+      : { x: view.calibration?.point_a && view.calibration?.point_b ? [view.calibration.point_a, view.calibration.point_b] : [], y: [] },
     knownMm: view.calibration?.known_mm || 50,
+    knownMmY: view.calibration?.y?.known_mm || view.calibration?.known_mm || 50,
     processed: {
       source_key: view.source_key || null,
       source_type: view.source_type || 'image',
