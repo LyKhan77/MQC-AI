@@ -1,7 +1,7 @@
 # Inspect Measurement Prototype — Milestone Tracker
 
 **Feature PRD:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
-**Status terakhir:** M0–M5 and M7 implemented; I1 design approved; I2–I4 pending
+**Status terakhir:** M0–M5, M7, I1–I3 software implemented; M6/I4 physical accuracy pending
 **Last updated:** 12 August 2026
 
 Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone selesai. Status `DONE` membutuhkan evidence berupa file/commit dan test atau browser verification yang relevan.
@@ -23,12 +23,12 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | Implementation plan | `DONE` | `docs/superpowers/plans/2026-08-07-inspect-measurement-prototype.md` | Task backend, frontend, test, dan verification sudah dipecah. |
 | Standalone HTML demo | `DONE` | `temp/measurement-studio-demo.html` | Demo visual saja; bukan production measurement engine. |
 | Prototype Live Camera contract | `DONE` | Prototype PRD + implementation plan | Preview + one-shot trigger capture ditambahkan; continuous measurement tetap di luar scope. |
-| Production measurement backend | `DONE` | `qc_server/app/services/measurement.py`, `qc_server/app/routers/measurements.py` | OpenCV process, upload/Live Camera/Mobile Camera source metadata, persistence, file serving, server-side evaluate, dan audit tersedia. |
-| Production Measurement Studio route | `DONE` | `qc_frontend/src/views/MeasurementStudio.vue` | `/measurement` mendukung upload, Live Camera trigger, Mobile Camera capture, calibration overlay, candidate selection, tolerance, dan evaluate. |
+| Production measurement backend | `DONE` | `qc_server/app/services/measurement.py`, `qc_server/app/routers/measurements.py` | OpenCV process, dual-axis calibration, logical-edge fit/dedup, corner arc, bend candidate, upload/Live Camera/Mobile Camera metadata, persistence, evaluate, dan audit tersedia. |
+| Production Measurement Studio route | `DONE` | `qc_frontend/src/views/MeasurementStudio.vue` | `/measurement` mendukung multi-task dimension/corner/bend, Image/Live/Mobile capture, X/Y calibration, candidate selection, tolerance, evaluate, dan guidance pose. |
 | History + Audit integration | `DONE` | MeasurementRun API + component tests | Save, History search/reopen/delete, dan audit actions tersedia. |
 | Accuracy validation | `PLANNED` | — | Belum ada physical reference sample/evidence. |
 
-**Current implementation boundary:** prototype production flow M0–M5 dan M7 selesai. Improvement I1–I3 belum diimplementasikan. M6/I4 tetap menunggu reference artifact, repeatability, dan physical station evidence.
+**Current implementation boundary:** prototype production flow M0–M5 dan M7 selesai. Improvement I1–I3 software slice selesai. M6/I4 tetap menunggu reference artifact, repeatability, dan physical station evidence; belum ada klaim akurasi produksi.
 
 ## Milestone checklist
 
@@ -125,11 +125,35 @@ Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f01
 | ID | Checkpoint | Documentation | Implementation | Exit checkpoint |
 |---|---|---|---|---|
 | I1 | Approved 2D geometry design | `DONE` | — | Scope, algorithms, API migration, UX, and verification contract approved. |
-| I2 | Logical edge + calibration v2 | `DONE` | `PLANNED` | Dual-axis calibration, merged/fitted logical edges, outer-span measurement, and overlay layers pass focused tests. |
-| I3 | Corner + bend geometry | `DONE` | `PLANNED` | Multi-select task flow, selected outer-radius fit, and selected flange-pair angle pass focused tests. |
+| I2 | Logical edge + calibration v2 | `DONE` | `DONE` | Dual-axis calibration, merged/fitted/deduplicated logical edges, outer-span measurement, calibration quality gate, and overlay layers pass focused tests. |
+| I3 | Corner + bend geometry | `DONE` | `DONE` | Multi-select task flow, selected outer-radius fit, bend candidate filtering, selected flange-pair angle, and `REVIEW` reasons pass focused tests. |
 | I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
 
 Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
+
+### I2 — Logical edge + calibration v2
+
+- [x] Independent X/Y reference lines validate orientation and scale.
+- [x] Legacy one-line calibration remains readable for saved history.
+- [x] LSD `LSD_REFINE_ADV` metadata and Hough fallback remain available.
+- [x] Fragmented collinear candidates merge into fitted logical edges.
+- [x] Thick-stroke duplicates collapse to one logical edge per boundary.
+- [x] Outer-span measurement uses anisotropic X/Y scale.
+- [x] Calibration quality and non-independent demo calibration gate verdicts to `REVIEW`.
+
+Evidence: commit `5c607c0`; backend focused measurement suite `62 passed`; full backend suite `244 passed`.
+
+### I3 — Corner + bend geometry
+
+- [x] `corner_radius` fits circular arcs from contour turning-point clusters.
+- [x] Corner candidates expose radius, coverage, residual, confidence, and review reason.
+- [x] `bend_angle` derives angle from two finite logical flange edges.
+- [x] Bend intersections outside edge endpoints are rejected.
+- [x] Dimension, corner, and bend checks can be selected in one process.
+- [x] Studio shows task-specific candidate cards and simple selection guidance.
+- [x] Bend tolerance defaults to `±0.5°`; weak geometry stays `REVIEW`.
+
+Evidence: commit `b314fb6`; frontend `198 passed`, production build passed, Measurement Studio E2E `10 passed`.
 
 ## Update protocol
 
@@ -152,3 +176,5 @@ Setelah milestone berubah:
 | 2026-08-10 | Measurement canvas alignment + controls | Frontend `162 passed`, build passed, Playwright `8 passed`; image/SVG bounding-box assertion | Wider QC Studio-style panels; shared image frame fixes overlay alignment; zoom/pan and high-contrast candidate overlays implemented. |
 | 2026-08-10 | Measurement rail overflow + overlay weight | Targeted component `10 passed`, Measurement E2E `5 passed` | Fixed flex rails now mirror QC Studio positioning; Input/Calibration rail scrolls independently; LSD foreground stroke reduced to 3px. |
 | 2026-08-10 | Measurement shell redesign | Frontend `162 passed`, build passed, Playwright `9 passed`; TopBar/full-height shell assertion | Title moved to application TopBar; outer padding/border removed; desktop workspace now matches QC Studio's fixed `280px / flex / 320px` layout; source/process/status controls float over the canvas. |
+| 2026-08-12 | I2 logical edge + calibration v2 | Commit `5c607c0`; backend focused `62 passed`; full backend `244 passed` | Dual-axis calibration, logical-edge merge/fit/dedup, outer-span geometry, calibration quality gate, and object-detection cache regression fix implemented. |
+| 2026-08-12 | I3 corner + bend geometry | Commit `b314fb6`; frontend `198 passed`; build passed; Measurement Studio E2E `10 passed` | Rounded-corner radius, bend-angle candidates, multi-task selection, selection guidance, tolerance defaults, and geometry overlays implemented. Physical accuracy remains pending. |

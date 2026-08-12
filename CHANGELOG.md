@@ -26,6 +26,27 @@ Each entry contains:
 
 - Documentation links, placeholder scan, whitespace validation, and branch diff reviewed; no runtime code changed.
 
+## [Unreleased] - 2026-08-12 - Inspect Measurement I2-I3 Geometry Implementation
+
+### Added
+
+- Dual-axis X/Y calibration with orientation validation, anisotropic scale, calibration quality metadata, and `REVIEW` gating for non-independent demo calibration.
+- Logical edge processing: collinear candidate grouping, robust support-pixel fit, outer-span geometry, and thick-stroke duplicate suppression.
+- Rounded-corner arc candidates with calibrated radius, coverage, residual, confidence, and review reason.
+- Bend-angle candidates from finite logical flange edges with endpoint/intersection filtering and calibrated `0–180°` angle geometry.
+- Measurement Studio multi-select checks for dimension, corner radius, and bend angle with task-specific candidate cards, selection guidance, overlays, and `±0.5°` bend default.
+
+### Fixed
+
+- Object-detection prompt cache now keys by model object identity instead of reusable Python object IDs, preventing stale prompt-class state across tests/model reloads.
+
+### Verification
+
+- Backend full suite: `244 passed`, 2 existing deprecation warnings.
+- Frontend unit suite: `198 passed`; production build passed.
+- Measurement Studio Playwright suite: `10 passed`.
+- Focused dummy `img5` smoke confirms logical edge processing and reduces bend candidates after finite-support filtering; physical accuracy remains unqualified.
+
 ## [Unreleased] - 2026-08-12 - Inspect Measurement Development Station Guide
 
 ### Added

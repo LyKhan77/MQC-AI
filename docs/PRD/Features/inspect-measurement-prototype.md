@@ -1,6 +1,6 @@
 # PRD — Inspect Measurement Prototype
 
-**Status:** Implemented multi-view prototype; approved 2D geometry improvement pending implementation
+**Status:** Implemented multi-view prototype with I2/I3 geometry improvements; physical accuracy pending
 **Date:** 12 August 2026
 **Owner:** GSPE / MQC-AI
 

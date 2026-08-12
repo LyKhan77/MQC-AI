@@ -1,6 +1,6 @@
 # PRD — Inspect Measurement Proper Version
 
-**Status:** P1-P2 software vertical slice implemented; 2D geometry refinement approved; station accuracy, drawing recipe, and profile metrology planned
+**Status:** P1-P2 and 2D geometry software slice implemented; station accuracy, drawing recipe, and profile metrology planned
 **Date:** 12 August 2026
 **Related prototype:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
 **Milestone tracker:** [`inspect-measurement-proper-milestones.md`](./inspect-measurement-proper-milestones.md)
