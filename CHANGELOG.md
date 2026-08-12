@@ -11,6 +11,19 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-12 - Inspect Measurement Development Station Guide
+
+### Added
+
+- Printable staged setup guide under `docs/PRD/` covering the current webcam/HVS software-proof setup, Controlled Bench, Calibrated Development, Pilot Production, procurement priorities, calibration modes, promotion gates, and daily checks.
+- Current setup photograph stored as a local documentation asset; the editable HTML source and generated eight-page A4 PDF stay together for future revisions.
+
+### Verification
+
+- Playwright loaded the local photograph and fonts, rendered all eight A4 sections, and generated the PDF without runtime dependencies.
+- PDF text extraction found all stage headings and the output contains eight page objects; representative pages were visually checked for clipping and layout defects.
+- Existing baseline remains green: frontend `189 passed`, backend `223 passed`.
+
 ## [Unreleased] - 2026-08-11 - Inspect Measurement Multi-View Station Slice
 
 ### Added

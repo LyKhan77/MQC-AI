@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inspect Measurement — Development Station Setup Guide</title>
+  <style>
+    @font-face {
+      font-family: "IBM Plex Sans";
+      src: url("../../qc_frontend/node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: "IBM Plex Sans";
+      src: url("../../qc_frontend/node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+      font-weight: 600;
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      src: url("../../qc_frontend/node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+      font-weight: 400;
+    }
+
+    :root {
+      --blue: #0f62fe;
+      --blue-dark: #0043ce;
+      --ink: #161616;
+      --muted: #525252;
+      --subtle: #6f6f6f;
+      --surface: #f4f4f4;
+      --surface-2: #e8e8e8;
+      --hairline: #c6c6c6;
+      --green: #198038;
+      --yellow: #8e6a00;
+      --red: #da1e28;
+      --white: #ffffff;
+    }
+
+    @page { size: A4; margin: 13mm 14mm 15mm; }
+    * { box-sizing: border-box; }
+    html { color: var(--ink); background: var(--white); font-family: "IBM Plex Sans", Arial, sans-serif; }
+    body { margin: 0; font-size: 9.4pt; line-height: 1.42; letter-spacing: .08px; }
+    h1, h2, h3, h4, p { margin-top: 0; }
+    h1 { max-width: 16cm; font-size: 29pt; line-height: 1.05; font-weight: 400; letter-spacing: -.35px; }
+    h2 { margin-bottom: 5mm; font-size: 19pt; line-height: 1.1; font-weight: 400; }
+    h3 { margin-bottom: 2mm; font-size: 12pt; line-height: 1.2; font-weight: 600; }
+    h4 { margin-bottom: 1mm; font-size: 9.5pt; font-weight: 600; }
+    p { margin-bottom: 3mm; }
+    a { color: var(--blue-dark); text-decoration: none; }
+    strong { font-weight: 600; }
+    code, .mono { font-family: "IBM Plex Mono", Consolas, monospace; }
+    ul, ol { margin: 1.5mm 0 3mm; padding-left: 5mm; }
+    li { margin: 0 0 1.1mm; }
+    .page { break-after: page; position: relative; }
+    .page:last-child { break-after: auto; }
+    .section-label { margin-bottom: 2mm; color: var(--blue-dark); font-family: "IBM Plex Mono", monospace; font-size: 8pt; }
+    .lede { max-width: 16cm; color: var(--muted); font-size: 12pt; line-height: 1.42; }
+    .hairline { height: 1px; margin: 5mm 0; background: var(--hairline); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+    .panel { padding: 4mm; background: var(--surface); break-inside: avoid; }
+    .panel.white { background: var(--white); border: 1px solid var(--hairline); }
+    .panel.blue { color: var(--white); background: var(--blue-dark); }
+    .callout { margin: 3mm 0; padding: 3mm 4mm; border: 1px solid var(--hairline); background: var(--surface); break-inside: avoid; }
+    .callout.warning { border-color: #f1c21b; background: #fff8d6; }
+    .callout.danger { border-color: var(--red); background: #fff1f1; }
+    .callout.success { border-color: var(--green); background: #defbe6; }
+    .tag { display: inline-block; margin-right: 1.5mm; padding: .7mm 1.6mm; border: 1px solid currentColor; font-size: 7.4pt; font-weight: 600; }
+    .tag.blue { color: var(--blue-dark); }
+    .tag.green { color: var(--green); }
+    .tag.yellow { color: var(--yellow); }
+    .tag.red { color: var(--red); }
+    .status-row { display: flex; flex-wrap: wrap; gap: 1.5mm; margin-bottom: 3mm; }
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { position: relative; padding-left: 5mm; }
+    .checklist li::before { content: "□"; position: absolute; left: 0; top: -.2mm; font-family: Arial, sans-serif; font-size: 11pt; }
+    .compact li { margin-bottom: .7mm; }
+    table { width: 100%; margin: 2mm 0 4mm; border-collapse: collapse; font-size: 8.2pt; break-inside: avoid; }
+    th { padding: 2.2mm; color: var(--white); background: var(--ink); text-align: left; font-weight: 600; }
+    td { padding: 2.2mm; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+    tbody tr:nth-child(even) td { background: var(--surface); }
+    .stage-number { color: var(--blue); font-family: "IBM Plex Mono", monospace; font-size: 25pt; line-height: 1; }
+    .stage-card { min-height: 42mm; padding: 3.5mm; border-top: 3px solid var(--blue); background: var(--surface); break-inside: avoid; }
+    .stage-card h3 { margin-top: 2mm; }
+    .stage-card p { margin-bottom: 0; color: var(--muted); font-size: 8.4pt; }
+    .photo-frame { margin: 0; border: 1px solid var(--hairline); background: var(--surface); }
+    .photo-frame img { display: block; width: 100%; height: 115mm; object-fit: cover; object-position: center 58%; }
+    .photo-frame figcaption { padding: 2.5mm 3mm; color: var(--muted); font-size: 7.8pt; }
+    .metric { padding: 2.8mm 3mm; border-top: 2px solid var(--blue); background: var(--surface); }
+    .metric strong { display: block; font-family: "IBM Plex Mono", monospace; font-size: 12pt; }
+    .metric span { color: var(--muted); font-size: 7.6pt; }
+    .flow { display: flex; align-items: stretch; gap: 1.5mm; margin: 3mm 0; break-inside: avoid; }
+    .flow .step { flex: 1; padding: 2.5mm; background: var(--surface); font-size: 8pt; }
+    .flow .arrow { align-self: center; color: var(--blue); font-size: 12pt; }
+    .schematic { position: relative; height: 61mm; margin: 3mm 0 4mm; border: 1px solid var(--hairline); background: var(--surface); overflow: hidden; }
+    .camera { position: absolute; left: 42%; top: 5mm; width: 16%; padding: 2mm; color: white; background: var(--ink); text-align: center; font-size: 7pt; }
+    .axis { position: absolute; left: 49.8%; top: 15mm; width: 1px; height: 29mm; background: var(--blue); }
+    .light { position: absolute; top: 20mm; width: 20%; padding: 2mm; border: 1px solid var(--yellow); background: #fff8d6; text-align: center; font-size: 7pt; }
+    .light.left { left: 8%; transform: rotate(-12deg); }
+    .light.right { right: 8%; transform: rotate(12deg); }
+    .target { position: absolute; left: 36%; bottom: 8mm; width: 28%; padding: 3mm; border: 2px solid var(--blue); background: white; text-align: center; font-size: 7pt; }
+    .plane { position: absolute; left: 5%; right: 5%; bottom: 6mm; height: 2px; background: var(--ink); }
+    .cover { display: flex; min-height: 253mm; flex-direction: column; justify-content: space-between; padding-top: 7mm; }
+    .cover-band { width: 47mm; height: 5mm; background: var(--blue); }
+    .cover-meta { display: grid; grid-template-columns: 45mm 1fr; gap: 1mm 6mm; padding-top: 5mm; border-top: 1px solid var(--hairline); font-size: 8.4pt; }
+    .cover-meta dt { color: var(--muted); }
+    .cover-meta dd { margin: 0; }
+    .small { color: var(--muted); font-size: 7.6pt; }
+    .avoid-break { break-inside: avoid; }
+  </style>
+</head>
+<body>
+  <section class="page cover">
+    <div>
+      <div class="cover-band"></div>
+      <p class="section-label" style="margin-top: 11mm;">MQC-AI / QUALITY CONTROL / DEVELOPMENT GUIDE</p>
+      <h1>Inspect Measurement<br>Development Station Setup</h1>
+      <p class="lede">Panduan bertahap untuk membangun station pengukuran 2D top-down dari setup webcam sederhana menuju pilot production yang repeatable dan audit-ready.</p>
+      <div class="status-row" style="margin-top: 8mm;">
+        <span class="tag blue">DIMENSI EDGE</span>
+        <span class="tag blue">RADIUS CORNER</span>
+        <span class="tag blue">SUDUT BENDING</span>
+      </div>
+      <div class="callout warning" style="margin-top: 15mm;">
+        <strong>Batas dokumen</strong><br>
+        Sistem mengukur proyeksi 2D. Camera tetap top-down; komponen diputar agar sisi target menghadap camera. Dokumen ini bukan sertifikat akurasi dan tidak menggantikan validation metrology.
+      </div>
+    </div>
+
+    <dl class="cover-meta">
+      <dt>Document ID</dt><dd class="mono">IM-SETUP-DEV-001</dd>
+      <dt>Versi</dt><dd>0.1 — Development Draft</dd>
+      <dt>Tanggal</dt><dd>12 Agustus 2026</dd>
+      <dt>Scope</dt><dd>Image, Live Camera, Mobile Camera; Station Preset dan Manual Reference</dd>
+      <dt>Development camera</dt><dd>Fantech Luminous C50, 2560 × 1440, autofocus, FoV 76°</dd>
+      <dt>Owner</dt><dd>GSPE / MQC-AI</dd>
+    </dl>
+  </section>
+
+  <section class="page">
+    <p class="section-label">01 / CURRENT SETUP ASSESSMENT</p>
+    <h2>Setup saat ini: cukup untuk Stage 0</h2>
+    <div class="grid-2">
+      <figure class="photo-frame">
+        <img src="assets/inspect-measurement/setup-1.jpeg" alt="Setup development saat ini menggunakan webcam dan kertas HVS">
+        <figcaption>Foto referensi setup development. Webcam berada pada mount improvisasi; komponen diletakkan di atas beberapa lembar HVS.</figcaption>
+      </figure>
+      <div>
+        <div class="callout success">
+          <strong>Masih berguna untuk</strong>
+          <ul class="compact">
+            <li>Menguji capture → calibration → process → evaluate.</li>
+            <li>Mengembangkan edge merge, line fit, contour, dan overlay.</li>
+            <li>Mengumpulkan raw image dan negative cases.</li>
+          </ul>
+        </div>
+        <div class="callout danger">
+          <strong>Belum boleh digunakan untuk</strong>
+          <ul class="compact">
+            <li>Klaim akurasi produksi.</li>
+            <li>PASS/FAIL final berdasarkan toleransi drawing.</li>
+            <li>Menyimpan Station Preset sebagai calibrated station.</li>
+          </ul>
+        </div>
+        <h3>Risiko yang terlihat</h3>
+        <ul class="compact">
+          <li>HVS berlapis, memiliki sambungan, marking, dan potensi tidak rata.</li>
+          <li>Tepi kertas dapat terdeteksi sebagai edge palsu.</li>
+          <li>Mount, pan/tilt, tinggi camera, dan tarikan kabel mudah berubah.</li>
+          <li>Cahaya window menghasilkan shadow dan exposure yang berubah.</li>
+          <li>Autofocus dapat mengubah repeatability antar-capture.</li>
+          <li>Tidak ada independent reference dan ground truth terukur.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 5mm;">Perbaikan langsung tanpa membeli alat</h3>
+    <div class="grid-2">
+      <ul class="checklist compact panel">
+        <li>Gunakan satu lembar HVS utuh dalam seluruh FOV.</li>
+        <li>Rekatkan ke permukaan keras dan datar.</li>
+        <li>Jauhkan sambungan, tulisan, dan tepi meja dari ROI.</li>
+        <li>Pusatkan komponen pada optical axis.</li>
+      </ul>
+      <ul class="checklist compact panel">
+        <li>Kunci mount dan beri strain relief pada kabel.</li>
+        <li>Tutup cahaya window; pertahankan lampu yang sama.</li>
+        <li>Tunggu autofocus stabil sebelum capture.</li>
+        <li>Ambil 10 capture ulang tanpa mengubah setup.</li>
+      </ul>
+    </div>
+    <p class="small">Status hasil Stage 0: <strong>DEVELOPMENT / REVIEW</strong>. Komponen boleh dipakai sebagai reference hanya untuk debug; dimensi yang menjadi reference tidak boleh sekaligus divalidasi.</p>
+  </section>
+
+  <section class="page">
+    <p class="section-label">02 / DEVELOPMENT ROADMAP</p>
+    <h2>Naik tahap hanya setelah checkpoint tercapai</h2>
+    <div class="grid-2">
+      <div class="stage-card">
+        <div class="stage-number">00</div>
+        <h3>Software Proof</h3>
+        <p>Webcam + HVS. Validasi workflow, raw OpenCV geometry, UX inspector, dan penyimpanan History/Audit.</p>
+      </div>
+      <div class="stage-card">
+        <div class="stage-number">01</div>
+        <h3>Controlled Bench</h3>
+        <p>Camera, plane, lighting, dan ground truth mulai dikontrol. Fokus utama: repeatability.</p>
+      </div>
+      <div class="stage-card">
+        <div class="stage-number">02</div>
+        <h3>Calibrated Development</h3>
+        <p>Intrinsic calibration, Station Preset, independent reference, verification artifact, dan capability evidence.</p>
+      </div>
+      <div class="stage-card">
+        <div class="stage-number">03</div>
+        <h3>Pilot Production</h3>
+        <p>Industrial optics, controlled mechanics, traceability, recipe/drawing, dan formal measurement system validation.</p>
+      </div>
+    </div>
+
+    <table style="margin-top: 6mm;">
+      <thead><tr><th>Tahap</th><th>Output yang dipercaya</th><th>Calibration</th><th>Keputusan</th></tr></thead>
+      <tbody>
+        <tr><td><strong>0</strong></td><td>Geometry candidate dan UX flow</td><td>Manual reference per image</td><td>REVIEW saja</td></tr>
+        <tr><td><strong>1</strong></td><td>Repeatability bench</td><td>Reference plate sederhana</td><td>Development PASS terbatas</td></tr>
+        <tr><td><strong>2</strong></td><td>Bias, repeatability, position checks</td><td>Intrinsic + planar preset</td><td>Pilot candidate</td></tr>
+        <tr><td><strong>3</strong></td><td>Inspection terhadap drawing/recipe</td><td>Traceable preset dan schedule</td><td>Production PASS/FAIL</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Aturan lintas tahap</h3>
+    <div class="grid-2">
+      <ul class="compact">
+        <li>Target face harus paralel terhadap measurement plane.</li>
+        <li>Working distance berarti camera → target surface, bukan hanya camera → desk.</li>
+        <li>Rotasi komponen menghasilkan view baru.</li>
+        <li>Preset hanya berlaku pada camera, resolution, FOV, focus/zoom, dan plane yang cocok.</li>
+      </ul>
+      <ul class="compact">
+        <li>Reference calibration harus independen dari dimensi yang dievaluasi.</li>
+        <li>Overlay Reference dan Garis Bantu default hidden setelah Process.</li>
+        <li>Raw detection tidak boleh menjadi nilai final tanpa geometry fitting.</li>
+        <li>Invalid calibration menghasilkan REVIEW, bukan PASS.</li>
+      </ul>
+    </div>
+
+    <div class="callout warning">
+      <strong>Multiscale wajib.</strong> Satu FOV tidak dapat sekaligus mencakup komponen 2100 mm dan fitur 1 mm secara presisi. Dengan lebar video 2560 px, cakupan 2100 mm hanya sekitar <span class="mono">1.22 px/mm</span> sebelum margin. Gunakan preset/capture <strong>Global</strong> dan <strong>Detail</strong> terpisah.
+    </div>
+  </section>
+
+  <section class="page">
+    <p class="section-label">03 / STAGE 1 — CONTROLLED BENCH</p>
+    <h2>Kontrol mechanics dan lighting dahulu</h2>
+    <div class="status-row"><span class="tag yellow">PRIORITAS BELANJA PERTAMA</span><span class="tag blue">NO NEW CAMERA</span></div>
+
+    <div class="schematic" aria-label="Skema station top-down">
+      <div class="camera">CAMERA<br>TOP-DOWN</div>
+      <div class="axis"></div>
+      <div class="light left">DIFFUSE LIGHT<br>30–45°</div>
+      <div class="light right">DIFFUSE LIGHT<br>30–45°</div>
+      <div class="plane"></div>
+      <div class="target">TARGET FACE<br>PARALLEL</div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Wajib</h3>
+        <ul class="checklist compact">
+          <li>Rigid gantry/copy stand, tinggi adjustable dan dapat dikunci.</li>
+          <li>Camera mount rigid; pan/tilt tidak bergerak saat disentuh.</li>
+          <li>Flat base plate dengan cover matte hitam/putih interchangeable.</li>
+          <li>Dua LED bar/panel flicker-free, dimmable, dan diffuser.</li>
+          <li>Engineer square serta spirit/digital level.</li>
+          <li>Cable clamp/strain relief.</li>
+          <li>Digital caliper beresolusi 0.01 mm dengan accuracy terdokumentasi.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tambahkan bila diperlukan</h3>
+        <ul class="checklist compact">
+          <li>Low-profile clamp atau V-block untuk menjaga pose.</li>
+          <li>White diffuse backlight untuk silhouette/hole komponen kecil.</li>
+          <li>Light hood sederhana untuk memblokir ambient light.</li>
+          <li>Foot switch/capture button agar station tidak disentuh.</li>
+          <li>Polarizer bila sheet metal menghasilkan glare kuat.</li>
+        </ul>
+        <div class="callout">
+          <strong>Desk matte bukan alat ukur.</strong><br>
+          Grid atau marking hanya membantu alignment. Flat base plate dan independent reference tetap menjadi sumber geometry.
+        </div>
+      </div>
+    </div>
+
+    <h3>Checkpoint keluar Stage 1</h3>
+    <table>
+      <thead><tr><th>Check</th><th>Metode</th><th>Gate provisional</th></tr></thead>
+      <tbody>
+        <tr><td>Stability</td><td>10 capture tanpa menyentuh station</td><td>Object dan reference tidak bergeser secara visual</td></tr>
+        <tr><td>Lighting</td><td>Bandingkan histogram dan shadow</td><td>Tidak ada clipping/glare yang memutus target edge</td></tr>
+        <tr><td>Detection</td><td>Process 10 capture</td><td>Logical edge/arc target tersedia 10/10</td></tr>
+        <tr><td>Repeatability</td><td>Ukur gauge sama 10 kali</td><td>Range ≤ 25% tolerance target; contoh ±2 mm → range ≤ 0.5 mm</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Gate repeatability bersifat target engineering awal, bukan standar metrology atau klaim produksi. Catat mean, minimum, maksimum, range, dan standard deviation.</p>
+  </section>
+
+  <section class="page">
+    <p class="section-label">04 / STAGE 2 — CALIBRATED DEVELOPMENT</p>
+    <h2>Pisahkan lens calibration, scale, dan verification</h2>
+
+    <div class="grid-3">
+      <div class="metric"><strong>1</strong><span>Intrinsic / lens distortion</span></div>
+      <div class="metric"><strong>2</strong><span>Planar scale X/Y + homography</span></div>
+      <div class="metric"><strong>3</strong><span>Independent verification</span></div>
+    </div>
+
+    <div class="flow">
+      <div class="step"><strong>ChArUco</strong><br>≥10 varied views</div><div class="arrow">→</div>
+      <div class="step"><strong>Reference plate</strong><br>Same target plane</div><div class="arrow">→</div>
+      <div class="step"><strong>Save preset</strong><br>Camera + FOV + WD</div><div class="arrow">→</div>
+      <div class="step"><strong>Verify gauge</strong><br>Center + corners</div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Equipment</h3>
+        <ul class="checklist compact">
+          <li>Rigid matte ChArUco board, pattern sized for current FOV.</li>
+          <li>Independent reference plate/rectangle dengan X dan Y terukur.</li>
+          <li>Gauge block/riser untuk menyamakan reference plane dan target face.</li>
+          <li>Verification artifact berbeda dari artifact pembentuk preset.</li>
+          <li>Digital angle gauge/bevel protractor, rekomendasi accuracy ±0.1°.</li>
+          <li>Internal/external radius gauge.</li>
+          <li>Micrometer untuk ground truth ketebalan kecil.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Station Preset menyimpan</h3>
+        <ul class="compact">
+          <li>Camera ID dan resolution.</li>
+          <li>Global/Detail FOV.</li>
+          <li>Focus/zoom state.</li>
+          <li>Camera-to-desk dan target-plane height.</li>
+          <li>Effective working distance.</li>
+          <li>Camera matrix dan distortion coefficients.</li>
+          <li>Scale X/Y dan homography.</li>
+          <li>Valid range, verification result, date, operator.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Calibration workflow</h3>
+    <ol class="compact">
+      <li><strong>Intrinsic:</strong> capture ChArUco dari posisi dan sudut berbeda; simpan camera matrix, distortion, resolution, dan reprojection error.</li>
+      <li><strong>Planar:</strong> letakkan reference plate pada target plane; deteksi horizontal/vertical reference; hitung scale X/Y dan homography.</li>
+      <li><strong>Preset:</strong> simpan geometry hanya setelah camera, lighting, FOV, focus, working distance, dan plane dikunci.</li>
+      <li><strong>Verification:</strong> ukur artifact lain pada center dan empat area frame. Bias yang berubah berdasarkan posisi menunjukkan distortion/homography belum cukup.</li>
+    </ol>
+
+    <div class="callout warning">
+      <strong>Reference harus co-planar.</strong> Jika camera-to-desk 175 mm dan target face 13 mm di atas desk, effective working distance sekitar 162 mm. Scale desk tidak boleh langsung dipakai pada target face tersebut.
+    </div>
+
+    <h3>Checkpoint keluar Stage 2</h3>
+    <ul class="checklist compact panel">
+      <li>Intrinsic calibration menyimpan reprojection error; target engineering awal ≤ 0.5 px.</li>
+      <li>Verification artifact diuji pada center dan empat area frame.</li>
+      <li>Bias dan repeatability setiap task ≤ 25% tolerance target.</li>
+      <li>Preset mismatch menghasilkan warning atau REVIEW.</li>
+      <li>Reference/Helper overlay dapat show/hide dan default hidden setelah Process.</li>
+      <li>Raw image, preset ID, calibration, result, dan evaluation masuk History/Audit.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <p class="section-label">05 / OPERATING WORKFLOW</p>
+    <h2>Inspector melihat tugas, bukan computer vision</h2>
+
+    <h3>Mode A — Station Preset</h3>
+    <div class="flow">
+      <div class="step">Pilih sesi<br><strong>& preset</strong></div><div class="arrow">→</div>
+      <div class="step">Posisikan<br><strong>target face</strong></div><div class="arrow">→</div>
+      <div class="step">Capture<br><strong>selected view</strong></div><div class="arrow">→</div>
+      <div class="step">Process &<br><strong>pilih geometry</strong></div><div class="arrow">→</div>
+      <div class="step">Evaluate<br><strong>& save</strong></div>
+    </div>
+    <ul class="compact">
+      <li>Inspector tidak menggambar reference setiap capture.</li>
+      <li>Sistem memvalidasi camera, resolution, preset, dan working distance.</li>
+      <li>Setelah komponen diputar, target face baru harus kembali paralel dan berada pada working distance preset.</li>
+      <li>Jika plane berubah, adjust gantry atau pilih preset lain.</li>
+    </ul>
+
+    <h3 style="margin-top: 5mm;">Mode B — Manual Reference</h3>
+    <div class="flow">
+      <div class="step">Capture dengan<br><strong>reference plate</strong></div><div class="arrow">→</div>
+      <div class="step">Draw<br><strong>Horizontal X</strong></div><div class="arrow">→</div>
+      <div class="step">Draw<br><strong>Vertical Y</strong></div><div class="arrow">→</div>
+      <div class="step">Validate<br><strong>calibration</strong></div><div class="arrow">→</div>
+      <div class="step">Process<br><strong>& evaluate</strong></div>
+    </div>
+    <ul class="compact">
+      <li>Digunakan untuk Mobile Camera, uploaded image, one-off setup, atau invalid preset.</li>
+      <li>Reference plate dan target face wajib berada pada plane sama.</li>
+      <li>Axis snap membantu horizontal/vertical; sistem memeriksa panjang pixel, perpendicularity, dan scale X/Y.</li>
+      <li>Setelah rotasi atau perubahan plane, manual calibration diulang.</li>
+    </ul>
+
+    <div class="grid-2" style="margin-top: 5mm;">
+      <div class="panel">
+        <h3>Task selector</h3>
+        <ul class="checklist compact">
+          <li>Dimensi sisi (mm)</li>
+          <li>Radius corner (R mm)</li>
+          <li>Sudut bending (°)</li>
+        </ul>
+        <p class="small">Beberapa task boleh dipilih bersamaan. Sistem memproses image sekali; inspector memilih logical edge, arc, atau dua flange.</p>
+      </div>
+      <div class="panel">
+        <h3>Layer setelah Process</h3>
+        <ul class="checklist compact">
+          <li><strong>Hasil</strong> — default visible</li>
+          <li><strong>Reference</strong> — default hidden</li>
+          <li><strong>Garis bantu</strong> — default hidden</li>
+        </ul>
+        <p class="small">Show/hide tidak mengubah processing. Geometry reference tetap tersimpan untuk audit.</p>
+      </div>
+    </div>
+
+    <div class="callout danger">
+      <strong>Jangan memberi nama CV pada kontrol inspector.</strong> Hindari “LSD”, “Hough”, “contour candidate”, atau “NFA”. Gunakan “Pilih sisi”, “Pilih lengkungan”, “Pilih bidang pertama/dua”, dan “Tampilkan garis bantu”.
+    </div>
+  </section>
+
+  <section class="page">
+    <p class="section-label">06 / STAGE 3 — PILOT PRODUCTION & PROCUREMENT</p>
+    <h2>Beli upgrade setelah bottleneck terbukti</h2>
+
+    <table>
+      <thead><tr><th>Prioritas</th><th>Item</th><th>Alasan</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag green">BELI SEKARANG</span></td><td>Rigid gantry, flat base plate, dua diffuse light, level/square, cable clamp, caliper</td><td>Menghilangkan sumber variasi terbesar tanpa mengganti camera.</td></tr>
+        <tr><td><span class="tag blue">SETELAH EDGE FIT</span></td><td>Rigid ChArUco, reference plate X/Y, gauge blocks, verification artifact, angle/radius gauges</td><td>Membangun Station Preset dan evidence accuracy.</td></tr>
+        <tr><td><span class="tag yellow">JIKA DIPERLUKAN</span></td><td>Backlight, polarizer, light enclosure, foot trigger, gantry encoder</td><td>Tambahkan hanya saat shadow, glare, ambient light, atau height drift terbukti.</td></tr>
+        <tr><td><span class="tag red">PRODUCTION</span></td><td>Industrial area-scan camera, fixed C-mount lens/telecentric detail lens, lighting controller, certified artifact</td><td>Dibutuhkan setelah capability target dan FOV produksi dikunci.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="grid-2">
+      <div>
+        <h3>Pilot production menambahkan</h3>
+        <ul class="compact">
+          <li>Industrial camera dengan fixed optics dan hardware trigger.</li>
+          <li>Global dan Detail station/preset terpisah.</li>
+          <li>Gantry encoder atau distance sensor.</li>
+          <li>Lighting enclosure dan controlled driver/strobe.</li>
+          <li>Certified calibration artifacts dan calibration schedule.</li>
+          <li>Temperature record untuk komponen besar/metal.</li>
+          <li>Drawing/recipe dimension sebagai source of truth.</li>
+          <li>Measurement System Analysis / Gage R&amp;R sebelum release.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Belum perlu dibeli</h3>
+        <ul class="compact">
+          <li>GPU atau AI model khusus measurement.</li>
+          <li>Robot/turntable otomatis.</li>
+          <li>3D/depth camera.</li>
+          <li>Telecentric lens sebelum Detail FOV dan accuracy target diketahui.</li>
+          <li>Integrasi CMM sebelum workflow 2D repeatable.</li>
+        </ul>
+        <div class="callout">
+          <strong>Development camera boundary</strong><br>
+          Fantech C50 tetap dipakai untuk Stage 0–2 selama repeatability cukup. Autofocus, consumer optics, dan 2560 × 1440 menjadi batas capability yang harus dibuktikan, bukan diasumsikan.
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 5mm;">Pilot release gate</h3>
+    <ul class="checklist compact panel">
+      <li>Recipe/drawing mendefinisikan geometry, nominal, tolerance, pose, dan view.</li>
+      <li>Global/Detail capability memenuhi fitur minimum masing-masing.</li>
+      <li>Repeatability, bias, position dependency, dan operator variation terdokumentasi.</li>
+      <li>Invalid station state tidak dapat menghasilkan PASS.</li>
+      <li>Calibration expiry dan daily verification tersedia dalam audit trail.</li>
+      <li>Inspector training dan fallback Manual Reference telah diuji.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <p class="section-label">07 / DAILY CHECKLIST & REFERENCES</p>
+    <h2>Checklist station harian</h2>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Sebelum shift</h3>
+        <ul class="checklist compact">
+          <li>Lensa bersih dan privacy shutter terbuka.</li>
+          <li>Mount, gantry lock, serta cable clamp tidak longgar.</li>
+          <li>Resolution, FOV, focus, dan preset sesuai.</li>
+          <li>Lighting menyala dengan level yang ditetapkan.</li>
+          <li>Measurement plane bersih, datar, dan tidak rusak.</li>
+          <li>Verification gauge menghasilkan status Valid.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Setiap view</h3>
+        <ul class="checklist compact">
+          <li>Nama view menjelaskan sisi/pose.</li>
+          <li>Target face menghadap camera dan paralel.</li>
+          <li>Objek tidak terpotong FOV.</li>
+          <li>Working distance sesuai preset.</li>
+          <li>Shadow/glare tidak menutup edge target.</li>
+          <li>Process dilakukan setelah capture dan calibration valid.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Setelah rotasi</h3>
+        <ul class="checklist compact">
+          <li>Buat view baru; jangan menimpa raw image sebelumnya.</li>
+          <li>Periksa target-plane height yang baru.</li>
+          <li>Adjust gantry atau ganti preset bila working distance berubah.</li>
+          <li>Ulangi Manual Reference bila memakai fallback.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Jika verification gagal</h3>
+        <ul class="checklist compact">
+          <li>Blokir PASS dan ubah status menjadi REVIEW.</li>
+          <li>Periksa mount, plane, lighting, focus, dan resolution.</li>
+          <li>Recalibrate atau gunakan Manual Reference.</li>
+          <li>Catat penyebab dan tindakan pada Audit.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 6mm;">Reference sources</h3>
+    <ol class="compact small">
+      <li>OpenCV 4.13 — <a href="https://docs.opencv.org/4.13.0/d4/d94/tutorial_camera_calibration.html">Camera Calibration With OpenCV</a>. Panduan camera matrix, distortion, supported calibration patterns, dan practical multi-frame calibration.</li>
+      <li>OpenCV 4.13 — <a href="https://docs.opencv.org/4.13.0/da/d0d/tutorial_camera_calibration_pattern.html">Create Calibration Pattern</a>. Panduan ChArUco/chessboard, pattern size, flatness, matte surface, dan visibility.</li>
+      <li>OpenCV 4.13 — <a href="https://docs.opencv.org/4.13.0/javadoc/org/opencv/imgproc/LineSegmentDetector.html">LineSegmentDetector</a>. Metadata line width, precision, dan NFA untuk refined candidate filtering.</li>
+      <li>Fantech — <a href="https://fantechworld.com/products/luminous-c50">Luminous C50 official specification</a>. 2560 × 1440, 5 MP, autofocus, FoV 76°, 30 FPS @ 1440p.</li>
+    </ol>
+
+    <div class="hairline"></div>
+    <h3>Revision notes</h3>
+    <table>
+      <thead><tr><th>Versi</th><th>Tanggal</th><th>Perubahan</th></tr></thead>
+      <tbody><tr><td>0.1</td><td>12 Agustus 2026</td><td>Initial staged setup guide berdasarkan current webcam + HVS development setup.</td></tr></tbody>
+    </table>
+
+    <div class="callout blue" style="margin-top: 8mm;">
+      <strong>Recommended next action</strong><br>
+      Stabilkan Stage 0, beli hanya Stage 1 essentials, lalu ukur repeatability sebelum memutuskan industrial camera atau optics.
+    </div>
+  </section>
+</body>
+</html>
