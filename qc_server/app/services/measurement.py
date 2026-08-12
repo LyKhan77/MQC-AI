@@ -22,7 +22,7 @@ MIN_CONFIDENCE = 0.5
 
 
 def _point(value):
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
+    if not isinstance(value, (list, tuple, np.ndarray)) or len(value) != 2:
         raise ValueError("point must contain x and y")
     return float(value[0]), float(value[1])
 
@@ -315,7 +315,7 @@ def measure_geometry(item_type, points, calibration, geometry=None):
     return {"value": value, "unit": "mm", "pixel_value": pixel_value}
 
 
-def _line_candidate(line, width, height, source):
+def _line_candidate(line, width, height, source, identifier=None, metadata=None):
     x1, y1, x2, y2 = [float(value) for value in line]
     length = hypot(x2 - x1, y2 - y1)
     if length <= 0:
@@ -323,12 +323,183 @@ def _line_candidate(line, width, height, source):
     diagonal = hypot(width, height)
     confidence = min(0.99, 0.5 + (length / max(diagonal, 1)) * 0.5)
     return {
+        "id": identifier or f"{source}-{round(x1, 2)}-{round(y1, 2)}",
         "points": [[round(x1, 2), round(y1, 2)], [round(x2, 2), round(y2, 2)]],
         "length_px": round(length, 3),
         "angle": round(degrees(np.arctan2(y2 - y1, x2 - x1)), 3),
         "confidence": round(confidence, 3),
         "source": source,
+        **({key: value for key, value in (metadata or {}).items() if value is not None}),
     }
+
+
+def _candidate_angle(candidate):
+    first, second = candidate["points"]
+    return degrees(np.arctan2(float(second[1]) - float(first[1]), float(second[0]) - float(first[0]))) % 180
+
+
+def _angle_delta(first, second):
+    delta = abs((first - second) % 180)
+    return min(delta, 180 - delta)
+
+
+def _line_direction(point_a, point_b):
+    ax, ay = _point(point_a)
+    bx, by = _point(point_b)
+    length = hypot(bx - ax, by - ay)
+    if length <= 0:
+        raise ValueError("edge points must be different")
+    return np.array([(bx - ax) / length, (by - ay) / length], dtype=np.float32)
+
+
+def _line_distance(point, line_a, line_b):
+    px, py = _point(point)
+    ax, ay = _point(line_a)
+    bx, by = _point(line_b)
+    dx, dy = bx - ax, by - ay
+    length = hypot(dx, dy)
+    if length <= 0:
+        raise ValueError("edge points must be different")
+    return abs((px - ax) * dy - (py - ay) * dx) / length
+
+
+def _projected_gap(first, second, direction):
+    first_values = [float(np.dot(np.asarray(point, dtype=np.float32), direction)) for point in first["points"]]
+    second_values = [float(np.dot(np.asarray(point, dtype=np.float32), direction)) for point in second["points"]]
+    first_min, first_max = min(first_values), max(first_values)
+    second_min, second_max = min(second_values), max(second_values)
+    return max(0.0, second_min - first_max, first_min - second_max)
+
+
+def _line_candidates_compatible(first, second, options):
+    if _angle_delta(_candidate_angle(first), _candidate_angle(second)) > float(options["angle_tolerance_deg"]):
+        return False
+    direction = _line_direction(first["points"][0], first["points"][1])
+    midpoint = [
+        (float(second["points"][0][0]) + float(second["points"][1][0])) / 2,
+        (float(second["points"][0][1]) + float(second["points"][1][1])) / 2,
+    ]
+    if _line_distance(midpoint, first["points"][0], first["points"][1]) > float(options["support_distance_px"]):
+        return False
+    return _projected_gap(first, second, direction) <= float(options["projected_gap_px"])
+
+
+def group_line_candidates(candidates, options=None):
+    options = {
+        "angle_tolerance_deg": 3.0,
+        "support_distance_px": 4.0,
+        "projected_gap_px": 12.0,
+        **(options or {}),
+    }
+    groups = []
+    for candidate in candidates or []:
+        for group in groups:
+            if any(_line_candidates_compatible(candidate, member, options) for member in group):
+                group.append(candidate)
+                break
+        else:
+            groups.append([candidate])
+    return groups
+
+
+def detect_component_contour(gray):
+    if gray is None or len(gray.shape) != 2:
+        raise ValueError("invalid grayscale frame")
+    height, width = gray.shape[:2]
+    frame_area = float(height * width)
+    threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    kernel = np.ones((3, 3), dtype=np.uint8)
+    masks = [
+        cv2.morphologyEx(threshold, cv2.MORPH_CLOSE, kernel),
+        cv2.morphologyEx(cv2.bitwise_not(threshold), cv2.MORPH_CLOSE, kernel),
+    ]
+    best = None
+    for mask in masks:
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        for contour in contours:
+            area = float(cv2.contourArea(contour))
+            if area < frame_area * 0.01 or area > frame_area * 0.95:
+                continue
+            x, y, contour_width, contour_height = cv2.boundingRect(contour)
+            touches_all_borders = (
+                x <= 0
+                and y <= 0
+                and x + contour_width >= width
+                and y + contour_height >= height
+            )
+            if touches_all_borders:
+                continue
+            if best is None or area > best[0]:
+                best = (area, contour)
+    return best[1] if best else None
+
+
+def fit_logical_edges(edge_map, contour, groups, options=None):
+    options = {
+        "support_band_px": 3.0,
+        "support_gap_px": 12.0,
+        "min_coverage_ratio": 0.25,
+        **(options or {}),
+    }
+    edge_points = np.column_stack(np.where(edge_map > 0))[:, ::-1].astype(np.float32) if np.any(edge_map > 0) else np.empty((0, 2), dtype=np.float32)
+    contour_points = contour.reshape(-1, 2).astype(np.float32) if contour is not None else None
+    logical_edges = []
+    for index, group in enumerate(groups or [], start=1):
+        seed = max(group, key=lambda item: float(item.get("length_px", 0)))
+        seed_a, seed_b = seed["points"]
+        direction = _line_direction(seed_a, seed_b)
+        support = []
+        for point in edge_points:
+            distance = _line_distance(point, seed_a, seed_b)
+            projection = float(np.dot(point, direction))
+            seed_projections = [float(np.dot(np.asarray(value, dtype=np.float32), direction)) for member in group for value in member["points"]]
+            if distance <= float(options["support_band_px"]) and min(seed_projections) - float(options["support_gap_px"]) <= projection <= max(seed_projections) + float(options["support_gap_px"]):
+                support.append(point)
+        fit_points = np.asarray(support, dtype=np.float32) if len(support) >= 2 else np.asarray([point for member in group for point in member["points"]], dtype=np.float32)
+        try:
+            vx, vy, x0, y0 = cv2.fitLine(fit_points, cv2.DIST_HUBER, 0, 0.01, 0.01).reshape(-1)
+            fitted_direction = np.array([float(vx), float(vy)], dtype=np.float32)
+            fitted_direction /= max(float(np.linalg.norm(fitted_direction)), 1e-9)
+        except cv2.error:
+            fitted_direction = direction
+            x0, y0 = fit_points.mean(axis=0)
+        if float(np.dot(fitted_direction, direction)) < 0:
+            fitted_direction *= -1
+        origin = np.array([float(x0), float(y0)], dtype=np.float32)
+        if contour_points is not None and len(contour_points) >= 3:
+            values = np.dot(contour_points - origin, fitted_direction)
+        else:
+            group_points = np.asarray([point for member in group for point in member["points"]], dtype=np.float32)
+            values = np.dot(group_points - origin, fitted_direction)
+        low, high = float(values.min()), float(values.max())
+        support_values = np.dot(fit_points - origin, fitted_direction)
+        coverage_ratio = min(1.0, max(0.0, (float(support_values.max()) - float(support_values.min())) / max(high - low, 1e-6)))
+        if contour_points is not None and coverage_ratio < float(options["min_coverage_ratio"]):
+            continue
+        point_a = origin + fitted_direction * low
+        point_b = origin + fitted_direction * high
+        offsets = fit_points - origin
+        residual_values = offsets[:, 0] * fitted_direction[1] - offsets[:, 1] * fitted_direction[0]
+        residual = float(np.mean(np.abs(residual_values))) if len(fit_points) else 99.0
+        support_score = min(1.0, len(support) / 40.0)
+        coverage_score = min(1.0, coverage_ratio / 0.75)
+        residual_score = max(0.0, 1.0 - residual / 5.0)
+        confidence = min(0.99, max(0.1, 0.3 * support_score + 0.25 * coverage_score + 0.45 * residual_score))
+        points = [[round(float(point_a[0]), 2), round(float(point_a[1]), 2)], [round(float(point_b[0]), 2), round(float(point_b[1]), 2)]]
+        logical_edges.append({
+            "id": f"LE{index}",
+            "points": points,
+            "support_points": points,
+            "direction": [round(float(fitted_direction[0]), 6), round(float(fitted_direction[1]), 6)],
+            "length_px": round(float(np.linalg.norm(point_b - point_a)), 3),
+            "angle": round(degrees(np.arctan2(float(fitted_direction[1]), float(fitted_direction[0]))), 3),
+            "residual_px": round(residual, 4),
+            "coverage_ratio": round(coverage_ratio, 4),
+            "confidence": round(confidence, 3),
+            "source_candidate_ids": [member.get("id") for member in group],
+            "geometry": {"kind": "outer_span" if contour_points is not None else "line", "points": points},
+        })
+    return logical_edges
 
 
 def _refine_circle_radius(gray, center, radius_px):
@@ -416,14 +587,24 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
     raw_lines = []
-    detector = cv2.createLineSegmentDetector(cv2.LSD_REFINE_STD)
-    detected = detector.detect(gray)[0]
-    if detected is not None:
-        raw_lines.extend((line[0], "lsd") for line in detected)
+    detector = cv2.createLineSegmentDetector(cv2.LSD_REFINE_ADV)
+    detected = detector.detect(gray)
+    detected_lines = detected[0] if detected else None
+    widths = detected[1] if len(detected) > 1 else None
+    precisions = detected[2] if len(detected) > 2 else None
+    nfas = detected[3] if len(detected) > 3 else None
+    if detected_lines is not None:
+        for index, line in enumerate(detected_lines):
+            metadata = {
+                "width_px": float(widths[index][0]) if widths is not None and len(widths) > index else None,
+                "precision": float(precisions[index][0]) if precisions is not None and len(precisions) > index else None,
+                "nfa": float(nfas[index][0]) if nfas is not None and len(nfas) > index else None,
+            }
+            raw_lines.append((line[0], "lsd", metadata))
 
     candidates = []
-    for line, source in raw_lines:
-        candidate = _line_candidate(line, width, height, source)
+    for index, (line, source, metadata) in enumerate(raw_lines, start=1):
+        candidate = _line_candidate(line, width, height, source, f"R{index}", metadata)
         if candidate and candidate["length_px"] >= min_length:
             candidates.append(candidate)
 
@@ -438,13 +619,17 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
             maxLineGap=max(4, int(min_length / 4)),
         )
         if detected is not None:
-            for line in detected[:, 0, :]:
-                candidate = _line_candidate(line, width, height, "hough")
+            for index, line in enumerate(detected[:, 0, :], start=len(candidates) + 1):
+                candidate = _line_candidate(line, width, height, "hough", f"R{index}")
                 if candidate and candidate["length_px"] >= min_length:
                     candidates.append(candidate)
 
     candidates.sort(key=lambda item: item["length_px"], reverse=True)
     candidates = candidates[:100]
+    contour = detect_component_contour(gray)
+    groups = group_line_candidates(candidates, options)
+    edge_map = cv2.Canny(gray, 50, 150)
+    logical_edges = fit_logical_edges(edge_map, contour, groups, options)
     holes = detect_hole_candidates(frame, options) if task_type.startswith("hole_") else []
     calibration_valid = bool(calibration and calibration.get("valid"))
     if not task_view_supported(task_type, view_type):
@@ -469,6 +654,7 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
         "readiness": readiness,
         "reason": reason,
         "candidates": candidates,
+        "logical_edges": logical_edges,
         "holes": holes,
         "task_type": task_type,
         "view_type": view_type,

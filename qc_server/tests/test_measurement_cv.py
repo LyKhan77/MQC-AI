@@ -1,11 +1,56 @@
 import cv2
 import numpy as np
 
-from app.services.measurement import calibrate_reference, detect_hole_candidates, process_image
+from app.services.measurement import (
+    calibrate_reference,
+    detect_hole_candidates,
+    group_line_candidates,
+    process_image,
+)
 
 
 def _calibration():
     return calibrate_reference((0, 0), (100, 0), 50)
+
+
+def test_group_line_candidates_merges_fragmented_collinear_segments():
+    candidates = [
+        {"id": "R1", "points": [[10, 20], [40, 20]], "angle": 0, "length_px": 30},
+        {"id": "R2", "points": [[45, 20.5], [90, 20.5]], "angle": 0.2, "length_px": 45},
+    ]
+
+    assert len(group_line_candidates(candidates)) == 1
+
+
+def test_group_line_candidates_keeps_parallel_boundaries_separate():
+    candidates = [
+        {"id": "R1", "points": [[10, 20], [90, 20]], "angle": 0, "length_px": 80},
+        {"id": "R2", "points": [[10, 35], [90, 35]], "angle": 0, "length_px": 80},
+    ]
+
+    assert len(group_line_candidates(candidates)) == 2
+
+
+def test_process_image_returns_logical_outer_edges_for_rounded_component():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    mask = np.zeros((240, 320), dtype=np.uint8)
+    radius = 20
+    cv2.rectangle(mask, (60 + radius, 40), (260 - radius, 200), 255, -1)
+    cv2.rectangle(mask, (60, 40 + radius), (260, 200 - radius), 255, -1)
+    for center in ((80, 60), (240, 60), (80, 180), (240, 180)):
+        cv2.circle(mask, center, radius, 255, -1)
+    frame[mask > 0] = (255, 255, 255)
+
+    result = process_image(frame, _calibration())
+
+    assert result["logical_edges"]
+    assert len(result["logical_edges"]) <= len(result["candidates"])
+    assert max(edge["length_px"] for edge in result["logical_edges"]) >= 195
+    assert all(
+        0 <= point[0] <= 320 and 0 <= point[1] <= 240
+        for edge in result["logical_edges"]
+        for point in edge["points"]
+    )
 
 
 def test_process_image_returns_line_candidates_for_clear_rectangle():
