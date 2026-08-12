@@ -16,6 +16,7 @@ import {
   evaluateMeasurementItem,
   measureGeometry,
   summarizeMeasurement,
+  validateManualCalibration,
 } from '../utils/measurement.js'
 
 const { t } = useI18n()
@@ -102,21 +103,24 @@ const calibrationPoints = computed({
   set: (value) => { calibrationAxes.value = { ...calibrationAxes.value, x: value } },
 })
 const activeCalibrationPoints = computed(() => calibrationAxes.value[calibrationAxis.value] || [])
-const calibrationReady = computed(() => (
-  calibrationAxes.value.x.length === 2
-  && calibrationAxes.value.y.length === 2
-  && Number(knownMm.value) > 0
-  && Number(knownMmY.value) > 0
-))
+const calibrationValidation = computed(() => validateManualCalibration({
+  axes: calibrationAxes.value,
+  knownX: knownMm.value,
+  knownY: knownMmY.value,
+}))
+const calibrationReady = computed(() => calibrationValidation.value.valid)
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
 const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
   : readiness.value.toUpperCase())
 const canProcess = computed(() => !processing.value && taskSelectionSupported.value && (
+  calibrationReady.value
+  && (
   source.value === 'image' || source.value === 'mobile'
     ? Boolean(selectedFile.value)
     : Boolean(capturedSource.value)
+  )
 ))
 const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
 const taskTypesForProcess = computed(() => selectedTaskTypes.value.length ? selectedTaskTypes.value : ['linear_dimension'])
@@ -181,6 +185,11 @@ function calibrationInput() {
     y: { point_a: yPoints[0], point_b: yPoints[1], known_mm: Number(knownMmY.value) },
   }
 }
+
+const calibrationStateLabel = computed(() => {
+  if (calibrationReady.value) return t('measurement.calibrationReady')
+  return t(`measurement.calibration_${calibrationValidation.value.reason}`)
+})
 
 function clearPreview() {
   previewUrl.value = ''
@@ -1169,7 +1178,7 @@ onBeforeUnmount(() => {
             </div></label>
           </div>
           <p class="calibration-state" :class="{ valid: calibrationReady }">
-            {{ calibrationReady ? t('measurement.calibrationReady') : t('measurement.calibrationPending') }}
+            {{ calibrationStateLabel }}
           </p>
           <div class="calibration-readout">
             <span>{{ t('measurement.scale') }}</span>

@@ -2,6 +2,17 @@ import { apiDelete, apiGet, apiPatch, apiPost } from './client.js'
 
 const BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
+async function throwResponseError(response) {
+  let detail = ''
+  try {
+    const body = await response.json()
+    detail = body?.detail || body?.message || ''
+  } catch {
+    // Keep status-only fallback for empty/non-JSON responses.
+  }
+  throw new Error(`HTTP ${response.status}${detail ? `: ${detail}` : ''}`)
+}
+
 function normalizeTaskTypes(taskTypes, fallback) {
   const values = Array.isArray(taskTypes) && taskTypes.length ? taskTypes : [fallback]
   return [...new Set(values)]
@@ -11,7 +22,7 @@ export async function captureMeasurement({ cameraId }) {
   const fd = new FormData()
   fd.append('camera_id', cameraId)
   const response = await fetch(`${BASE}/measurements/capture`, { method: 'POST', body: fd })
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (!response.ok) await throwResponseError(response)
   return response.json()
 }
 
@@ -32,7 +43,7 @@ export async function processMeasurement({ file, cameraId, sourceKey, sourceFile
   fd.append('calibration', JSON.stringify(calibration || {}))
   fd.append('options', JSON.stringify(options))
   const response = await fetch(`${BASE}/measurements/process`, { method: 'POST', body: fd })
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (!response.ok) await throwResponseError(response)
   return response.json()
 }
 

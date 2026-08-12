@@ -18,6 +18,18 @@ export function normalizeTaskTypes(taskTypes, fallback = 'linear_dimension') {
   return [...new Set(values)]
 }
 
+export function validateManualCalibration({ axes = {}, knownX, knownY } = {}) {
+  const x = Array.isArray(axes.x) ? axes.x : []
+  const y = Array.isArray(axes.y) ? axes.y : []
+  if (x.length !== 2 || y.length !== 2) return { valid: false, reason: 'reference_incomplete' }
+  if (!(Number(knownX) > 0) || !(Number(knownY) > 0)) return { valid: false, reason: 'reference_length_invalid' }
+  if (distance(x[0], x[1]) < 10 || distance(y[0], y[1]) < 10) return { valid: false, reason: 'reference_too_short' }
+  const xAngle = Math.atan2(Math.abs(Number(x[1][1]) - Number(x[0][1])), Math.abs(Number(x[1][0]) - Number(x[0][0]))) * 180 / Math.PI
+  const yAngle = Math.atan2(Math.abs(Number(y[1][1]) - Number(y[0][1])), Math.abs(Number(y[1][0]) - Number(y[0][0]))) * 180 / Math.PI
+  if (xAngle > 10 || yAngle < 80) return { valid: false, reason: 'reference_not_axis_aligned' }
+  return { valid: true, reason: '' }
+}
+
 export function buildBendGeometry(firstEdge, secondEdge) {
   const first = firstEdge?.support_points || firstEdge?.points || []
   const second = secondEdge?.support_points || secondEdge?.points || []

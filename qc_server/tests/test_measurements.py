@@ -299,6 +299,19 @@ def test_process_rejects_invalid_image(client):
     assert response.status_code == 400
 
 
+def test_process_returns_calibration_validation_detail(client):
+    payload = json.loads(_axes_calibration())
+    payload["x"]["point_b"] = [20, 120]
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("bracket.png", _png_bytes(), "image/png")},
+        data={"calibration": json.dumps(payload)},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid calibration: horizontal reference must be within 10 degrees of horizontal"
+
+
 def test_process_rejects_unknown_camera(client):
     response = client.post(
         "/api/measurements/process",

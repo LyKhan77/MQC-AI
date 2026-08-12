@@ -130,6 +130,23 @@ async function mockMeasurementApi(page) {
   })
 }
 
+async function calibrate(page) {
+  const overlay = page.locator('.calibration-overlay')
+  await page.locator('.calibration-draw-button').click()
+  let box = await overlay.boundingBox()
+  await page.mouse.move(box.x + 12, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 12, box.y + box.height / 2)
+  await page.mouse.up()
+
+  await page.locator('.calibration-draw-button-y').click()
+  box = await overlay.boundingBox()
+  await page.mouse.move(box.x + box.width / 2, box.y + 12)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12)
+  await page.mouse.up()
+}
+
 
 test('processes an image, evaluates an edge, and saves the run', async ({ page }) => {
   await mockMeasurementApi(page)
@@ -141,6 +158,7 @@ test('processes an image, evaluates an edge, and saves the run', async ({ page }
     mimeType: 'image/svg+xml',
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
   await expect(page.locator('.measurement-candidate')).toHaveCount(1)
 
@@ -195,14 +213,8 @@ test('stages Live Camera capture before calibration and processing', async ({ pa
 
   await expect(page.locator('.measurement-preview')).toBeVisible()
   await expect(page.locator('.measurement-canvas-tools')).toContainText('cam-1.jpg')
-  await expect(page.locator('.process-measurement')).toBeEnabled()
-  await page.locator('.calibration-draw-button').click()
-  const calibration = page.locator('.calibration-overlay')
-  const box = await calibration.boundingBox()
-  await page.mouse.move(box.x + 10, box.y + box.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width - 10, box.y + box.height / 2)
-  await page.mouse.up()
+  await expect(page.locator('.process-measurement')).toBeDisabled()
+  await calibrate(page)
   await page.locator('.process-measurement').click()
 
   await expect(page.locator('.candidate-strip')).toBeVisible()
@@ -231,10 +243,11 @@ test('keeps measurement overlay aligned while zooming the canvas', async ({ page
   await page.goto('/measurement')
 
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'bracket.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('not-used-by-intercept'),
+    name: 'bracket.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
 
   const frame = page.locator('.measurement-image-frame')
@@ -279,9 +292,7 @@ test('selects a proper hole task and guides profile-only views', async ({ page }
   })
   await page.locator('.measurement-advanced summary').click()
   await page.locator('#task-type').selectOption('hole_diameter')
-  await page.locator('.calibration-draw-button').click()
-  const calibration = page.locator('.calibration-overlay')
-  await calibration.dragTo(calibration, { targetPosition: { x: 120, y: 20 } })
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
 
   await expect(page.locator('.measurement-hole-candidate')).toHaveCount(2)
@@ -298,11 +309,12 @@ test('processes dimension and rounded-corner checks together', async ({ page }) 
   await mockMeasurementApi(page)
   await page.goto('/measurement')
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'rounded.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('not-used-by-intercept'),
+    name: 'rounded.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
   await page.locator('#task-corner').check()
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
   await expect(page.locator('.measurement-corner-candidate')).toHaveCount(2)
   await page.locator('.measurement-corner-candidate').first().click()
@@ -315,14 +327,15 @@ test('processes a profile bend candidate with a 0.5 degree tolerance', async ({ 
   await mockMeasurementApi(page)
   await page.goto('/measurement')
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'profile.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from('not-used-by-intercept'),
+    name: 'profile.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
   await page.locator('.measurement-advanced summary').click()
   await page.locator('#task-type').selectOption('bend_angle')
   await page.locator('#view-type').selectOption('profile')
   await page.locator('#pose-type').selectOption('PROFILE_FACE')
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
   await expect(page.locator('.measurement-bend-candidate')).toHaveCount(2)
   await page.locator('.bend-card').first().click()
@@ -338,11 +351,12 @@ test('stages multiple views and saves then completes a named session', async ({ 
   await page.locator('#session-name').fill('BRKT-SESSION')
   await page.locator('#start-session').click()
   await page.locator('input[type="file"]').setInputFiles([
-    { name: 'top.png', mimeType: 'image/png', buffer: Buffer.from('top') },
-    { name: 'reverse.png', mimeType: 'image/png', buffer: Buffer.from('reverse') },
+    { name: 'top.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>') },
+    { name: 'reverse.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>') },
   ])
   await expect(page.locator('.measurement-view-card')).toHaveCount(2)
   await page.locator('.measurement-view-card').first().click()
+  await calibrate(page)
   await page.getByRole('button', { name: 'Process measurement' }).click()
   await page.locator('.measurement-candidate').click()
   await page.locator('.item-nominal').fill('60')

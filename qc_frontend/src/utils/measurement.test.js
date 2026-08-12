@@ -7,6 +7,7 @@ import {
   measureGeometry,
   normalizeTaskTypes,
   summarizeMeasurement,
+  validateManualCalibration,
 } from './measurement.js'
 
 
@@ -45,6 +46,13 @@ describe('measurement helpers', () => {
       'linear_dimension',
       'bend_angle',
     ])
+  })
+
+  it('rejects incomplete or misaligned dual-axis calibration before processing', () => {
+    expect(validateManualCalibration({ axes: { x: [[0, 0], [100, 0]], y: [] }, knownX: 50, knownY: 50 }))
+      .toEqual({ valid: false, reason: 'reference_incomplete' })
+    expect(validateManualCalibration({ axes: { x: [[0, 0], [0, 100]], y: [[0, 0], [100, 0]] }, knownX: 50, knownY: 50 }))
+      .toEqual({ valid: false, reason: 'reference_not_axis_aligned' })
   })
 
   it('measures a circle geometry from its center and radius', () => {

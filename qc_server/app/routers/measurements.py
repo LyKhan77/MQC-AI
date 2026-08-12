@@ -93,7 +93,7 @@ def _calibration_from_payload(payload: dict):
         known_mm = payload["known_mm"]
         result = calibrate_reference(point_a, point_b, known_mm)
     except (KeyError, TypeError, ValueError) as exc:
-        raise HTTPException(400, "invalid calibration") from exc
+        raise HTTPException(400, f"invalid calibration: {exc}") from exc
     return {**result, "point_a": point_a, "point_b": point_b}
 
 

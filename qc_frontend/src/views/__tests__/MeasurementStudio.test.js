@@ -90,6 +90,21 @@ async function stage(wrapper, files = [file()]) {
   await input.trigger('change')
 }
 
+async function calibrate(wrapper) {
+  wrapper.vm.previewWidth = 160
+  wrapper.vm.previewHeight = 120
+  const overlay = wrapper.find('.calibration-overlay')
+  overlay.element.getBoundingClientRect = () => ({ left: 0, top: 0, width: 160, height: 120 })
+  await wrapper.find('.calibration-draw-button').trigger('click')
+  await overlay.trigger('mousedown', { button: 0, clientX: 20, clientY: 60 })
+  await overlay.trigger('mousemove', { clientX: 140, clientY: 60 })
+  await overlay.trigger('mouseup', { clientX: 140, clientY: 60 })
+  await wrapper.find('.calibration-draw-button-y').trigger('click')
+  await overlay.trigger('mousedown', { button: 0, clientX: 80, clientY: 20 })
+  await overlay.trigger('mousemove', { clientX: 80, clientY: 100 })
+  await overlay.trigger('mouseup', { clientX: 80, clientY: 100 })
+}
+
 describe('MeasurementStudio', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -132,10 +147,20 @@ describe('MeasurementStudio', () => {
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
   })
 
+  it('blocks processing until both calibration axes are valid', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+
+    expect(wrapper.find('.process-measurement').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('measurement.calibration_reference_incomplete')
+    expect(mocks.processMeasurement).not.toHaveBeenCalled()
+  })
+
   it('processes only selected second view', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper, [file('top.png'), file('reverse.png')])
     await wrapper.findAll('.measurement-view-card')[0].trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -168,6 +193,7 @@ describe('MeasurementStudio', () => {
     await wrapper.find('#start-session').trigger('click')
     await flushPromises()
     await stage(wrapper)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-candidate').trigger('click')
@@ -262,6 +288,7 @@ describe('MeasurementStudio', () => {
     })
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
+    await calibrate(wrapper)
 
     expect(wrapper.find('.calibration-draw-button-y').exists()).toBe(true)
     await wrapper.find('.process-measurement').trigger('click')
@@ -295,6 +322,7 @@ describe('MeasurementStudio', () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
     await wrapper.find('#task-corner').setValue(true)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -329,6 +357,7 @@ describe('MeasurementStudio', () => {
     await wrapper.find('#task-type').setValue('bend_angle')
     await wrapper.find('#view-type').setValue('profile')
     await wrapper.find('#pose-type').setValue('PROFILE_FACE')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-bend-candidate').trigger('click')
@@ -343,7 +372,7 @@ describe('MeasurementStudio', () => {
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('hole_diameter')
     await wrapper.find('#view-type').setValue('top')
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -357,7 +386,7 @@ describe('MeasurementStudio', () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('hole_diameter')
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-hole-candidate').trigger('click')
@@ -370,7 +399,7 @@ describe('MeasurementStudio', () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('hole_center_distance')
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.findAll('.measurement-hole-candidate')[0].trigger('click')
@@ -384,7 +413,7 @@ describe('MeasurementStudio', () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('hole_center_to_edge')
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.findAll('.measurement-hole-candidate')[0].trigger('click')
@@ -413,6 +442,7 @@ describe('MeasurementStudio', () => {
   it('processes an uploaded image and renders candidate edges', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -424,6 +454,7 @@ describe('MeasurementStudio', () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
     await wrapper.find('#task-type').setValue('inclination')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-candidate').trigger('click')
@@ -447,6 +478,7 @@ describe('MeasurementStudio', () => {
     await wrapper.find('#task-type').setValue('bend_angle')
     await wrapper.find('#view-type').setValue('profile')
     await wrapper.find('#pose-type').setValue('PROFILE_FACE')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.findAll('.measurement-candidate')[0].trigger('click')
@@ -459,6 +491,7 @@ describe('MeasurementStudio', () => {
   it('keeps the image and overlay in one zoomable frame', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -487,7 +520,7 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.measurement-preview').exists()).toBe(true)
     expect(wrapper.text()).toContain('cam-1.jpg')
 
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
 
@@ -552,9 +585,9 @@ describe('MeasurementStudio', () => {
     expect(wrapper.vm.localFileName).toBe('mobile.jpg')
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
     expect(wrapper.find('.measurement-preview').exists()).toBe(true)
-    expect(wrapper.find('.process-measurement').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('.process-measurement').attributes('disabled')).toBeDefined()
 
-    await wrapper.find('.calibration-draw-button').trigger('click')
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
@@ -570,6 +603,7 @@ describe('MeasurementStudio', () => {
   it('evaluates a selected edge with editable per-item tolerance', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-candidate').trigger('click')
@@ -585,6 +619,7 @@ describe('MeasurementStudio', () => {
   it('saves the evaluated measurement run', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
+    await calibrate(wrapper)
     await wrapper.find('.process-measurement').trigger('click')
     await flushPromises()
     await wrapper.find('.measurement-candidate').trigger('click')

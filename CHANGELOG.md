@@ -47,6 +47,19 @@ Each entry contains:
 - Measurement Studio Playwright suite: `10 passed`.
 - Focused dummy `img5` smoke confirms logical edge processing and reduces bend candidates after finite-support filtering; physical accuracy remains unqualified.
 
+## [Unreleased] - 2026-08-12 - Inspect Measurement Calibration 400 Guard
+
+### Changed
+
+- Measurement Studio disables **Process measurement** until both X/Y reference lines, positive known lengths, minimum line length, and axis alignment are valid.
+- Calibration state now shows actionable Indonesian/English guidance instead of allowing an invalid request to reach the API.
+- Measurement process/capture errors now include FastAPI `detail` in the UI message; calibration validation errors include the failing rule.
+
+### Verification
+
+- Frontend `201 passed`, production build passed, Measurement Studio E2E `10 passed`.
+- Backend `245 passed`, including calibration validation detail regression.
+
 ## [Unreleased] - 2026-08-12 - Inspect Measurement Development Station Guide
 
 ### Added

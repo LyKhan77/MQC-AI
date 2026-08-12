@@ -47,6 +47,19 @@ describe('measurements api', () => {
     expect(JSON.parse(options.body.get('calibration')).known_mm).toBe(5)
   })
 
+  it('surfaces process validation detail from the backend', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ detail: 'invalid calibration: x reference is too short' }),
+    }))
+
+    await expect(processMeasurement({
+      file: new File(['image'], 'sample.png', { type: 'image/png' }),
+      calibration: {},
+    })).rejects.toThrow('HTTP 400: invalid calibration: x reference is too short')
+  })
+
   it('sends the proper task and view type with the process request', async () => {
     const fetchMock = ok({ source_type: 'image' })
     vi.stubGlobal('fetch', fetchMock)
