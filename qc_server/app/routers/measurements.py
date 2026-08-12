@@ -26,7 +26,9 @@ from ..schemas import (
     MeasurementSessionPatch,
 )
 from ..services.measurement import (
+    calibrate_axes,
     calibrate_reference,
+    calibration_verdict_eligible,
     evaluate_item,
     measure_geometry,
     pose_task_supported,
@@ -82,6 +84,8 @@ def _json_form(value: str, field: str, default=None):
 
 def _calibration_from_payload(payload: dict):
     try:
+        if payload.get("mode") == "manual_axes":
+            return calibrate_axes(payload["x"], payload["y"], payload.get("source", ""))
         point_a = payload["point_a"]
         point_b = payload["point_b"]
         known_mm = payload["known_mm"]
@@ -413,6 +417,10 @@ def _summary(items: list[dict]):
 def _evaluate_items(items, calibration):
     result = []
     calibration_valid = bool(calibration.get("valid"))
+    verdict_eligible = calibration_verdict_eligible(calibration)
+    calibration_reason = "" if verdict_eligible else (
+        "reference_not_independent" if calibration.get("source") == "component_demo" else "invalid_calibration"
+    )
     for item in items:
         data = item.model_dump() if hasattr(item, "model_dump") else dict(item)
         item_type = data.get("task_type") or data["type"]
@@ -426,9 +434,10 @@ def _evaluate_items(items, calibration):
             nominal=data.get("nominal"),
             tolerance=data.get("tolerance"),
             confidence=float(data.get("confidence", 0)),
-            calibration_valid=calibration_valid,
+            calibration_valid=calibration_valid and verdict_eligible,
             task_type=item_type,
             view_type=data.get("view_type", "top"),
+            calibration_reason=calibration_reason,
         )
         result.append({
             **data,

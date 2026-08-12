@@ -1,4 +1,4 @@
-from math import acos, degrees, hypot
+from math import acos, atan2, degrees, hypot
 
 import cv2
 import numpy as np
@@ -61,13 +61,80 @@ def calibrate_reference(point_a, point_b, known_mm):
     }
 
 
-def _calibration_scale(calibration):
+def _reference_payload(reference, axis):
+    if not isinstance(reference, dict):
+        raise ValueError(f"{axis} reference is required")
+    point_a = reference.get("point_a")
+    point_b = reference.get("point_b")
+    known_mm = float(reference.get("known_mm", 0))
+    reference_px = _distance(point_a, point_b)
+    if reference_px < 10:
+        raise ValueError(f"{axis} reference is too short")
+    angle = degrees(atan2(abs(_point(point_b)[1] - _point(point_a)[1]), abs(_point(point_b)[0] - _point(point_a)[0])))
+    if axis == "x" and angle > 10:
+        raise ValueError("horizontal reference must be within 10 degrees of horizontal")
+    if axis == "y" and angle < 80:
+        raise ValueError("vertical reference must be within 10 degrees of vertical")
+    if known_mm <= 0:
+        raise ValueError("known length must be positive")
+    return {
+        "point_a": [float(_point(point_a)[0]), float(_point(point_a)[1])],
+        "point_b": [float(_point(point_b)[0]), float(_point(point_b)[1])],
+        "known_mm": known_mm,
+        "reference_px": reference_px,
+    }
+
+
+def calibrate_axes(x_reference, y_reference, source):
+    if source not in {"independent_artifact", "component_demo"}:
+        raise ValueError("invalid calibration source")
+    x = _reference_payload(x_reference, "x")
+    y = _reference_payload(y_reference, "y")
+    scale_x = x["known_mm"] / x["reference_px"]
+    scale_y = y["known_mm"] / y["reference_px"]
+    return {
+        "mode": "manual_axes",
+        "source": source,
+        "x": x,
+        "y": y,
+        "scale_x_mm_per_px": scale_x,
+        "scale_y_mm_per_px": scale_y,
+        "valid": True,
+        "verdict_eligible": source == "independent_artifact",
+    }
+
+
+def calibration_scales(calibration):
     if not calibration or not calibration.get("valid"):
         raise ValueError("invalid calibration")
-    scale = float(calibration.get("mm_per_pixel", 0))
-    if scale <= 0:
+    if calibration.get("mode") == "manual_axes":
+        scale_x = float(calibration.get("scale_x_mm_per_px", 0))
+        scale_y = float(calibration.get("scale_y_mm_per_px", 0))
+    else:
+        scale_x = scale_y = float(calibration.get("mm_per_pixel", 0))
+    if scale_x <= 0 or scale_y <= 0:
         raise ValueError("invalid calibration scale")
-    return scale
+    return scale_x, scale_y
+
+
+def scaled_distance(point_a, point_b, calibration):
+    ax, ay = _point(point_a)
+    bx, by = _point(point_b)
+    scale_x, scale_y = calibration_scales(calibration)
+    return hypot((bx - ax) * scale_x, (by - ay) * scale_y)
+
+
+def calibration_verdict_eligible(calibration):
+    if not calibration or not calibration.get("valid"):
+        return False
+    if calibration.get("mode") == "manual_axes":
+        return calibration.get("source") == "independent_artifact"
+    return True
+
+
+def _calibration_scale(calibration):
+    scale_x, scale_y = calibration_scales(calibration)
+    return (scale_x + scale_y) / 2
 
 
 def task_requires_profile(task_type):
@@ -240,7 +307,7 @@ def measure_geometry(item_type, points, calibration, geometry=None):
         raise ValueError("linear measurement requires two points")
     pixel_value = _distance(points[0], points[1])
     if item_type in LINEAR_TYPES or item_type == "hole_center_distance":
-        value = pixel_value * scale
+        value = scaled_distance(points[0], points[1], calibration)
     elif item_type == "hole_diameter":
         value = pixel_value * scale * 2
     else:
@@ -408,7 +475,17 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     }
 
 
-def evaluate_item(measured, unit, nominal, tolerance, confidence, calibration_valid, task_type=None, view_type="top"):
+def evaluate_item(
+    measured,
+    unit,
+    nominal,
+    tolerance,
+    confidence,
+    calibration_valid,
+    task_type=None,
+    view_type="top",
+    calibration_reason="invalid_calibration",
+):
     if nominal is None or tolerance is None:
         return {
             "measured": measured,
@@ -430,7 +507,7 @@ def evaluate_item(measured, unit, nominal, tolerance, confidence, calibration_va
         reason = "unsupported_view"
     elif not calibration_valid:
         status = "REVIEW"
-        reason = "invalid_calibration"
+        reason = calibration_reason
     elif confidence < MIN_CONFIDENCE:
         status = "REVIEW"
         reason = "low_confidence"

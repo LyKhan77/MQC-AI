@@ -5,11 +5,14 @@ import pytest
 from app.services.measurement import (
     SUPPORTED_TASK_TYPES,
     SUPPORTED_VIEW_TYPES,
+    calibrate_axes,
     calibrate_reference,
+    calibration_verdict_eligible,
     evaluate_item,
     measure_geometry,
     pose_task_supported,
     profile_supports_measurement,
+    scaled_distance,
     task_requires_profile,
     task_view_supported,
     validate_measurement_profile,
@@ -32,6 +35,48 @@ def test_calibrate_reference_converts_pixels_to_mm():
 def test_calibrate_reference_rejects_invalid_reference(point_a, point_b, known_mm):
     with pytest.raises(ValueError):
         calibrate_reference(point_a, point_b, known_mm)
+
+
+def test_calibrate_axes_builds_independent_xy_scales():
+    result = calibrate_axes(
+        {"point_a": [0, 4], "point_b": [100, 4], "known_mm": 50},
+        {"point_a": [8, 0], "point_b": [8, 200], "known_mm": 80},
+        "independent_artifact",
+    )
+
+    assert result["scale_x_mm_per_px"] == 0.5
+    assert result["scale_y_mm_per_px"] == 0.4
+    assert result["verdict_eligible"] is True
+
+
+def test_scaled_distance_uses_both_axes():
+    calibration = calibrate_axes(
+        {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 25},
+        "independent_artifact",
+    )
+
+    assert scaled_distance([0, 0], [6, 8], calibration) == pytest.approx(3.605551275463989)
+
+
+def test_component_reference_is_valid_but_not_verdict_eligible():
+    result = calibrate_axes(
+        {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+        "component_demo",
+    )
+
+    assert result["valid"] is True
+    assert calibration_verdict_eligible(result) is False
+
+
+def test_calibrate_axes_rejects_wrong_axis_direction():
+    with pytest.raises(ValueError, match="horizontal"):
+        calibrate_axes(
+            {"point_a": [0, 0], "point_b": [50, 50], "known_mm": 50},
+            {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+            "independent_artifact",
+        )
 
 
 def test_measure_geometry_returns_linear_mm_value():
