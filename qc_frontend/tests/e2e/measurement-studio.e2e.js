@@ -22,11 +22,36 @@ const processed = {
   readiness: 'ready',
   reason: '',
   candidates: [{
+    id: 'LE1',
     points: [[20, 30], [140, 30]],
+    support_points: [[20, 30], [140, 30]],
     length_px: 120,
     angle: 0,
     confidence: 0.95,
     source: 'lsd',
+  }],
+  logical_edges: [{
+    id: 'LE1',
+    points: [[20, 30], [140, 30]],
+    support_points: [[20, 30], [140, 30]],
+    length_px: 120,
+    confidence: 0.95,
+  }],
+  corner_arcs: [{
+    id: 'C1',
+    center: [20, 30],
+    radius_px: 10,
+    radius_mm: 5,
+    points: [[20, 20], [30, 30]],
+    coverage_deg: 90,
+    confidence: 0.92,
+    geometry: { kind: 'corner_arc', center: [20, 30], radius_mm: 5, points: [[20, 20], [30, 30]] },
+  }],
+  bend_candidates: [{
+    id: 'B1',
+    angle_deg: 135,
+    confidence: 0.9,
+    geometry: { kind: 'bend_angle', vertex: [80, 40], ray_a: [30, 100], ray_b: [140, 100], angle_deg: 135 },
   }],
   holes: [
     { center: [40, 30], radius_px: 10, diameter_px: 20, confidence: 0.94, source: 'hough_circle_alt' },
@@ -222,7 +247,7 @@ test('keeps measurement overlay aligned while zooming the canvas', async ({ page
   })
   expect(bounds.overlay.width).toBeCloseTo(bounds.image.width, 0)
   expect(bounds.overlay.height).toBeCloseTo(bounds.image.height, 0)
-  await expect(frame.locator('.measurement-line').first()).toHaveCSS('stroke-width', '3px')
+  await expect(frame.locator('.measurement-line').first()).toHaveCSS('stroke-width', '2.5px')
   await expect(page.locator('.measurement-zoom-value')).toHaveText('100%')
 
   await page.locator('.measurement-zoom-in').click()
@@ -252,6 +277,7 @@ test('selects a proper hole task and guides profile-only views', async ({ page }
     mimeType: 'image/svg+xml',
     buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="white"/></svg>'),
   })
+  await page.locator('.measurement-advanced summary').click()
   await page.locator('#task-type').selectOption('hole_diameter')
   await page.locator('.calibration-draw-button').click()
   const calibration = page.locator('.calibration-overlay')
@@ -265,6 +291,43 @@ test('selects a proper hole task and guides profile-only views', async ({ page }
   await page.locator('#task-type').selectOption('thickness_profile')
   await page.locator('#view-type').selectOption('top')
   await expect(page.locator('.task-warning').first()).toBeVisible()
+})
+
+
+test('processes dimension and rounded-corner checks together', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'rounded.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('not-used-by-intercept'),
+  })
+  await page.locator('#task-corner').check()
+  await page.getByRole('button', { name: 'Process measurement' }).click()
+  await expect(page.locator('.measurement-corner-candidate')).toHaveCount(2)
+  await page.locator('.measurement-corner-candidate').first().click()
+  await expect(page.locator('.measurement-item')).toContainText('5.00')
+  await expect(page.locator('.item-tolerance')).toHaveValue('2')
+})
+
+
+test('processes a profile bend candidate with a 0.5 degree tolerance', async ({ page }) => {
+  await mockMeasurementApi(page)
+  await page.goto('/measurement')
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'profile.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('not-used-by-intercept'),
+  })
+  await page.locator('.measurement-advanced summary').click()
+  await page.locator('#task-type').selectOption('bend_angle')
+  await page.locator('#view-type').selectOption('profile')
+  await page.locator('#pose-type').selectOption('PROFILE_FACE')
+  await page.getByRole('button', { name: 'Process measurement' }).click()
+  await expect(page.locator('.measurement-bend-candidate')).toHaveCount(2)
+  await page.locator('.bend-card').first().click()
+  await expect(page.locator('.measurement-item')).toContainText('135.00')
+  await expect(page.locator('.item-tolerance')).toHaveValue('0.5')
 })
 
 

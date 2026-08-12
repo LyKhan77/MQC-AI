@@ -18,6 +18,40 @@ export function normalizeTaskTypes(taskTypes, fallback = 'linear_dimension') {
   return [...new Set(values)]
 }
 
+export function buildBendGeometry(firstEdge, secondEdge) {
+  const first = firstEdge?.support_points || firstEdge?.points || []
+  const second = secondEdge?.support_points || secondEdge?.points || []
+  if (first.length < 2 || second.length < 2) throw new Error('bend edges require two support points')
+  if (firstEdge.id && firstEdge.id === secondEdge.id) throw new Error('bend edges must be different')
+  const firstA = first[0]
+  const firstB = first.at(-1)
+  const secondA = second[0]
+  const secondB = second.at(-1)
+  const firstDirection = [Number(firstB[0]) - Number(firstA[0]), Number(firstB[1]) - Number(firstA[1])]
+  const secondDirection = [Number(secondB[0]) - Number(secondA[0]), Number(secondB[1]) - Number(secondA[1])]
+  const determinant = firstDirection[0] * secondDirection[1] - firstDirection[1] * secondDirection[0]
+  if (Math.abs(determinant) < 1e-6) throw new Error('bend support lines are parallel')
+  const offset = [Number(secondA[0]) - Number(firstA[0]), Number(secondA[1]) - Number(firstA[1])]
+  const parameter = (offset[0] * secondDirection[1] - offset[1] * secondDirection[0]) / determinant
+  const vertex = [Number(firstA[0]) + parameter * firstDirection[0], Number(firstA[1]) + parameter * firstDirection[1]]
+  const rayA = [(Number(firstA[0]) + Number(firstB[0])) / 2, (Number(firstA[1]) + Number(firstB[1])) / 2]
+  const rayB = [(Number(secondA[0]) + Number(secondB[0])) / 2, (Number(secondA[1]) + Number(secondB[1])) / 2]
+  const firstRay = [rayA[0] - vertex[0], rayA[1] - vertex[1]]
+  const secondRay = [rayB[0] - vertex[0], rayB[1] - vertex[1]]
+  const firstLength = Math.hypot(...firstRay)
+  const secondLength = Math.hypot(...secondRay)
+  if (!firstLength || !secondLength) throw new Error('bend support rays are too short')
+  const cosine = Math.max(-1, Math.min(1, (firstRay[0] * secondRay[0] + firstRay[1] * secondRay[1]) / (firstLength * secondLength)))
+  return {
+    kind: 'bend_angle',
+    vertex,
+    ray_a: rayA,
+    ray_b: rayB,
+    logical_edge_ids: [firstEdge.id, secondEdge.id],
+    angle_deg: Math.acos(cosine) * 180 / Math.PI,
+  }
+}
+
 function distance(a, b) {
   return Math.hypot(Number(b[0]) - Number(a[0]), Number(b[1]) - Number(a[1]))
 }
@@ -42,6 +76,16 @@ function angle(points) {
 }
 
 export function measureGeometry(type, points, calibration = {}, geometry = null) {
+  if (type === 'corner_radius' && geometry?.kind === 'corner_arc') {
+    const value = Number(geometry.radius_mm)
+    if (!(value > 0)) throw new Error('corner radius must be positive')
+    return { value, unit: 'mm', pixel_value: null, geometry }
+  }
+  if (type === 'bend_angle' && geometry?.kind === 'bend_angle') {
+    const value = Number(geometry.angle_deg)
+    if (!(value >= 0 && value <= 180)) throw new Error('bend angle must be between 0 and 180 degrees')
+    return { value, unit: 'deg', pixel_value: null, geometry }
+  }
   if (type === 'angle' || type === 'bend_angle') {
     if (points.length !== 4) throw new Error('angle requires four points')
     return { value: angle(points), unit: 'deg', pixel_value: null }
@@ -88,7 +132,7 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
   return { value: Math.hypot(dx, dy) * multiplier, unit: 'mm', pixel_value: pixelValue }
 }
 
-export function evaluateMeasurementItem(item, calibrationValid) {
+export function evaluateMeasurementItem(item, calibrationValid, calibrationReason = 'invalid_calibration') {
   const measured = Number(item.measured)
   const nominal = item.nominal === null || item.nominal === undefined || item.nominal === '' ? null : Number(item.nominal)
   const tolerance = item.tolerance === null || item.tolerance === undefined || item.tolerance === '' ? null : Number(item.tolerance)
@@ -99,7 +143,8 @@ export function evaluateMeasurementItem(item, calibrationValid) {
   if (tolerance < 0) throw new Error('tolerance must be non-negative')
   const min = nominal - tolerance
   const max = nominal + tolerance
-  if (!calibrationValid) return { ...base, min, max, deviation: measured - nominal, status: 'REVIEW', reason: 'invalid_calibration' }
+  if (item.quality_reason) return { ...base, min, max, deviation: measured - nominal, status: 'REVIEW', reason: item.quality_reason }
+  if (!calibrationValid) return { ...base, min, max, deviation: measured - nominal, status: 'REVIEW', reason: calibrationReason }
   if (Number(item.confidence ?? 0) < MIN_CONFIDENCE) return { ...base, min, max, deviation: measured - nominal, status: 'REVIEW', reason: 'low_confidence' }
   const status = measured >= min && measured <= max ? 'PASS' : 'FAIL'
   return { ...base, min, max, deviation: measured - nominal, status, reason: status === 'PASS' ? '' : 'outside_tolerance' }

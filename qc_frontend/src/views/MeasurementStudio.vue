@@ -56,6 +56,7 @@ const selectedCameraId = ref('')
 const knownMm = ref(50)
 const knownMmY = ref(50)
 const taskType = ref('linear_dimension')
+const selectedTaskTypes = ref(['linear_dimension'])
 const viewType = ref('top')
 const viewLabel = ref('')
 const poseType = ref('TOP_FACE')
@@ -112,12 +113,17 @@ const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
   : readiness.value.toUpperCase())
-const canProcess = computed(() => !processing.value && taskViewSupported.value && (
+const canProcess = computed(() => !processing.value && taskSelectionSupported.value && (
   source.value === 'image' || source.value === 'mobile'
     ? Boolean(selectedFile.value)
     : Boolean(capturedSource.value)
 ))
 const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
+const taskTypesForProcess = computed(() => selectedTaskTypes.value.length ? selectedTaskTypes.value : ['linear_dimension'])
+const cornerTaskSelected = computed(() => taskTypesForProcess.value.includes('corner_radius'))
+const bendTaskSelected = computed(() => taskTypesForProcess.value.includes('bend_angle'))
+const taskSelectionRequiresProfile = computed(() => taskTypesForProcess.value.some((type) => ['thickness_profile', 'bend_angle'].includes(type)))
+const taskSelectionSupported = computed(() => !taskSelectionRequiresProfile.value || (viewType.value !== 'top' && poseType.value === 'PROFILE_FACE'))
 const taskNeedsEdgeCandidate = computed(() => taskType.value === 'hole_center_to_edge')
 const taskRequiresProfile = computed(() => ['thickness_profile', 'bend_angle'].includes(taskType.value))
 const poseSupported = computed(() => !taskRequiresProfile.value || poseType.value === 'PROFILE_FACE')
@@ -141,6 +147,13 @@ const filteredSessions = computed(() => {
 })
 const logicalEdges = computed(() => processed.value?.logical_edges || [])
 const visibleCandidates = computed(() => logicalEdges.value.length ? logicalEdges.value : (processed.value?.candidates || []))
+const cornerCandidates = computed(() => processed.value?.corner_arcs || [])
+const bendCandidates = computed(() => processed.value?.bend_candidates || [])
+const selectionGuidance = computed(() => [
+  taskTypesForProcess.value.includes('linear_dimension') ? t('measurement.selectEdgeHint') : '',
+  taskTypesForProcess.value.includes('corner_radius') ? t('measurement.selectCornerHint') : '',
+  taskTypesForProcess.value.includes('bend_angle') ? t('measurement.selectBendHint') : '',
+].filter(Boolean).join(' · '))
 const calibrationReferences = computed(() => {
   const calibration = processed.value?.calibration || {}
   if (calibration.mode === 'manual_axes') {
@@ -163,7 +176,7 @@ function calibrationInput() {
   const yPoints = calibrationAxes.value.y.length === 2 ? calibrationAxes.value.y : [[20, 20], [20, 120]]
   return {
     mode: 'manual_axes',
-    source: 'independent_artifact',
+    source: calibrationReady.value ? 'independent_artifact' : 'component_demo',
     x: { point_a: xPoints[0], point_b: xPoints[1], known_mm: Number(knownMm.value) },
     y: { point_a: yPoints[0], point_b: yPoints[1], known_mm: Number(knownMmY.value) },
   }
@@ -187,6 +200,7 @@ function resetStagedMeasurement() {
   showCalibrationReference.value = true
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
+  selectedTaskTypes.value = ['linear_dimension']
 }
 
 function syncActiveView() {
@@ -197,7 +211,7 @@ function syncActiveView() {
     sourceType: processed.value?.source_type || selectedView.value?.sourceType || source.value,
     sourceCameraId: processed.value?.source_camera_id || selectedView.value?.sourceCameraId || null,
     taskType: taskType.value,
-    taskTypes: [taskType.value],
+    taskTypes: taskTypesForProcess.value,
     viewType: viewType.value,
     viewLabel: viewLabel.value,
     poseType: poseType.value,
@@ -241,6 +255,9 @@ function loadActiveView(view = selectedView.value) {
   previewWidth.value = view.width || 1
   previewHeight.value = view.height || 1
   taskType.value = view.taskType || 'linear_dimension'
+  selectedTaskTypes.value = view.taskTypes?.length
+    ? [...view.taskTypes]
+    : view.processed?.task_types?.length ? [...view.processed.task_types] : [taskType.value]
   viewType.value = view.viewType || 'top'
   viewLabel.value = view.viewLabel || ''
   poseType.value = view.poseType || 'TOP_FACE'
@@ -312,6 +329,10 @@ async function saveCurrentView() {
       pose_type: view.poseType,
       scale_profile_id: view.scaleProfileId,
       calibration: view.processed?.calibration || calibrationInput(),
+      processing: {
+        task_readiness: view.processed?.task_readiness || {},
+        calibration_quality: view.processed?.calibration_quality || {},
+      },
       items: view.items || items.value,
     })
     showToast(t('measurement.viewSaved'))
@@ -335,6 +356,18 @@ function startCalibration(axis = 'x') {
   calibrationAxes.value = { ...calibrationAxes.value, [axis]: [] }
   calibrationMode.value = true
   errorMessage.value = ''
+}
+
+function onTaskTypeChange() {
+  selectedTaskTypes.value = [taskType.value]
+}
+
+function toggleTaskType(type, checked) {
+  const next = selectedTaskTypes.value.filter((value) => value !== type)
+  if (checked) next.push(type)
+  if (!next.length) next.push('linear_dimension')
+  selectedTaskTypes.value = [...new Set(next)]
+  if (!selectedTaskTypes.value.includes(taskType.value)) taskType.value = selectedTaskTypes.value[0]
 }
 
 function previewPoint(event) {
@@ -400,7 +433,7 @@ function onPreviewLoad(event) {
 }
 
 async function runMeasurement(input) {
-  if (!taskViewSupported.value) return
+  if (!taskSelectionSupported.value) return
   processing.value = true
   errorMessage.value = ''
   readOnly.value = false
@@ -409,7 +442,7 @@ async function runMeasurement(input) {
       ...input,
       calibration: calibrationInput(),
       taskType: taskType.value,
-      taskTypes: [taskType.value],
+      taskTypes: taskTypesForProcess.value,
       viewType: viewType.value,
       viewLabel: viewLabel.value,
       poseType: poseType.value,
@@ -654,6 +687,66 @@ function selectCandidate(candidate, index) {
   evaluated.value = false
 }
 
+function addMeasurementItem({ id, type, label, measured, geometry, points, confidence, unit = 'mm', tolerance = 2, qualityReason = '' }) {
+  items.value.push({
+    id: `${id}${items.value.length + 1}`,
+    type,
+    task_type: type,
+    view_type: viewType.value,
+    label,
+    points: points || [],
+    geometry,
+    measured,
+    unit,
+    pixel_value: null,
+    nominal: null,
+    tolerance,
+    confidence,
+    quality_reason: qualityReason,
+    status: 'REVIEW',
+    reason: 'missing_nominal_or_tolerance',
+  })
+  evaluated.value = false
+}
+
+function selectCorner(candidate) {
+  if (readOnly.value || !processed.value) return
+  const geometry = candidate.geometry || {
+    kind: 'corner_arc',
+    center: candidate.center,
+    radius_mm: candidate.radius_mm,
+    points: candidate.points || [],
+  }
+  const measured = measureGeometry('corner_radius', [], processed.value.calibration, geometry)
+  addMeasurementItem({
+    id: 'C',
+    type: 'corner_radius',
+    label: `Corner ${candidate.id || 'C'}`,
+    measured: measured.value,
+    geometry: measured.geometry,
+    points: candidate.points,
+    confidence: candidate.confidence,
+    qualityReason: candidate.review_reason || '',
+  })
+}
+
+function selectBend(candidate) {
+  if (readOnly.value || !processed.value) return
+  const measured = measureGeometry('bend_angle', [], processed.value.calibration, candidate.geometry)
+  addMeasurementItem({
+    id: 'B',
+    type: 'bend_angle',
+    label: `Bend ${candidate.id || 'B'}`,
+    measured: measured.value,
+    geometry: measured.geometry,
+    points: [candidate.geometry.vertex, candidate.geometry.ray_a, candidate.geometry.vertex, candidate.geometry.ray_b],
+    confidence: candidate.confidence,
+    unit: 'deg',
+    tolerance: 0.5,
+    qualityReason: candidate.review_reason || '',
+  })
+}
+
 function selectHole(candidate, index) {
   if (readOnly.value || !processed.value) return
   if (taskType.value === 'hole_center_distance' || taskType.value === 'hole_edge_distance') {
@@ -760,9 +853,17 @@ function removeItem(index) {
 function evaluate() {
   if (!canEvaluate.value) return
   const calibrationValid = processed.value.calibration_quality?.verdict_eligible ?? processed.value.calibration?.valid
-  items.value = items.value.map((item) => evaluateMeasurementItem(item, calibrationValid))
+  const calibrationReason = processed.value.calibration?.source === 'component_demo'
+    ? 'reference_not_independent'
+    : 'invalid_calibration'
+  items.value = items.value.map((item) => evaluateMeasurementItem(item, calibrationValid, calibrationReason))
   evaluated.value = true
   log('MEASUREMENT_EVALUATED', `${runName.value || processed.value.source_filename}:${summaryStatus.value}`)
+}
+
+function reasonLabel(reason) {
+  const known = new Set(['reference_not_independent', 'arc_coverage_low', 'arc_residual_high', 'no_usable_corner', 'no_usable_bend'])
+  return known.has(reason) ? t(`measurement.reason_${reason}`) : reason
 }
 
 async function save() {
@@ -777,6 +878,10 @@ async function save() {
       calibration: processed.value.calibration,
       task_type: taskType.value,
       task_types: [taskType.value],
+      processing: {
+        task_readiness: processed.value.task_readiness || {},
+        calibration_quality: processed.value.calibration_quality || {},
+      },
       items: items.value,
     })
     await loadHistory()
@@ -816,6 +921,9 @@ async function openSession(item) {
 function openRun(run) {
   runName.value = run.name
   taskType.value = run.processing?.task_type || run.items?.[0]?.task_type || run.items?.[0]?.type || 'linear_dimension'
+  selectedTaskTypes.value = run.processing?.task_types?.length
+    ? [...run.processing.task_types]
+    : [taskType.value]
   viewType.value = run.processing?.view_type || run.items?.[0]?.view_type || 'top'
   viewLabel.value = run.view_label || ''
   poseType.value = run.pose_type || 'TOP_FACE'
@@ -837,6 +945,12 @@ function openRun(run) {
     readiness: run.summary.status === 'PASS' ? 'ready' : 'review',
     reason: '',
     candidates: [],
+    logical_edges: [],
+    corner_arcs: [],
+    bend_candidates: [],
+    task_types: selectedTaskTypes.value,
+    task_readiness: {},
+    calibration_quality: {},
   }
   items.value = run.items || []
   evaluated.value = true
@@ -912,19 +1026,6 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="task-grid">
-            <label class="field-label" for="task-type">
-              {{ t('measurement.taskType') }}
-              <select id="task-type" v-model="taskType">
-                <option value="linear_dimension">{{ t('measurement.taskLinear') }}</option>
-                <option value="thickness_profile">{{ t('measurement.taskThickness') }}</option>
-                <option value="bend_angle">{{ t('measurement.taskBend') }}</option>
-                <option value="inclination">{{ t('measurement.taskInclination') }}</option>
-                <option value="hole_diameter">{{ t('measurement.taskHoleDiameter') }}</option>
-                <option value="hole_center_distance">{{ t('measurement.taskHolePitch') }}</option>
-                <option value="hole_edge_distance">{{ t('measurement.taskHoleEdge') }}</option>
-                <option value="hole_center_to_edge">{{ t('measurement.taskHoleToEdge') }}</option>
-              </select>
-            </label>
             <label class="field-label" for="view-type">
               {{ t('measurement.viewType') }}
               <select id="view-type" v-model="viewType">
@@ -934,6 +1035,29 @@ onBeforeUnmount(() => {
               </select>
             </label>
           </div>
+          <div class="task-checklist" aria-label="Measurement checks">
+            <span class="field-label">{{ t('measurement.checksInProcess') }}</span>
+            <label class="task-check"><input id="task-linear" type="checkbox" :checked="taskTypesForProcess.includes('linear_dimension')" @change="toggleTaskType('linear_dimension', $event.target.checked)"> <span>{{ t('measurement.taskLinear') }}</span></label>
+            <label class="task-check"><input id="task-corner" type="checkbox" :checked="taskTypesForProcess.includes('corner_radius')" @change="toggleTaskType('corner_radius', $event.target.checked)"> <span>{{ t('measurement.taskCorner') }}</span></label>
+            <label class="task-check"><input id="task-bend" type="checkbox" :checked="taskTypesForProcess.includes('bend_angle')" @change="toggleTaskType('bend_angle', $event.target.checked)"> <span>{{ t('measurement.taskBend') }}</span></label>
+          </div>
+          <details class="measurement-advanced">
+            <summary>{{ t('measurement.advancedTasks') }}</summary>
+            <label class="field-label" for="task-type">
+              {{ t('measurement.taskType') }}
+              <select id="task-type" v-model="taskType" @change="onTaskTypeChange">
+                <option value="linear_dimension">{{ t('measurement.taskLinear') }}</option>
+                <option value="corner_radius">{{ t('measurement.taskCorner') }}</option>
+                <option value="thickness_profile">{{ t('measurement.taskThickness') }}</option>
+                <option value="bend_angle">{{ t('measurement.taskBend') }}</option>
+                <option value="inclination">{{ t('measurement.taskInclination') }}</option>
+                <option value="hole_diameter">{{ t('measurement.taskHoleDiameter') }}</option>
+                <option value="hole_center_distance">{{ t('measurement.taskHolePitch') }}</option>
+                <option value="hole_edge_distance">{{ t('measurement.taskHoleEdge') }}</option>
+                <option value="hole_center_to_edge">{{ t('measurement.taskHoleToEdge') }}</option>
+              </select>
+            </label>
+          </details>
           <div class="task-grid pose-grid">
             <label class="field-label" for="pose-type">
               {{ t('measurement.poseType') }}
@@ -961,6 +1085,7 @@ onBeforeUnmount(() => {
           </p>
           <p v-if="!poseSupported" class="task-warning pose-warning">{{ t('measurement.poseProfileRequired') }}</p>
           <p v-if="!taskViewSupported" class="task-warning">{{ t('measurement.profileViewRequired') }}</p>
+          <p v-if="!taskSelectionSupported && taskViewSupported" class="task-warning">{{ t('measurement.profileViewRequired') }}</p>
 
           <template v-if="source === 'image'">
             <label class="field-label" for="measurement-file">{{ t('measurement.selectImage') }}</label>
@@ -1152,6 +1277,30 @@ onBeforeUnmount(() => {
                 <circle class="measurement-point-halo" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="7"></circle>
                 <circle class="measurement-point" :cx="candidate.points[0][0]" :cy="candidate.points[0][1]" r="4"></circle>
                 <circle class="measurement-point" :cx="candidate.points[1][0]" :cy="candidate.points[1][1]" r="4"></circle>
+                </g>
+              <g
+                v-for="(corner, index) in cornerCandidates"
+                v-if="cornerTaskSelected"
+                :key="`corner-${candidateKey(corner, index)}`"
+                class="measurement-corner-candidate"
+                @click.stop="selectCorner(corner)"
+              >
+                <polyline class="measurement-corner-halo" :points="corner.points.map((point) => point.join(',')).join(' ')"></polyline>
+                <polyline class="measurement-corner-line" :points="corner.points.map((point) => point.join(',')).join(' ')"></polyline>
+                <circle class="measurement-corner-center" :cx="corner.center[0]" :cy="corner.center[1]" r="4"></circle>
+              </g>
+              <g
+                v-for="(bend, index) in bendCandidates"
+                v-if="bendTaskSelected"
+                :key="`bend-${candidateKey(bend, index)}`"
+                class="measurement-bend-candidate"
+                @click.stop="selectBend(bend)"
+              >
+                <line class="measurement-bend-halo" :x1="bend.geometry.vertex[0]" :y1="bend.geometry.vertex[1]" :x2="bend.geometry.ray_a[0]" :y2="bend.geometry.ray_a[1]"></line>
+                <line class="measurement-bend-line" :x1="bend.geometry.vertex[0]" :y1="bend.geometry.vertex[1]" :x2="bend.geometry.ray_a[0]" :y2="bend.geometry.ray_a[1]"></line>
+                <line class="measurement-bend-halo" :x1="bend.geometry.vertex[0]" :y1="bend.geometry.vertex[1]" :x2="bend.geometry.ray_b[0]" :y2="bend.geometry.ray_b[1]"></line>
+                <line class="measurement-bend-line" :x1="bend.geometry.vertex[0]" :y1="bend.geometry.vertex[1]" :x2="bend.geometry.ray_b[0]" :y2="bend.geometry.ray_b[1]"></line>
+                <circle class="measurement-bend-vertex" :cx="bend.geometry.vertex[0]" :cy="bend.geometry.vertex[1]" r="5"></circle>
               </g>
               <g
                 v-for="(hole, index) in (processed.holes || [])"
@@ -1196,6 +1345,18 @@ onBeforeUnmount(() => {
                   <line class="measurement-line-halo" :x1="item.geometry.edge_a[0]" :y1="item.geometry.edge_a[1]" :x2="item.geometry.edge_b[0]" :y2="item.geometry.edge_b[1]"></line>
                   <line class="measurement-line" :x1="item.geometry.edge_a[0]" :y1="item.geometry.edge_a[1]" :x2="item.geometry.edge_b[0]" :y2="item.geometry.edge_b[1]"></line>
                 </template>
+                <template v-else-if="item.geometry?.kind === 'corner_arc'">
+                  <polyline class="measurement-corner-halo" :points="item.geometry.points.map((point) => point.join(',')).join(' ')"></polyline>
+                  <polyline class="measurement-corner-line" :points="item.geometry.points.map((point) => point.join(',')).join(' ')"></polyline>
+                  <circle class="measurement-corner-center" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" r="4"></circle>
+                </template>
+                <template v-else-if="item.geometry?.kind === 'bend_angle'">
+                  <line class="measurement-bend-halo" :x1="item.geometry.vertex[0]" :y1="item.geometry.vertex[1]" :x2="item.geometry.ray_a[0]" :y2="item.geometry.ray_a[1]"></line>
+                  <line class="measurement-bend-line" :x1="item.geometry.vertex[0]" :y1="item.geometry.vertex[1]" :x2="item.geometry.ray_a[0]" :y2="item.geometry.ray_a[1]"></line>
+                  <line class="measurement-bend-halo" :x1="item.geometry.vertex[0]" :y1="item.geometry.vertex[1]" :x2="item.geometry.ray_b[0]" :y2="item.geometry.ray_b[1]"></line>
+                  <line class="measurement-bend-line" :x1="item.geometry.vertex[0]" :y1="item.geometry.vertex[1]" :x2="item.geometry.ray_b[0]" :y2="item.geometry.ray_b[1]"></line>
+                  <circle class="measurement-bend-vertex" :cx="item.geometry.vertex[0]" :cy="item.geometry.vertex[1]" r="5"></circle>
+                </template>
                 <template v-else>
                   <line class="measurement-line-halo" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
                   <line class="measurement-line" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
@@ -1203,6 +1364,8 @@ onBeforeUnmount(() => {
                 <text v-if="item.geometry?.kind === 'circle'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - item.geometry.radius_px - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
                 <text v-else-if="item.geometry?.kind === 'circle_pair'" :x="item.geometry.center_a[0]" :y="item.geometry.center_a[1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
                 <text v-else-if="item.geometry?.kind === 'circle_to_edge'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - 9">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <text v-else-if="item.geometry?.kind === 'corner_arc'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - 9">{{ item.id }} · R {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+                <text v-else-if="item.geometry?.kind === 'bend_angle'" :x="item.geometry.vertex[0]" :y="item.geometry.vertex[1] - 9">{{ item.id }} · {{ Number(item.measured).toFixed(1) }}°</text>
                 <text v-else :x="item.points[0][0]" :y="item.points[0][1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
               </g>
               </svg>
@@ -1216,6 +1379,7 @@ onBeforeUnmount(() => {
           </template>
         </div>
 
+        <p v-if="processed" class="selection-guidance">{{ selectionGuidance }}</p>
         <div v-if="processed" class="candidate-strip">
           <div class="strip-header">
             <span>{{ t('measurement.candidates') }}</span>
@@ -1227,6 +1391,18 @@ onBeforeUnmount(() => {
               <strong>{{ candidate.id || `L${index + 1}` }}</strong>
               <span>{{ candidate.length_px.toFixed(1) }} px</span>
               <small>{{ candidate.source || 'logical-edge' }} · {{ candidate.confidence.toFixed(2) }}</small>
+            </button>
+            <button v-if="cornerTaskSelected" v-for="(corner, index) in cornerCandidates" :key="`corner-card-${candidateKey(corner, index)}`" type="button" class="candidate-card corner-card measurement-corner-candidate" @click="selectCorner(corner)">
+              <span class="candidate-corner"></span>
+              <strong>{{ corner.id || `C${index + 1}` }}</strong>
+              <span>R {{ Number(corner.radius_mm).toFixed(2) }} mm</span>
+              <small>{{ corner.coverage_deg?.toFixed?.(1) || '—' }}° · {{ corner.confidence.toFixed(2) }}</small>
+            </button>
+            <button v-if="bendTaskSelected" v-for="(bend, index) in bendCandidates" :key="`bend-card-${candidateKey(bend, index)}`" type="button" class="candidate-card bend-card measurement-bend-candidate" @click="selectBend(bend)">
+              <span class="candidate-bend"></span>
+              <strong>{{ bend.id || `B${index + 1}` }}</strong>
+              <span>{{ Number(bend.angle_deg).toFixed(2) }}°</span>
+              <small>{{ bend.confidence.toFixed(2) }}</small>
             </button>
           </template>
           <template v-else>
@@ -1284,7 +1460,7 @@ onBeforeUnmount(() => {
               <strong>{{ item.min ?? '—' }} – {{ item.max ?? '—' }} {{ item.unit }}</strong>
               <span>{{ t('measurement.deviation') }} {{ item.deviation == null ? '—' : Number(item.deviation).toFixed(2) }}</span>
             </div>
-            <div v-if="item.reason" class="item-reason">{{ item.reason }}</div>
+            <div v-if="item.reason" class="item-reason">{{ reasonLabel(item.reason) }}</div>
           </article>
         </section>
 
@@ -1426,6 +1602,12 @@ onBeforeUnmount(() => {
 .task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .task-grid .field-label { margin-top: 0; }
 .task-grid select { margin-top: 5px; min-height: 42px; font-size: 11px; }
+.task-checklist { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+.task-checklist .field-label { grid-column: 1 / -1; margin: 0; }
+.task-check { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 7px; border: 1px solid var(--color-hairline); color: var(--color-ink-muted); font-size: 10px; line-height: 1.2; }
+.task-check input { width: auto; min-height: 0; accent-color: var(--color-primary); }
+.measurement-advanced { margin-top: 12px; border-top: 1px solid var(--color-hairline); color: var(--color-ink-muted); font-size: 11px; }
+.measurement-advanced summary { padding: 10px 0 4px; cursor: pointer; font-weight: 600; }
 .task-warning { margin: 12px 0 0; padding: 9px; border-left: 3px solid var(--color-warning); background: var(--color-surface-1); color: var(--color-warning); font-size: 11px; line-height: 1.4; }
 .profile-capability { margin: 10px 0 0; }
 
@@ -1534,6 +1716,14 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-candidate.selected .measurement-point { fill: var(--color-warning); }
 .measurement-logical-edge { opacity: 1; }
 .measurement-logical-edge .measurement-line { stroke: var(--color-primary); stroke-width: 2.5; }
+.measurement-corner-candidate,
+.measurement-bend-candidate { cursor: pointer; }
+.measurement-corner-halo { fill: none; stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
+.measurement-corner-line { fill: none; stroke: var(--color-warning); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.measurement-corner-center { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.measurement-bend-halo { stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
+.measurement-bend-line { stroke: var(--color-error); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-dasharray: 6 4; }
+.measurement-bend-vertex { fill: var(--color-error); stroke: var(--color-canvas); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .selected-measurement { pointer-events: none; }
 .selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
 .selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
@@ -1545,6 +1735,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .empty-crosshair { color: var(--color-primary); font-family: var(--font-mono); font-size: 42px; font-weight: 300; }
 
 .candidate-strip { display: flex; gap: 10px; min-height: 100px; padding: 14px 18px; overflow-x: auto; border-top: 1px solid var(--color-hairline); background: var(--color-canvas); }
+.selection-guidance { flex: 0 0 auto; margin: 8px 18px 0; color: var(--color-ink-muted); font-size: 11px; }
 .strip-header { display: flex; min-width: 100px; flex-direction: column; justify-content: center; gap: 4px; color: var(--color-ink-muted); font-size: 11px; }
 .strip-header span:last-child { font-family: var(--font-mono); }
 .candidate-card { display: grid; min-width: 120px; grid-template-columns: 16px 1fr; align-content: center; gap: 2px 6px; padding: 8px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); color: var(--color-ink); text-align: left; cursor: pointer; font-size: 11px; }
@@ -1552,6 +1743,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .candidate-card span, .candidate-card small { grid-column: 2; color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
 .candidate-line { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 2px; background: var(--color-info); }
 .candidate-hole { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 14px; border: 2px solid var(--color-warning); }
+.candidate-corner { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 14px; border: 2px solid var(--color-warning); border-radius: 50% 0 0 0; }
+.candidate-bend { grid-column: 1; grid-row: 1 / span 3; align-self: center; width: 14px; height: 14px; border-left: 2px solid var(--color-error); border-bottom: 2px solid var(--color-error); transform: skew(-20deg); }
 .manual-card { display: flex; align-items: center; justify-content: center; gap: 6px; }
 
 .results-header { padding-bottom: 14px; }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   calibrationScales,
+  buildBendGeometry,
   evaluateMeasurementItem,
   measureGeometry,
   normalizeTaskTypes,
@@ -10,6 +11,22 @@ import {
 
 
 describe('measurement helpers', () => {
+  it('uses backend metric radius for a selected outer corner', () => {
+    const geometry = { kind: 'corner_arc', center: [40, 40], radius_mm: 12, points: [] }
+
+    expect(measureGeometry('corner_radius', [], {}, geometry).value).toBe(12)
+  })
+
+  it('builds an obtuse bend from selected support rays', () => {
+    const geometry = buildBendGeometry(
+      { id: 'LE1', support_points: [[0, 0], [100, 0]] },
+      { id: 'LE2', support_points: [[0, 0], [-100, 100]] },
+    )
+
+    expect(geometry.angle_deg).toBeCloseTo(135)
+    expect(geometry.logical_edge_ids).toEqual(['LE1', 'LE2'])
+  })
+
   it('uses independent x and y calibration scales for linear geometry', () => {
     const calibration = {
       mode: 'manual_axes',
@@ -107,6 +124,19 @@ describe('measurement helpers', () => {
       .toBe('REVIEW')
     expect(evaluateMeasurementItem({ measured: 140, nominal: null, tolerance: null }, true).status)
       .toBe('REVIEW')
+  })
+
+  it('keeps a weak geometry candidate in review after nominal is entered', () => {
+    const result = evaluateMeasurementItem({
+      measured: 12,
+      nominal: 12,
+      tolerance: 2,
+      confidence: 0.9,
+      quality_reason: 'arc_residual_high',
+    }, true)
+
+    expect(result.status).toBe('REVIEW')
+    expect(result.reason).toBe('arc_residual_high')
   })
 
   it('summarizes review before fail before pass', () => {

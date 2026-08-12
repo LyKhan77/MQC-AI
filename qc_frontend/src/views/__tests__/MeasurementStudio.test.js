@@ -272,6 +272,72 @@ describe('MeasurementStudio', () => {
     expect(wrapper.text()).toContain('LE1')
   })
 
+  it('lets an inspector select dimension and corner checks in one process', async () => {
+    mocks.processMeasurement.mockResolvedValue({
+      ...processed(),
+      task_types: ['linear_dimension', 'corner_radius'],
+      logical_edges: [{
+        id: 'LE1',
+        points: [[20, 30], [140, 30]],
+        length_px: 120,
+        confidence: 0.98,
+      }],
+      corner_arcs: [{
+        id: 'C1',
+        center: [20, 30],
+        radius_px: 12,
+        radius_mm: 6,
+        points: [[20, 18], [32, 30]],
+        confidence: 0.92,
+        geometry: { kind: 'corner_arc', center: [20, 30], radius_mm: 6, points: [[20, 18], [32, 30]] },
+      }],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-corner').setValue(true)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      taskTypes: ['linear_dimension', 'corner_radius'],
+    }))
+    await wrapper.find('.measurement-corner-candidate').trigger('click')
+
+    expect(wrapper.vm.items[0].type).toBe('corner_radius')
+    expect(wrapper.vm.items[0].tolerance).toBe(2)
+  })
+
+  it('selects a backend bend candidate with the 0.5 degree default tolerance', async () => {
+    mocks.processMeasurement.mockResolvedValue({
+      ...processed(),
+      task_types: ['bend_angle'],
+      bend_candidates: [{
+        id: 'B1',
+        angle_deg: 135,
+        confidence: 0.9,
+        geometry: {
+          kind: 'bend_angle',
+          vertex: [80, 40],
+          ray_a: [30, 100],
+          ray_b: [140, 100],
+          angle_deg: 135,
+        },
+      }],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-type').setValue('bend_angle')
+    await wrapper.find('#view-type').setValue('profile')
+    await wrapper.find('#pose-type').setValue('PROFILE_FACE')
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.find('.measurement-bend-candidate').trigger('click')
+
+    expect(wrapper.vm.items[0].type).toBe('bend_angle')
+    expect(wrapper.vm.items[0].measured).toBe(135)
+    expect(wrapper.vm.items[0].tolerance).toBe(0.5)
+  })
+
   it('sends the selected proper task and view to process', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
