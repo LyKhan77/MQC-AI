@@ -1,7 +1,7 @@
 # PRD — Inspect Measurement Prototype
 
-**Status:** Implemented multi-view prototype; station accuracy validation pending
-**Date:** 11 August 2026
+**Status:** Implemented multi-view prototype; approved 2D geometry improvement pending implementation
+**Date:** 12 August 2026
 **Owner:** GSPE / MQC-AI
 
 ## 1. Keputusan ringkas
@@ -11,13 +11,15 @@ Prototype menggunakan alur vertical slice berikut:
 ```text
 Create manual component/series session and stage Image / Live / Mobile views
   → Process one side
-  → Tampilkan kandidat edge + hasil ukuran
+  → Tampilkan logical geometry + hasil ukuran
   → Inspector atur nominal dan toleransi per measurement item
   → Evaluate dimension
   → Simpan hasil + History + Audit Log
 ```
 
 Prototype tidak mencoba menyelesaikan seluruh versi proper. Tujuannya membuktikan tiga hal: gambar dapat dikalibrasi menjadi mm, edge dapat diukur dengan bantuan OpenCV, dan hasil dapat dievaluasi per item tanpa model khusus untuk setiap komponen.
+
+Improvement Slice 1–2 mengganti raw LSD segment sebagai hasil utama dengan logical edge, dual-axis calibration, selected corner radius, dan selected bend angle. Desain approved: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
 
 ## 2. Masalah
 
@@ -66,14 +68,17 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 - Pose `TOP_FACE`/`REVERSE_FACE` untuk planar, `PROFILE_FACE` untuk thickness/bend guidance.
 - Global/Detail measurement profile selector dengan resolution/camera/capability warning.
 - Save/reopen/delete view dan completion guard untuk session.
-- Kalibrasi skala image dengan reference distance pada bidang yang sama.
+- Kalibrasi manual horizontal X dan vertical Y pada bidang yang sama; legacy one-line calibration tetap dapat dibuka.
 - Process server-side menggunakan OpenCV tanpa trained model.
-- Kandidat garis/edge dari `LineSegmentDetector` atau `HoughLinesP`, dengan preprocessing sederhana.
-- Pemilihan candidate edge oleh inspector; manual item fallback tersedia.
+- Kandidat garis/edge dari `LineSegmentDetector`; `HoughLinesP` hanya fallback/complement.
+- Kandidat collinear digabung dan di-fit menjadi logical edge sebelum dipilih inspector.
+- Multi-select `Dimensi sisi`, `Radius corner`, dan `Sudut bending` pada satu process.
+- Pemilihan logical geometry oleh inspector; manual item fallback tersedia.
 - Endpoint drag/click correction deferred sampai validasi UX/akurasi berikutnya.
 - Measurement item minimal:
   - edge length / point-to-point linear dimension;
   - edge-to-edge linear dimension;
+  - selected outer corner radius;
   - hole diameter atau hole-to-hole center distance jika lingkaran dapat dideteksi;
   - angle hanya jika dua line berada pada bidang image yang sama.
 - Nominal dan tolerance per item.
@@ -103,15 +108,17 @@ Inspector tidak perlu memahami OpenCV. UI harus menjelaskan langkah dalam bahasa
 
 ### Kalibrasi wajib
 
-Pixel hanya dapat diubah menjadi mm jika ada skala. Prototype memakai satu metode sederhana:
+Pixel hanya dapat diubah menjadi mm jika ada skala. Flow baru memakai dua reference axis:
 
-1. Prototype menyediakan reference pixel length sebagai input kalibrasi pada sisi yang sama.
-2. Inspector memasukkan panjang reference dalam mm.
-3. Sistem menghitung `mm_per_pixel` dan menyimpan titik reference serta nilai kalibrasi.
+1. Inspector menggambar reference horizontal X dan memasukkan panjang aktualnya.
+2. Inspector menggambar reference vertical Y dan memasukkan panjang aktualnya.
+3. Sistem menghitung `scale_x_mm_per_px` dan `scale_y_mm_per_px`.
+4. Reference independen pada measurement plane menghasilkan PASS-eligible calibration.
+5. Komponen boleh dipakai sebagai reference untuk demo, tetapi hasil tetap `REVIEW`.
 
 Jika reference tidak tersedia atau scale error melewati batas validasi, sistem menampilkan ukuran dalam status `REVIEW`, bukan memberi `PASS`.
 
-Kalibrasi per-image cukup untuk prototype. Versi proper menambah station profile, intrinsic camera calibration, lens distortion correction, ChArUco/marker, dan homography desk plane.
+Legacy saved run dengan `mm_per_pixel` tetap dapat dibuka. Kalibrasi per-image cukup untuk improvement ini. Versi proper menambah station profile, intrinsic camera calibration, lens distortion correction, ChArUco/marker, dan homography desk plane.
 
 ### Peran OpenCV
 
@@ -120,10 +127,12 @@ Pipeline kandidat:
 1. Decode image dan validasi ukuran.
 2. Grayscale, denoise, dan contrast normalization seperlunya.
 3. Canny/gradient untuk edge map.
-4. Line-segment candidate dari `LineSegmentDetector` atau `HoughLinesP`.
-5. Gabungkan segment yang collinear dan buang segment terlalu pendek/noisy.
-6. Kembalikan endpoint, panjang pixel, angle, confidence, dan source method.
-7. Inspector memilih candidate atau menggambar ulang endpoint.
+4. Line-segment candidate dari `LineSegmentDetector` refined; `HoughLinesP` fallback/complement.
+5. Kelompokkan segment collinear berdasarkan angle, jarak support line, projected overlap/gap, dan local pixel support.
+6. Fit satu logical edge memakai robust `cv.fitLine`.
+7. Untuk H/W default, proyeksikan external component contour agar rounded corner tetap masuk outer-to-outer dimension.
+8. Kembalikan logical geometry, residual, confidence, dan source candidates.
+9. Inspector memilih logical geometry; raw candidates hanya muncul pada `Advanced`.
 
 Line-segment detection membantu menemukan garis, tetapi bukan source of truth. Toleransi, occlusion, glare, perspective, dan edge selection tetap membutuhkan verifikasi inspector.
 
@@ -166,7 +175,7 @@ Nominal wajib diisi sebelum evaluate. Prototype menerima nominal secara manual. 
 Measurement Studio memakai pola tiga area yang mengadopsi QC Studio:
 
 - **Left:** input image, nama run, calibration state, recent/history.
-- **Center:** image canvas, edge candidates, selected measurement overlay, calibration overlay, zoom/pan controls.
+- **Center:** image canvas, logical geometry, selected result overlay, optional reference/helper layers, zoom/pan controls.
 - **Right:** measurement item table, measured/nominal/tolerance, status, Evaluate, Save.
 - Panel input dan evaluate cukup lebar untuk label serta form fields; canvas memakai satu image frame bersama untuk image dan SVG supaya overlay tetap tepat saat fit, zoom, dan pan.
 
@@ -175,14 +184,15 @@ Flow UI:
 1. Upload image, pilih Live Camera, atau pilih Mobile Camera; lalu isi nama run.
 2. Jika Live Camera, buka preview dan klik `Trigger capture`.
 3. Jika Mobile Camera, izinkan akses browser, buka preview, lalu klik `Capture`.
-4. Set calibration reference pada image/frame yang dipilih.
-5. Klik `Process measurement`.
-6. Sistem menampilkan kandidat edge.
-7. Inspector memilih atau mengoreksi geometry, lalu menambah item lain bila perlu.
-8. Inspector mengisi nominal dan tolerance per item.
-9. Klik `Evaluate dimension`.
-10. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
-11. Klik `Save measurement`.
+4. Gambar reference horizontal X dan vertical Y pada image/frame yang dipilih.
+5. Pilih satu atau beberapa check: dimensi sisi, radius corner, dan sudut bending.
+6. Klik `Process measurement`.
+7. Sistem menampilkan logical geometry.
+8. Inspector memilih geometry target, lalu menambah item lain bila perlu.
+9. Inspector mengisi nominal dan tolerance per item.
+10. Klik `Evaluate dimension`.
+11. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
+12. Klik `Save measurement`.
 
 Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Candidate edge memakai outline/halo kontras, endpoint marker, dan selected measurement label yang lebih besar agar terbaca di atas komponen.
 
@@ -234,8 +244,10 @@ Estimasi untuk satu developer yang sudah memahami codebase. Milestone dapat berj
 | M4 — Tolerance & evaluate | Editable item table, per-item tolerance, defaults, nominal, PASS/FAIL/REVIEW summary | Satu perubahan tolerance mengubah status item dan summary secara benar | 1–2 hari |
 | M5 — History & audit UX | Saved run list, reopen detail, delete confirmation, audit entries, bilingual labels | Saved result dapat ditemukan dan dibuka kembali; audit lengkap | 1–2 hari |
 | M6 — Accuracy gate | Reference samples, repeatability check, glare/pose/scale failure cases, browser/API regression | Prototype report error; tidak ada klaim ±2 mm atau ±0.5° tanpa evidence station | 2–3 hari |
+| I2 — Logical edge + calibration v2 | Dual-axis reference, line grouping, robust fit, outer-span result, overlay layers | `img5` tidak membutuhkan penjumlahan raw segment manual | 2–4 hari |
+| I3 — Corner + bend geometry | Selected arc fit, selected flange-pair angle, multi-select checks | Synthetic fixtures stabil; capture nyata memberi result atau explicit `REVIEW` | 2–4 hari |
 
-**Total prototype:** sekitar 10–14 hari kerja, belum termasuk hardware QC Station dan source-of-truth drawing integration.
+**Baseline prototype:** sekitar 10–14 hari kerja. Improvement I2–I3 menambah estimasi 4–8 hari kerja, belum termasuk hardware QC Station dan source-of-truth drawing integration.
 
 Tracking implementasi tersedia di [`inspect-measurement-prototype-milestones.md`](./inspect-measurement-prototype-milestones.md). Dokumen tersebut menjadi checkpoint hidup: milestone hanya boleh berstatus `DONE` jika evidence implementasi dan verification tersedia.
 
@@ -254,6 +266,10 @@ Tracking implementasi tersedia di [`inspect-measurement-prototype-milestones.md`
 - [x] Save/reopen mempertahankan image, calibration, geometry, measurement, tolerance, dan verdict.
 - [x] History dan Audit Log memuat aktivitas measurement.
 - [x] `npm run build`, `npm test`, dan backend `pytest -v` lulus.
+- [ ] Dual-axis calibration X/Y tersimpan dan menjadi syarat PASS untuk process baru.
+- [ ] Satu logical edge menggantikan penjumlahan E2 + E3 manual pada workflow `img5`.
+- [ ] Reference dan helper overlays tersembunyi default setelah process serta dapat di-toggle.
+- [ ] Rounded corner dan bend angle dapat dipilih atau menghasilkan alasan `REVIEW` eksplisit.
 
 ## 13. Risiko dan keputusan upgrade
 

@@ -1,8 +1,9 @@
 # Inspect Measurement Proper — P1 Specification
 
-**Status:** Implementation specification; P1-P2 software slice implemented
-**Date:** 11 August 2026
+**Status:** Implementation specification; P1-P2 software slice implemented; additive geometry refinement approved
+**Date:** 12 August 2026
 **Parent PRD:** [`inspect-measurement-proper.md`](./inspect-measurement-proper.md)
+**Additive design:** [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md)
 
 ## Scope
 
@@ -26,6 +27,7 @@ linear_dimension
 thickness_profile
 bend_angle
 inclination
+corner_radius
 hole_diameter
 hole_center_distance
 hole_edge_distance
@@ -58,6 +60,7 @@ Task metadata:
 |---|---|---|
 | Line | `points: [[x1,y1],[x2,y2]]` | length, angle, unit |
 | Angle | `lines: [[[x1,y1],[x2,y2]], [[x3,y3],[x4,y4]]]` | degrees |
+| Arc | selected external contour points + fitted center/radius | outer radius, residual, coverage |
 | Circle | `center: [x,y]`, `radius_px` | diameter, center |
 | Circle pair | `feature_a`, `feature_b` circle refs | center distance or edge distance |
 | Circle-to-edge | circle ref + line ref | center-to-edge distance |
@@ -98,13 +101,16 @@ Station calibration extension:
 
 P1 stores the station-profile shape and supports reference-line calibration. Automatic marker/homography application is enabled only when a valid matrix/profile exists.
 
+Calibration v2 adds `manual_axes` with independent X/Y reference lines and `scale_x_mm_per_px` / `scale_y_mm_per_px`. Existing `reference_line` and `mm_per_pixel` remain readable. New PASS requires valid dual-axis calibration or a future validated Station Preset; component-as-reference remains `REVIEW`.
+
 ## Process contract
 
 `POST /api/measurements/capture` stages a server-camera frame without running detection. The response returns `source_key`, frame dimensions, and frame URL.
 
 `POST /api/measurements/process` accepts:
 
-- `task_type`: canonical task type, default `linear_dimension`.
+- `task_types`: one or more canonical task types.
+- `task_type`: backwards-compatible single task; maps to `task_types: [task_type]` when the array is absent.
 - `view_type`: `top`, `profile`, or `side`, default `top`.
 - `calibration`: reference-line or station profile JSON.
 - `options`: detector options.
@@ -157,11 +163,12 @@ Response adds:
 ## Detection policy
 
 1. Undistort/rectify when station calibration supplies the required matrices.
-2. Run task-specific candidate generation.
-3. Refine geometry with deterministic contour/line fitting.
-4. Return candidates with source and confidence.
-5. Inspector confirms candidates before evaluation.
-6. Final evaluation uses calibrated geometry, not AI confidence alone.
+2. Run task-specific candidate generation; LSD/Hough outputs remain evidence, not final measurement.
+3. Group collinear line evidence and refine with robust line fitting.
+4. Use external-contour projection for default outer H/W, selected contour arcs for outer radius, and two selected logical flange lines for bend angle.
+5. Return logical geometry with source, residual, confidence, and review reason.
+6. Inspector confirms geometry before evaluation.
+7. Final evaluation uses calibrated geometry, not AI confidence alone.
 
 P1 implementation uses OpenCV only; no AI model inference is required for line, angle, or hole geometry. AI-assisted semantic selection remains a later optional phase after deterministic accuracy is validated.
 
@@ -170,6 +177,9 @@ P1 implementation uses OpenCV only; no AI model inference is required for line, 
 ## Acceptance criteria
 
 - A reference line drawn on the image computes `reference_px` and `mm_per_pixel` without a manually typed pixel value.
+- Dual-axis calibration supports unequal X/Y scale and gates new PASS results.
+- Fragmented collinear candidates produce one logical edge while nearby parallel boundaries remain separate.
+- Default H/W uses outer contour span, including rounded-corner extremes.
 - `linear_dimension` retains existing prototype behavior.
 - Hole processing returns center/radius candidates for a synthetic clean circle.
 - Hole diameter uses the refined radius, not blindly `2 * Hough radius`.

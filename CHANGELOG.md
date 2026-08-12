@@ -11,6 +11,21 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-12 - Inspect Measurement 2D Geometry Design
+
+### Added
+
+- Approved Slice 1–2 design for dual-axis calibration, fragmented-line grouping, robust logical-edge fitting, outer-span H/W, selected corner radius, selected bend angle, inspector overlay layers, API compatibility, persistence, and verification.
+
+### Changed
+
+- Prototype and proper PRD/spec/milestone documents now distinguish existing raw OpenCV candidates from planned logical geometry refinement.
+- Accuracy checkpoints separate software geometry work from physical station qualification; no production accuracy claim added.
+
+### Verification
+
+- Documentation links, placeholder scan, whitespace validation, and branch diff reviewed; no runtime code changed.
+
 ## [Unreleased] - 2026-08-12 - Inspect Measurement Development Station Guide
 
 ### Added

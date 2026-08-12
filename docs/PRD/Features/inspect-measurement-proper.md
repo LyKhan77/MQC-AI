@@ -1,9 +1,10 @@
 # PRD — Inspect Measurement Proper Version
 
-**Status:** P1-P2 software vertical slice implemented; station accuracy, drawing recipe, and profile metrology planned
-**Date:** 11 August 2026
+**Status:** P1-P2 software vertical slice implemented; 2D geometry refinement approved; station accuracy, drawing recipe, and profile metrology planned
+**Date:** 12 August 2026
 **Related prototype:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
 **Milestone tracker:** [`inspect-measurement-proper-milestones.md`](./inspect-measurement-proper-milestones.md)
+**Approved 2D improvement:** [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md)
 
 ## 1. Vision
 
@@ -104,8 +105,8 @@ Capture ditolak atau diberi `REVIEW` jika station profile invalid, resolution be
 
 Engine menggunakan pipeline berlapis:
 
-1. OpenCV candidate generation: LSD, Hough fallback, contours, circles/ellipse, morphology, and edge quality.
-2. Geometry refinement: endpoint snapping, line merge, circle/ellipse fit, homography correction, and deterministic geometry.
+1. OpenCV candidate generation: refined LSD, Hough fallback/complement, contours, circles/ellipse, morphology, and edge quality.
+2. Geometry refinement: collinear grouping, robust `cv.fitLine`, outer-contour projection, circle/ellipse fit, homography correction, and deterministic geometry.
 3. Optional AI assistance: component/feature segmentation atau semantic edge selection.
 4. Final measurement tetap dihitung dari calibrated geometry, bukan confidence AI.
 
@@ -117,6 +118,7 @@ Supported capability menggunakan task type eksplisit:
 | `thickness_profile` | dua edge parallel | `profile`/`side` | Tidak boleh PASS dari top-down view. |
 | `bend_angle` | dua line/face angle | `profile` | Membutuhkan profile plane atau calibrated multi-view. |
 | `inclination` | line terhadap datum axis | `top` atau `profile` | Datum/reference axis wajib tersedia. |
+| `corner_radius` | selected external contour arc | `top` atau `profile` | Default result adalah outer radius; weak arc fit menjadi REVIEW. |
 | `hole_diameter` | circle center + radius | `top` | Image harus di-undistort dan di-rectify bila perspektif ada. |
 | `hole_center_distance` | center-to-center | `top` | Untuk pitch/bolt pattern. |
 | `hole_edge_distance` | center distance minus radii | `top` | Jarak clear edge-to-edge antar lubang. |
@@ -284,6 +286,7 @@ The system reports measured error and repeatability before enabling a dimension 
 |---|---|---|
 | P1 | Station profile contract, interactive reference calibration, fixed lighting, marker/homography foundation, planar task types, hole center/diameter/pitch candidates | Software vertical slice implemented; station matrix/homography runtime requires approved calibration evidence |
 | P2 | Session + dynamic custom views + Live Camera trigger workflow | **Software slice implemented:** arbitrary side count, staged Image/Live/Mobile inputs, session/profile APIs, save/reopen/audit evidence. Physical station validation remains open. |
+| P2.1 | Dual-axis calibration + logical planar geometry | Approved design implemented; inspector selects stable edge/corner/bend geometry instead of raw segments |
 | P3 | Drawing revision + Measurement Recipe + manual mapping | Results compare against approved source-of-truth feature IDs |
 | P4 | Profile/multi-camera strategy for thickness and bend angle | 3D dimensions have hardware-specific validation evidence |
 | P5 | AI-assisted segmentation/semantic edge selection | False-edge rate improves without changing deterministic measurement authority |

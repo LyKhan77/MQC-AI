@@ -1,8 +1,8 @@
 # Inspect Measurement Prototype — Milestone Tracker
 
 **Feature PRD:** [`inspect-measurement-prototype.md`](./inspect-measurement-prototype.md)
-**Status terakhir:** M0–M5 implemented; M6 accuracy validation pending
-**Last updated:** 11 August 2026
+**Status terakhir:** M0–M5 and M7 implemented; I1 design approved; I2–I4 pending
+**Last updated:** 12 August 2026
 
 Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone selesai. Status `DONE` membutuhkan evidence berupa file/commit dan test atau browser verification yang relevan.
 
@@ -19,6 +19,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | Checkpoint | Status | Evidence | Catatan |
 |---|---|---|---|
 | Feature PRD | `DONE` | `docs/PRD/Features/inspect-measurement-prototype.md` | Scope, constraints, acceptance criteria, dan risk sudah ditulis. |
+| 2D geometry improvement design | `DONE` | `docs/PRD/Features/inspect-measurement-2d-geometry-improvement-design.md` | Logical edge, dual-axis calibration, corner radius, bend angle, UX, compatibility, dan verification disetujui. |
 | Implementation plan | `DONE` | `docs/superpowers/plans/2026-08-07-inspect-measurement-prototype.md` | Task backend, frontend, test, dan verification sudah dipecah. |
 | Standalone HTML demo | `DONE` | `temp/measurement-studio-demo.html` | Demo visual saja; bukan production measurement engine. |
 | Prototype Live Camera contract | `DONE` | Prototype PRD + implementation plan | Preview + one-shot trigger capture ditambahkan; continuous measurement tetap di luar scope. |
@@ -27,7 +28,7 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 | History + Audit integration | `DONE` | MeasurementRun API + component tests | Save, History search/reopen/delete, dan audit actions tersedia. |
 | Accuracy validation | `PLANNED` | — | Belum ada physical reference sample/evidence. |
 
-**Current implementation boundary:** prototype production flow M0–M5 selesai dan terverifikasi. M6 masih menunggu reference artifact, repeatability, dan physical station evidence.
+**Current implementation boundary:** prototype production flow M0–M5 dan M7 selesai. Improvement I1–I3 belum diimplementasikan. M6/I4 tetap menunggu reference artifact, repeatability, dan physical station evidence.
 
 ## Milestone checklist
 
@@ -119,6 +120,17 @@ Dokumen ini adalah checkpoint implementasi. Update setelah setiap milestone sele
 
 Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f018`; focused backend/frontend tests, build, and Measurement Studio Playwright coverage.
 
+## Accuracy improvement checkpoints
+
+| ID | Checkpoint | Documentation | Implementation | Exit checkpoint |
+|---|---|---|---|---|
+| I1 | Approved 2D geometry design | `DONE` | — | Scope, algorithms, API migration, UX, and verification contract approved. |
+| I2 | Logical edge + calibration v2 | `DONE` | `PLANNED` | Dual-axis calibration, merged/fitted logical edges, outer-span measurement, and overlay layers pass focused tests. |
+| I3 | Corner + bend geometry | `DONE` | `PLANNED` | Multi-select task flow, selected outer-radius fit, and selected flange-pair angle pass focused tests. |
+| I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
+
+Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
+
 ## Update protocol
 
 Setelah milestone berubah:
@@ -135,6 +147,7 @@ Setelah milestone berubah:
 |---|---|---|---|
 | 2026-08-07 | PRD + plan | Commit `0b87f49` | Documentation complete; production implementation not started. |
 | 2026-08-10 | M0–M5 prototype implementation | Feature branch verification: backend `202 passed`, frontend `157 passed`, build passed, Playwright `5 passed`; sample kernel smoke `42 candidates` | Production prototype flow complete; M6 physical accuracy validation pending. |
+| 2026-08-12 | I1 2D geometry improvement design | Approved design spec + PRD/milestone synchronization | Implementation planning may start; no geometry code changed yet. |
 | 2026-08-10 | Measurement Studio UI + Mobile Camera | Backend `204 passed`, frontend `160 passed`, build passed, Playwright `7 passed`; scoped overflow assertion | QC Studio-style fixed shell; History and Measurement Items scroll independently; Mobile Camera uses browser `getUserMedia()` and same process pipeline. |
 | 2026-08-10 | Measurement canvas alignment + controls | Frontend `162 passed`, build passed, Playwright `8 passed`; image/SVG bounding-box assertion | Wider QC Studio-style panels; shared image frame fixes overlay alignment; zoom/pan and high-contrast candidate overlays implemented. |
 | 2026-08-10 | Measurement rail overflow + overlay weight | Targeted component `10 passed`, Measurement E2E `5 passed` | Fixed flex rails now mirror QC Studio positioning; Input/Calibration rail scrolls independently; LSD foreground stroke reduced to 3px. |
