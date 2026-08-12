@@ -20,6 +20,20 @@ def _hole_png_bytes():
     return buffer.tobytes()
 
 
+def _rounded_component_png_bytes():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    mask = np.zeros((240, 320), dtype=np.uint8)
+    radius = 24
+    cv2.rectangle(mask, (60 + radius, 40), (260 - radius, 200), 255, -1)
+    cv2.rectangle(mask, (60, 40 + radius), (260, 200 - radius), 255, -1)
+    for center in ((84, 64), (236, 64), (84, 176), (236, 176)):
+        cv2.circle(mask, center, radius, 255, -1)
+    frame[mask > 0] = (255, 255, 255)
+    ok, buffer = cv2.imencode(".png", frame)
+    assert ok
+    return buffer.tobytes()
+
+
 def _calibration():
     return json.dumps({
         "point_a": [0, 0],
@@ -35,6 +49,12 @@ def _axes_calibration():
         "x": {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
         "y": {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
     })
+
+
+def _demo_axes_calibration():
+    payload = json.loads(_axes_calibration())
+    payload["source"] = "component_demo"
+    return json.dumps(payload)
 
 
 def _process_upload(client):
@@ -73,6 +93,60 @@ def test_process_accepts_dual_axes_and_returns_logical_edges(client):
     assert body["task_types"] == ["linear_dimension"]
     assert body["logical_edges"]
     assert body["calibration_quality"]["verdict_eligible"] is True
+
+
+def test_process_multi_task_returns_corner_candidates_and_readiness(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("rounded.png", _rounded_component_png_bytes(), "image/png")},
+        data={
+            "task_types": json.dumps(["linear_dimension", "corner_radius"]),
+            "calibration": _axes_calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["task_types"] == ["linear_dimension", "corner_radius"]
+    assert body["logical_edges"]
+    assert body["corner_arcs"]
+    assert body["task_readiness"]["corner_radius"]["status"] == "ready"
+
+
+def test_process_bend_profile_requires_profile_pose(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("profile.png", _png_bytes(), "image/png")},
+        data={
+            "task_types": json.dumps(["bend_angle"]),
+            "view_type": "profile",
+            "pose_type": "TOP_FACE",
+            "calibration": _axes_calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "review"
+    assert response.json()["reason"] == "unsupported_pose"
+
+
+def test_process_bend_profile_returns_bend_candidates(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("profile.png", _png_bytes(), "image/png")},
+        data={
+            "task_types": json.dumps(["bend_angle"]),
+            "view_type": "profile",
+            "pose_type": "PROFILE_FACE",
+            "calibration": _axes_calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["readiness"] == "ready"
+    assert body["bend_candidates"]
+    assert body["task_readiness"]["bend_angle"]["status"] == "ready"
 
 
 def test_process_hole_task_returns_circle_candidates(client):
@@ -259,6 +333,11 @@ def test_save_list_detail_delete_measurement_and_audit(client):
         "source_filename": processed["source_filename"],
         "source_type": processed["source_type"],
         "calibration": processed["calibration"],
+        "task_types": ["linear_dimension", "corner_radius"],
+        "processing": {
+            "task_readiness": {"linear_dimension": {"status": "ready", "reason": ""}},
+            "calibration_quality": {"verdict_eligible": True},
+        },
         "items": [{
             "id": "E1",
             "type": "edge_length",
@@ -278,6 +357,8 @@ def test_save_list_detail_delete_measurement_and_audit(client):
     assert body["items"][0]["measured"] == 60
     assert body["items"][0]["status"] == "PASS"
     assert body["processing"]["task_type"] == "linear_dimension"
+    assert body["processing"]["task_types"] == ["linear_dimension", "corner_radius"]
+    assert body["processing"]["task_readiness"]["linear_dimension"]["status"] == "ready"
     assert body["processing"]["view_type"] == "top"
     assert client.get(body["source_url"]).status_code == 200
 
@@ -316,6 +397,33 @@ def test_save_rejects_missing_tolerance_with_review_not_pass(client):
 
     assert response.status_code == 201
     assert response.json()["summary"]["status"] == "REVIEW"
+
+
+def test_component_demo_calibration_stays_review_after_save(client):
+    processed = client.post(
+        "/api/measurements/process",
+        files={"file": ("bracket.png", _png_bytes(), "image/png")},
+        data={"calibration": _demo_axes_calibration()},
+    ).json()
+    response = client.post("/api/measurements", json={
+        "name": "BRKT-DEMO",
+        "source_key": processed["source_key"],
+        "source_filename": processed["source_filename"],
+        "source_type": processed["source_type"],
+        "calibration": processed["calibration"],
+        "items": [{
+            "id": "E1",
+            "type": "edge_length",
+            "points": [[20, 30], [140, 30]],
+            "nominal": 60,
+            "tolerance": 2,
+            "confidence": 0.95,
+        }],
+    })
+
+    assert response.status_code == 201
+    assert response.json()["summary"]["status"] == "REVIEW"
+    assert response.json()["items"][0]["reason"] == "reference_not_independent"
 
 
 def test_measurement_profile_and_session_rows_persist():

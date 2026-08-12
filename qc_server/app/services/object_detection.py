@@ -109,12 +109,13 @@ def detect(
         model = get_prompt_model(model_path) if device == "auto" else get_prompt_model(model_path, device)
         prompt_list = list(prompts)
         cache_key = (model_path, device)
-        if _prompt_classes.get(cache_key) != (id(model), prompt_list):
+        cached = _prompt_classes.get(cache_key)
+        if not cached or cached[0] is not model or cached[1] != prompt_list:
             try:
                 model.set_classes(prompt_list)
             except Exception as exc:
                 raise ValueError("model does not support class prompts") from exc
-            _prompt_classes[cache_key] = (id(model), prompt_list)
+            _prompt_classes[cache_key] = (model, prompt_list)
 
     kwargs = {"conf": conf_threshold, "verbose": False, "agnostic_nms": agnostic_nms}
     if iou is not None:

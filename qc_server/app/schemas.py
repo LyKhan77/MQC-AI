@@ -251,6 +251,7 @@ class MeasurementItemIn(BaseModel):
     nominal: float | None = None
     tolerance: float | None = None
     confidence: float = 0.0
+    quality_reason: str = ""
 
 
 class MeasurementProfileIn(BaseModel):
@@ -331,6 +332,7 @@ class MeasurementProcessOut(BaseModel):
     logical_edges: list = Field(default_factory=list)
     corner_arcs: list = Field(default_factory=list)
     bend_candidates: list = Field(default_factory=list)
+    task_readiness: dict = Field(default_factory=dict)
     calibration_quality: dict = Field(default_factory=dict)
 
 
@@ -349,6 +351,7 @@ class MeasurementRunIn(BaseModel):
     scale_profile_id: str | None = None
     calibration: dict
     items: list[MeasurementItemIn] = []
+    processing: dict = Field(default_factory=dict)
 
 
 class MeasurementRunOut(BaseModel):

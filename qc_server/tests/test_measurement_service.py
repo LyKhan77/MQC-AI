@@ -5,6 +5,8 @@ import pytest
 from app.services.measurement import (
     SUPPORTED_TASK_TYPES,
     SUPPORTED_VIEW_TYPES,
+    bend_geometry,
+    detect_bend_candidates,
     calibrate_axes,
     calibrate_reference,
     calibration_quality,
@@ -337,3 +339,56 @@ def test_manual_axes_profile_is_valid_and_task_types_are_normalized():
         "bend_angle",
     ]
     assert calibration_quality(calibration)["verdict_eligible"] is True
+
+
+def test_measure_geometry_returns_selected_corner_radius():
+    calibration = calibrate_axes(
+        {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+        "independent_artifact",
+    )
+    geometry = {"kind": "corner_arc", "center": [40, 40], "radius_mm": 12.0, "points": []}
+
+    result = measure_geometry("corner_radius", [], calibration, geometry)
+
+    assert result == {
+        "value": 12.0,
+        "unit": "mm",
+        "pixel_value": None,
+        "geometry": {"kind": "corner_arc", "center": [40.0, 40.0], "radius_mm": 12.0, "points": []},
+    }
+
+
+def test_bend_geometry_preserves_obtuse_included_angle():
+    result = bend_geometry(
+        {"id": "LE1", "support_points": [[0, 0], [100, 0]]},
+        {"id": "LE2", "support_points": [[0, 0], [-100, 100]]},
+    )
+
+    assert result["angle_deg"] == pytest.approx(135)
+
+
+def test_bend_geometry_rejects_parallel_support_lines():
+    with pytest.raises(ValueError, match="parallel"):
+        bend_geometry(
+            {"id": "LE1", "support_points": [[0, 0], [100, 0]]},
+            {"id": "LE2", "support_points": [[0, 10], [100, 10]]},
+        )
+
+
+def test_detect_bend_candidates_rejects_intersections_far_outside_edges():
+    candidates = detect_bend_candidates([
+        {"id": "LE1", "support_points": [[0, 0], [100, 0]], "confidence": 0.9},
+        {"id": "LE2", "support_points": [[200, 10], [200, 110]], "confidence": 0.9},
+    ])
+
+    assert candidates == []
+
+
+def test_detect_bend_candidates_rejects_crossing_lines_without_common_vertex():
+    candidates = detect_bend_candidates([
+        {"id": "LE1", "support_points": [[0, 0], [100, 0]], "confidence": 0.9},
+        {"id": "LE2", "support_points": [[50, -50], [50, 50]], "confidence": 0.9},
+    ])
+
+    assert candidates == []

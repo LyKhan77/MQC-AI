@@ -291,6 +291,8 @@ def _persist_measurement_view(db: Session, payload: MeasurementRunIn, session_id
                 "hole_methods": ["hough_circle_alt", "fit_ellipse"],
                 "task_type": payload.task_type,
                 "task_types": payload.task_types or [payload.task_type],
+                "task_readiness": payload.processing.get("task_readiness", {}),
+                "calibration_quality": payload.processing.get("calibration_quality", {}),
                 "view_type": payload.view_type,
                 "pose_type": payload.pose_type,
                 "scale_profile_id": payload.scale_profile_id,
@@ -442,6 +444,8 @@ def _evaluate_items(items, calibration):
             view_type=data.get("view_type", "top"),
             calibration_reason=calibration_reason,
         )
+        if data.get("quality_reason") and evaluated["status"] in {"PASS", "FAIL"}:
+            evaluated = {**evaluated, "status": "REVIEW", "reason": data["quality_reason"]}
         result.append({
             **data,
             "measured": measured["value"],
@@ -561,21 +565,31 @@ async def process_measurement(
         raise HTTPException(400, str(exc)) from exc
     task_type = requested_task_types[0]
     options_data = _json_form(options, "options")
-    if not task_view_supported(task_type, view_type):
+    unsupported_view_tasks = [value for value in requested_task_types if not task_view_supported(value, view_type)]
+    unsupported_pose_tasks = [value for value in requested_task_types if not pose_task_supported(value, pose_type)]
+    if unsupported_view_tasks:
         processed = {
             "readiness": "review",
             "reason": "unsupported_view",
             "candidates": [],
             "logical_edges": [],
             "holes": [],
+            "task_readiness": {
+                value: {"status": "review", "reason": "unsupported_view"}
+                for value in requested_task_types
+            },
         }
-    elif not pose_task_supported(task_type, pose_type):
+    elif unsupported_pose_tasks:
         processed = {
             "readiness": "review",
             "reason": "unsupported_pose",
             "candidates": [],
             "logical_edges": [],
             "holes": [],
+            "task_readiness": {
+                value: {"status": "review", "reason": "unsupported_pose"}
+                for value in requested_task_types
+            },
         }
     elif not profile_validation["valid"]:
         processed = {
@@ -584,9 +598,20 @@ async def process_measurement(
             "candidates": [],
             "logical_edges": [],
             "holes": [],
+            "task_readiness": {
+                value: {"status": "review", "reason": profile_validation["reason"]}
+                for value in requested_task_types
+            },
         }
     else:
-        processed = process_image(frame, calibration_data, options_data, task_type=task_type, view_type=view_type)
+        processed = process_image(
+            frame,
+            calibration_data,
+            options_data,
+            task_type=task_type,
+            view_type=view_type,
+            task_types=requested_task_types,
+        )
     owner = source_key or f"tmp-{gen_id('measurement')}"
     directory = _base_dir() / owner
     if source_key:
@@ -660,6 +685,8 @@ def save_measurement(payload: MeasurementRunIn, db: Session = Depends(get_db)):
                 "hole_methods": ["hough_circle_alt", "fit_ellipse"],
                 "task_type": payload.task_type,
                 "task_types": payload.task_types or [payload.task_type],
+                "task_readiness": payload.processing.get("task_readiness", {}),
+                "calibration_quality": payload.processing.get("calibration_quality", {}),
                 "view_type": payload.view_type,
             },
             items=items,

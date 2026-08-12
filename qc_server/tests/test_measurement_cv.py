@@ -2,7 +2,11 @@ import cv2
 import numpy as np
 
 from app.services.measurement import (
+    calibrate_axes,
     calibrate_reference,
+    detect_component_contour,
+    detect_corner_arcs,
+    fit_circle,
     detect_hole_candidates,
     group_line_candidates,
     process_image,
@@ -11,6 +15,46 @@ from app.services.measurement import (
 
 def _calibration():
     return calibrate_reference((0, 0), (100, 0), 50)
+
+
+def _axes_calibration():
+    return calibrate_axes(
+        {"point_a": [0, 0], "point_b": [100, 0], "known_mm": 50},
+        {"point_a": [0, 0], "point_b": [0, 100], "known_mm": 50},
+        "independent_artifact",
+    )
+
+
+def test_fit_circle_returns_radius_and_low_residual():
+    radians = np.linspace(0, np.pi / 2, 40)
+    points = np.column_stack((20 + 10 * np.cos(radians), 30 + 10 * np.sin(radians)))
+
+    center, radius, residual = fit_circle(points)
+
+    assert np.allclose(center, [20, 30], atol=0.1)
+    assert abs(radius - 10) <= 0.1
+    assert residual <= 0.1
+
+
+def test_detect_corner_arcs_returns_calibrated_rounded_rectangle_corners():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    mask = np.zeros((240, 320), dtype=np.uint8)
+    radius = 24
+    cv2.rectangle(mask, (60 + radius, 40), (260 - radius, 200), 255, -1)
+    cv2.rectangle(mask, (60, 40 + radius), (260, 200 - radius), 255, -1)
+    for center in ((84, 64), (236, 64), (84, 176), (236, 176)):
+        cv2.circle(mask, center, radius, 255, -1)
+    frame[mask > 0] = (255, 255, 255)
+    contour = detect_component_contour(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+
+    candidates = detect_corner_arcs(contour, _axes_calibration())
+
+    assert len(candidates) >= 4
+    nearest = min(candidates, key=lambda item: np.linalg.norm(np.asarray(item["center"]) - np.asarray([84, 64])))
+    assert np.linalg.norm(np.asarray(nearest["center"]) - np.asarray([84, 64])) <= 4
+    assert 10 <= nearest["radius_mm"] <= 14
+    assert 45 <= nearest["coverage_deg"] <= 120
+    assert nearest["confidence"] >= 0.5
 
 
 def test_group_line_candidates_merges_fragmented_collinear_segments():
@@ -64,6 +108,15 @@ def test_process_image_returns_line_candidates_for_clear_rectangle():
     assert all(candidate["source"] in {"lsd", "hough"} for candidate in result["candidates"])
     assert all(candidate["confidence"] > 0 for candidate in result["candidates"])
     assert any(candidate["length_px"] > 100 for candidate in result["candidates"])
+
+
+def test_process_image_collapses_thick_stroke_duplicates_to_outer_edges():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.rectangle(frame, (40, 50), (280, 190), (255, 255, 255), 8)
+
+    result = process_image(frame, _calibration())
+
+    assert len(result["logical_edges"]) == 4
 
 
 def test_process_image_returns_review_for_empty_frame():
