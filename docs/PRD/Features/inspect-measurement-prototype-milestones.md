@@ -127,6 +127,7 @@ Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f01
 | I1 | Approved 2D geometry design | `DONE` | — | Scope, algorithms, API migration, UX, and verification contract approved. |
 | I2 | Logical edge + calibration v2 | `DONE` | `DONE` | Dual-axis calibration, merged/fitted/deduplicated support-bounded logical edges, calibration quality gate, and overlay layers pass focused tests. |
 | I3 | Corner + bend geometry | `DONE` | `DONE` | Multi-select task flow, selected outer-radius fit, bend candidate filtering, selected flange-pair angle, and `REVIEW` reasons pass focused tests. |
+| I5 | Calibration coordinate + jig assistance | `DONE` | `DONE` | Preview coordinate dimensions normalize X/Y points in the OpenCV frame; four green jig points place X/Y lines while inspector enters physical lengths manually; dummy manual edge removed. |
 | I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
 
 Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
@@ -155,6 +156,17 @@ Evidence: commit `5c607c0`; backend focused measurement suite `62 passed`; full 
 
 Evidence: commit `b314fb6`; frontend `198 passed`, production build passed, Measurement Studio E2E `10 passed`.
 
+### I5 — Calibration coordinate + jig assistance
+
+- [x] Calibration payload carries preview coordinate width/height; backend normalizes points before calculating scale.
+- [x] Processed reference overlay uses returned OpenCV-frame coordinates directly.
+- [x] Auto-jig detects exactly four green centroids and creates X/Y reference lines without deriving physical mm.
+- [x] Inspector enters X/Y physical length manually after auto-jig detection.
+- [x] Preview supports zoom/pan, drawing-axis toggle, and low-opacity crosshair alignment guides.
+- [x] Mobile Camera center guide is display-only; `Reset workspace` clears local staged state; dummy manual edge creation removed.
+
+Evidence: backend `249 passed`; frontend `207 passed`; production build passed.
+
 ## Update protocol
 
 Setelah milestone berubah:
@@ -173,6 +185,7 @@ Setelah milestone berubah:
 | 2026-08-10 | M0–M5 prototype implementation | Feature branch verification: backend `202 passed`, frontend `157 passed`, build passed, Playwright `5 passed`; sample kernel smoke `42 candidates` | Production prototype flow complete; M6 physical accuracy validation pending. |
 | 2026-08-12 | I1 2D geometry improvement design | Approved design spec + PRD/milestone synchronization | Implementation planning may start; no geometry code changed yet. |
 | 2026-08-10 | Measurement Studio UI + Mobile Camera | Backend `204 passed`, frontend `160 passed`, build passed, Playwright `7 passed`; scoped overflow assertion | QC Studio-style fixed shell; History and Measurement Items scroll independently; Mobile Camera uses browser `getUserMedia()` and same process pipeline. |
+| 2026-08-13 | I5 calibration coordinate + jig assistance | Backend `249 passed`; frontend `207 passed`; production build passed | Browser-to-OpenCV coordinate contract, four-green-point jig line detection with manual lengths, reset workspace, calibration drawing guide, and Mobile center guide complete. |
 | 2026-08-10 | Measurement canvas alignment + controls | Frontend `162 passed`, build passed, Playwright `8 passed`; image/SVG bounding-box assertion | Wider QC Studio-style panels; shared image frame fixes overlay alignment; zoom/pan and high-contrast candidate overlays implemented. |
 | 2026-08-10 | Measurement rail overflow + overlay weight | Targeted component `10 passed`, Measurement E2E `5 passed` | Fixed flex rails now mirror QC Studio positioning; Input/Calibration rail scrolls independently; LSD foreground stroke reduced to 3px. |
 | 2026-08-10 | Measurement shell redesign | Frontend `162 passed`, build passed, Playwright `9 passed`; TopBar/full-height shell assertion | Title moved to application TopBar; outer padding/border removed; desktop workspace now matches QC Studio's fixed `280px / flex / 320px` layout; source/process/status controls float over the canvas. |

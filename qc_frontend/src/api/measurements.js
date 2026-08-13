@@ -26,6 +26,15 @@ export async function captureMeasurement({ cameraId }) {
   return response.json()
 }
 
+export async function detectMeasurementJig({ file, sourceKey }) {
+  const fd = new FormData()
+  if (file) fd.append('file', file)
+  if (sourceKey) fd.append('source_key', sourceKey)
+  const response = await fetch(`${BASE}/measurements/detect-jig`, { method: 'POST', body: fd })
+  if (!response.ok) await throwResponseError(response)
+  return response.json()
+}
+
 export async function processMeasurement({ file, cameraId, sourceKey, sourceFilename, sourceCameraId, sourceType = 'image', calibration, options = {}, taskType = 'linear_dimension', taskTypes = [], viewType = 'top', viewLabel = '', poseType = 'TOP_FACE', scaleProfileId }) {
   const fd = new FormData()
   if (file) fd.append('file', file)

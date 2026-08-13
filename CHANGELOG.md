@@ -11,6 +11,25 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-13 - Inspect Measurement Calibration Coordinate and Jig Assistance
+
+### Added
+
+- `POST /api/measurements/detect-jig` detects exactly four green jig-point centroids and returns X/Y reference lines only; physical X/Y lengths remain inspector-entered values.
+- Measurement Studio adds one-click jig line detection, pre-process zoom/pan, low-opacity calibration crosshair guides, Mobile Camera center positioning guide, and Reset workspace for local staged state.
+
+### Fixed
+
+- Calibration now carries browser preview dimensions to the backend, which normalizes X/Y points into the decoded OpenCV frame before scale calculation. Processed overlays render returned frame coordinates directly, removing second-pass UI scaling that could shift references.
+
+### Removed
+
+- Removed dummy `Tambah edge manual`; it created a fixed synthetic line and did not repair fragmented LSD candidates.
+
+### Verification
+
+- Backend `249 passed` (two existing FastAPI deprecation warnings), frontend `207 passed`, and production build passed.
+
 ## [Unreleased] - 2026-08-13 - Inspect Measurement Accuracy Feedback Slice
 
 ### Changed

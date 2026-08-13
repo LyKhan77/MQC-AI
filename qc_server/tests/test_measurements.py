@@ -34,6 +34,15 @@ def _rounded_component_png_bytes():
     return buffer.tobytes()
 
 
+def _green_jig_png_bytes():
+    frame = np.zeros((120, 200, 3), dtype=np.uint8)
+    for point in ((30, 20), (170, 20), (30, 100), (170, 100)):
+        cv2.circle(frame, point, 7, (0, 255, 0), -1)
+    ok, buffer = cv2.imencode(".png", frame)
+    assert ok
+    return buffer.tobytes()
+
+
 def _calibration():
     return json.dumps({
         "point_a": [0, 0],
@@ -93,6 +102,43 @@ def test_process_accepts_dual_axes_and_returns_logical_edges(client):
     assert body["task_types"] == ["linear_dimension"]
     assert body["logical_edges"]
     assert body["calibration_quality"]["verdict_eligible"] is True
+
+
+def test_process_normalizes_calibration_points_to_processed_frame(client):
+    calibration = json.loads(_axes_calibration())
+    calibration["coordinate_width"] = 80
+    calibration["coordinate_height"] = 60
+    calibration["x"]["point_a"] = [10, 15]
+    calibration["x"]["point_b"] = [70, 15]
+    calibration["y"]["point_a"] = [10, 15]
+    calibration["y"]["point_b"] = [10, 45]
+
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("bracket.png", _png_bytes(), "image/png")},
+        data={"calibration": json.dumps(calibration)},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["calibration"]["x"]["point_a"] == [20.0, 30.0]
+    assert body["calibration"]["x"]["point_b"] == [140.0, 30.0]
+    assert body["calibration"]["y"]["point_b"] == [20.0, 90.0]
+
+
+def test_detect_jig_returns_automatic_axes_but_not_physical_length(client):
+    response = client.post(
+        "/api/measurements/detect-jig",
+        files={"file": ("jig.png", _green_jig_png_bytes(), "image/png")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["x"]["point_a"] == [30.0, 20.0]
+    assert body["x"]["point_b"] == [170.0, 20.0]
+    assert body["y"]["point_a"] == [30.0, 20.0]
+    assert body["y"]["point_b"] == [30.0, 100.0]
+    assert "known_mm" not in body
 
 
 def test_process_multi_task_returns_corner_candidates_and_readiness(client):

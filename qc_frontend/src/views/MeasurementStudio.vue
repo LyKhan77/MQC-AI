@@ -7,6 +7,7 @@ import { useMeasurementSession } from '../composables/useMeasurementSession.js'
 import { useToast } from '../composables/useToast.js'
 import {
   captureMeasurement,
+  detectMeasurementJig,
   deleteMeasurementRun,
   listMeasurementRuns,
   processMeasurement,
@@ -71,7 +72,9 @@ const calibrationAxes = ref({ x: [], y: [] })
 const calibrationAxis = ref('x')
 const calibrationMode = ref(false)
 const calibrationDragging = ref(false)
+const calibrationCursor = ref(null)
 const showCalibrationReference = ref(true)
+const jigDetecting = ref(false)
 const processed = ref(null)
 const items = ref([])
 const recentRuns = ref([])
@@ -160,27 +163,18 @@ const selectionGuidance = computed(() => [
   taskTypesForProcess.value.includes('bend_angle') ? t('measurement.selectBendHint') : '',
 ].filter(Boolean).join(' · '))
 
-function processedCalibrationPoint(point) {
-  const targetWidth = Number(processed.value?.width) || 0
-  const targetHeight = Number(processed.value?.height) || 0
-  const sourceWidth = Number(previewWidth.value) || targetWidth
-  const sourceHeight = Number(previewHeight.value) || targetHeight
-  if (!targetWidth || !targetHeight || !sourceWidth || !sourceHeight) return point
-  return [point[0] * targetWidth / sourceWidth, point[1] * targetHeight / sourceHeight]
-}
-
 const calibrationReferences = computed(() => {
   const calibration = processed.value?.calibration || {}
   if (calibration.mode === 'manual_axes') {
     return ['x', 'y'].filter((axis) => calibration[axis]?.point_a && calibration[axis]?.point_b).map((axis) => ({
       axis: axis.toUpperCase(),
-      point_a: processedCalibrationPoint(calibration[axis].point_a),
-      point_b: processedCalibrationPoint(calibration[axis].point_b),
+      point_a: calibration[axis].point_a,
+      point_b: calibration[axis].point_b,
       known_mm: calibration[axis].known_mm,
     }))
   }
   return calibration.point_a && calibration.point_b
-    ? [{ axis: 'REF', point_a: processedCalibrationPoint(calibration.point_a), point_b: processedCalibrationPoint(calibration.point_b), known_mm: calibration.known_mm }]
+    ? [{ axis: 'REF', point_a: calibration.point_a, point_b: calibration.point_b, known_mm: calibration.known_mm }]
     : []
 })
 
@@ -192,6 +186,8 @@ function calibrationInput() {
   return {
     mode: 'manual_axes',
     source: calibrationSource.value,
+    coordinate_width: previewWidth.value,
+    coordinate_height: previewHeight.value,
     x: { point_a: xPoints[0], point_b: xPoints[1], known_mm: Number(knownMm.value) },
     y: { point_a: yPoints[0], point_b: yPoints[1], known_mm: Number(knownMmY.value) },
   }
@@ -216,6 +212,7 @@ function resetStagedMeasurement() {
   calibrationPoints.value = []
   calibrationAxes.value = { x: [], y: [] }
   calibrationMode.value = false
+  calibrationCursor.value = null
   calibrationAxis.value = 'x'
   calibrationSource.value = 'component_demo'
   showCalibrationReference.value = true
@@ -375,10 +372,38 @@ async function completeMeasurementSession() {
 }
 
 function startCalibration(axis = 'x') {
+  if (calibrationMode.value && calibrationAxis.value === axis) {
+    calibrationMode.value = false
+    calibrationDragging.value = false
+    calibrationCursor.value = null
+    return
+  }
   calibrationAxis.value = axis
-  calibrationAxes.value = { ...calibrationAxes.value, [axis]: [] }
   calibrationMode.value = true
   errorMessage.value = ''
+}
+
+async function autoDetectJig() {
+  if (!previewUrl.value || readOnly.value || jigDetecting.value) return
+  jigDetecting.value = true
+  errorMessage.value = ''
+  try {
+    const result = await detectMeasurementJig({
+      file: source.value === 'image' || source.value === 'mobile' ? selectedFile.value : undefined,
+      sourceKey: source.value === 'live' ? capturedSource.value?.source_key : undefined,
+    })
+    calibrationAxes.value = {
+      x: [result.x.point_a, result.x.point_b],
+      y: [result.y.point_a, result.y.point_b],
+    }
+    calibrationMode.value = false
+    calibrationCursor.value = null
+    showToast(t('measurement.jigDetected'))
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    jigDetecting.value = false
+  }
 }
 
 function onTaskTypeChange() {
@@ -405,14 +430,17 @@ function previewPoint(event) {
 
 function onCalibrationPointerDown(event) {
   if (!calibrationMode.value || event.button !== 0) return
-  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [previewPoint(event)] }
+  const point = previewPoint(event)
+  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [point] }
+  calibrationCursor.value = point
   calibrationDragging.value = true
 }
 
 function onCalibrationPointerMove(event) {
   if (!calibrationDragging.value) return
+  calibrationCursor.value = previewPoint(event)
   const points = activeCalibrationPoints.value
-  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [points[0], previewPoint(event)] }
+  calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [points[0], calibrationCursor.value] }
 }
 
 function onCalibrationPointerUp(event) {
@@ -421,6 +449,26 @@ function onCalibrationPointerUp(event) {
   const points = activeCalibrationPoints.value
   calibrationAxes.value = { ...calibrationAxes.value, [calibrationAxis.value]: [points[0], previewPoint(event)] }
   calibrationMode.value = false
+  calibrationCursor.value = null
+}
+
+function resetMeasurementWorkspace() {
+  const hasWorkspace = stagedViews.value.length || processed.value || items.value.length || runName.value
+  if (hasWorkspace && !window.confirm(t('measurement.confirmResetWorkspace'))) return
+  stopMobileCamera()
+  clearSession()
+  clearPreview()
+  selectedFile.value = null
+  capturedSource.value = null
+  localFileName.value = ''
+  runName.value = ''
+  sessionNameError.value = ''
+  knownMm.value = 50
+  knownMmY.value = 50
+  source.value = 'image'
+  resetStagedMeasurement()
+  resetZoom()
+  showToast(t('measurement.workspaceReset'))
 }
 
 function chooseSource(value) {
@@ -845,28 +893,6 @@ function selectHole(candidate, index) {
   evaluated.value = false
 }
 
-function addManualItem() {
-  if (readOnly.value || !processed.value) return
-  const points = [[20, 20], [120, 20]]
-  const measured = measureGeometry('edge_length', points, processed.value.calibration)
-  const id = `E${items.value.length + 1}`
-  items.value.push({
-    id,
-    type: 'edge_length',
-    label: `Manual ${id}`,
-    points,
-    measured: measured.value,
-    unit: measured.unit,
-    pixel_value: measured.pixel_value,
-    nominal: null,
-    tolerance: 2,
-    confidence: 1,
-    status: 'REVIEW',
-    reason: 'missing_nominal_or_tolerance',
-  })
-  evaluated.value = false
-}
-
 function removeItem(index) {
   if (readOnly.value) return
   items.value.splice(index, 1)
@@ -1032,6 +1058,7 @@ onBeforeUnmount(() => {
           <button id="start-session" type="button" class="btn btn-secondary session-start" :disabled="sessionStarting || Boolean(session)" @click="startMeasurementSession">
             {{ session ? t('measurement.sessionStarted') : t('measurement.startSession') }}
           </button>
+          <button type="button" class="btn btn-secondary reset-measurement-workspace" @click="resetMeasurementWorkspace">{{ t('measurement.resetWorkspace') }}</button>
           <p v-if="sessionNameError" class="session-name-error error-message">{{ sessionNameError }}</p>
         </section>
         <section class="rail-section">
@@ -1121,6 +1148,7 @@ onBeforeUnmount(() => {
               <p class="section-help">{{ t('inspection.mobileHint') }}</p>
               <div class="mobile-preview" :style="{ aspectRatio: mobileVideoAspect }">
                 <video ref="mobileVideo" playsinline muted class="mobile-video"></video>
+                <span class="mobile-camera-guide" aria-hidden="true"></span>
                 <span v-if="!mobileCameraOpen">{{ t('measurement.mobileWaiting') }}</span>
               </div>
               <div class="mobile-camera-actions">
@@ -1180,13 +1208,15 @@ onBeforeUnmount(() => {
             </select>
           </label>
           <div class="calibration-axis-actions">
-            <button type="button" class="btn btn-secondary calibration-draw-button" :class="{ active: calibrationAxis === 'x' && calibrationMode }" :disabled="!previewUrl || readOnly" @click="startCalibration('x')">
+            <button type="button" class="btn btn-secondary calibration-draw-button" :class="{ active: calibrationAxis === 'x' && calibrationMode }" :disabled="!previewUrl || readOnly || Boolean(processed)" @click="startCalibration('x')">
               {{ calibrationMode && calibrationAxis === 'x' ? t('measurement.calibrationDrawing') : t('measurement.drawHorizontal') }}
             </button>
-            <button type="button" class="btn btn-secondary calibration-draw-button-y" :class="{ active: calibrationAxis === 'y' && calibrationMode }" :disabled="!previewUrl || readOnly" @click="startCalibration('y')">
+            <button type="button" class="btn btn-secondary calibration-draw-button-y" :class="{ active: calibrationAxis === 'y' && calibrationMode }" :disabled="!previewUrl || readOnly || Boolean(processed)" @click="startCalibration('y')">
               {{ calibrationMode && calibrationAxis === 'y' ? t('measurement.calibrationDrawing') : t('measurement.drawVertical') }}
             </button>
+            <button type="button" class="btn btn-secondary auto-detect-jig" :disabled="!previewUrl || readOnly || jigDetecting || Boolean(processed)" @click="autoDetectJig">{{ jigDetecting ? t('measurement.detectingJig') : t('measurement.detectJig') }}</button>
           </div>
+          <p class="section-help">{{ t('measurement.autoJigHelp') }}</p>
           <div class="calibration-axis-fields">
             <label class="field-label" for="known-mm">{{ t('measurement.horizontalLength') }}<div class="input-unit">
               <input id="known-mm" v-model.number="knownMm" type="number" min="0.01" step="0.01">
@@ -1257,7 +1287,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-if="!processed && previewUrl" class="measurement-preview">
-            <div class="measurement-image-frame preview-frame">
+            <div class="measurement-image-frame preview-frame" :style="{ transform: frameTransform }">
               <img class="measurement-image" :src="previewUrl" :alt="localFileName" @load="onPreviewLoad" draggable="false">
               <svg
                 class="measurement-overlay calibration-overlay"
@@ -1268,6 +1298,10 @@ onBeforeUnmount(() => {
                 @mousemove.stop="onCalibrationPointerMove"
                 @mouseup.stop="onCalibrationPointerUp"
               >
+                <g v-if="calibrationMode && calibrationCursor" class="calibration-guide">
+                  <line :x1="calibrationCursor[0]" y1="0" :x2="calibrationCursor[0]" :y2="previewHeight"></line>
+                  <line x1="0" :y1="calibrationCursor[1]" :x2="previewWidth" :y2="calibrationCursor[1]"></line>
+                </g>
                 <g v-for="axis in ['x', 'y']" :key="`calibration-axis-${axis}`">
                   <line
                     v-if="calibrationAxes[axis].length === 2"
@@ -1281,6 +1315,12 @@ onBeforeUnmount(() => {
                   <circle v-for="(point, index) in calibrationAxes[axis]" :key="`calibration-point-${axis}-${index}`" class="calibration-drawn-point" :cx="point[0]" :cy="point[1]" r="6"></circle>
                 </g>
               </svg>
+            </div>
+            <div class="measurement-zoom-controls" :aria-label="t('measurement.zoomControls')">
+              <button type="button" class="measurement-zoom-button measurement-zoom-out" :aria-label="t('measurement.zoomOut')" @click.stop="zoomOut">−</button>
+              <span class="measurement-zoom-value mono">{{ Math.round(zoom * 100) }}%</span>
+              <button type="button" class="measurement-zoom-button measurement-zoom-in" :aria-label="t('measurement.zoomIn')" @click.stop="zoomIn">+</button>
+              <button type="button" class="measurement-zoom-reset" @click.stop="resetZoom">{{ t('measurement.zoomResetShort') }}</button>
             </div>
             <span class="preview-guidance">{{ calibrationMode ? t('measurement.calibrationDrawHint') : t('measurement.previewHint') }}</span>
           </div>
@@ -1450,10 +1490,6 @@ onBeforeUnmount(() => {
               <small>{{ candidate.source }} · {{ candidate.confidence.toFixed(2) }}</small>
             </button>
           </template>
-          <button v-if="!taskIsHole" type="button" class="candidate-card manual-card" :disabled="readOnly" @click="addManualItem">
-            <strong>＋</strong>
-            <span>{{ t('measurement.addManual') }}</span>
-          </button>
         </div>
       </section>
 
@@ -1685,6 +1721,9 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .mobile-camera-panel { display: grid; gap: 10px; }
 .mobile-preview { position: relative; display: grid; min-height: 150px; place-items: center; overflow: hidden; background: var(--color-inverse-canvas); color: var(--color-inverse-ink-muted); font-size: 11px; }
 .mobile-video { display: block; width: 100%; height: 100%; min-height: 150px; object-fit: cover; }
+.mobile-camera-guide { position: absolute; top: 50%; left: 50%; width: 26px; height: 26px; transform: translate(-50%, -50%); border: 1px solid var(--color-warning); border-radius: 50%; pointer-events: none; }
+.mobile-camera-guide::before, .mobile-camera-guide::after { position: absolute; top: 50%; left: 50%; width: 38px; height: 1px; transform: translate(-50%, -50%); background: var(--color-warning); content: ''; }
+.mobile-camera-guide::after { width: 1px; height: 38px; }
 .mobile-camera-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .camera-resolution { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
 
@@ -1719,6 +1758,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .calibration-overlay.active { cursor: crosshair; }
 .calibration-drawn-line { stroke: var(--color-warning); stroke-width: 3; vector-effect: non-scaling-stroke; stroke-dasharray: 8 4; }
 .calibration-drawn-point { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.calibration-guide line { stroke: var(--color-warning); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.3; vector-effect: non-scaling-stroke; }
 .preview-guidance { color: var(--color-ink-muted); font-size: 12px; text-align: center; }
 .measurement-canvas-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; max-width: calc(100% - 24px); padding: 9px 10px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .measurement-canvas-tools strong { display: block; max-width: 280px; overflow: hidden; color: var(--color-ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }

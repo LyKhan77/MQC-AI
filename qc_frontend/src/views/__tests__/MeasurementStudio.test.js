@@ -8,6 +8,7 @@ import MeasurementStudio from '../MeasurementStudio.vue'
 
 const mocks = vi.hoisted(() => ({
   captureMeasurement: vi.fn(),
+  detectMeasurementJig: vi.fn(),
   processMeasurement: vi.fn(),
   saveMeasurementRun: vi.fn(),
   listMeasurementRuns: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('../../composables/useCameras.js', () => ({
 }))
 vi.mock('../../api/measurements.js', () => ({
   captureMeasurement: mocks.captureMeasurement,
+  detectMeasurementJig: mocks.detectMeasurementJig,
   processMeasurement: mocks.processMeasurement,
   saveMeasurementRun: mocks.saveMeasurementRun,
   listMeasurementRuns: mocks.listMeasurementRuns,
@@ -118,6 +120,11 @@ describe('MeasurementStudio', () => {
       width: 160,
       height: 120,
     })
+    mocks.detectMeasurementJig.mockResolvedValue({
+      x: { point_a: [20, 30], point_b: [140, 30] },
+      y: { point_a: [20, 30], point_b: [20, 90] },
+      confidence: 0.98,
+    })
     mocks.processMeasurement.mockResolvedValue(processed())
     mocks.saveMeasurementRun.mockResolvedValue({ id: 'measurement-1', name: 'BRKT-001' })
     mocks.listMeasurementProfiles.mockResolvedValue([])
@@ -179,6 +186,52 @@ describe('MeasurementStudio', () => {
     expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
       calibration: expect.objectContaining({ source: 'component_demo' }),
     }))
+  })
+
+  it('sends preview coordinate dimensions with manual calibration', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await calibrate(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      calibration: expect.objectContaining({ coordinate_width: 160, coordinate_height: 120 }),
+    }))
+  })
+
+  it('auto-detects jig lines while keeping X and Y length manual', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('.auto-detect-jig').trigger('click')
+    await flushPromises()
+
+    expect(mocks.detectMeasurementJig).toHaveBeenCalledWith(expect.objectContaining({ file: expect.any(File) }))
+    expect(wrapper.vm.calibrationAxes).toEqual({ x: [[20, 30], [140, 30]], y: [[20, 30], [20, 90]] })
+    expect(wrapper.vm.knownMm).toBe(50)
+    expect(wrapper.vm.knownMmY).toBe(50)
+  })
+
+  it('cancels active calibration drawing when the same axis button is clicked again', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    const button = wrapper.find('.calibration-draw-button')
+    await button.trigger('click')
+    await button.trigger('click')
+
+    expect(wrapper.find('.calibration-overlay').classes()).not.toContain('active')
+  })
+
+  it('clears staged media and measurement values with reset workspace', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    wrapper.vm.runName = 'BRKT-001'
+    window.confirm = vi.fn(() => true)
+    await wrapper.find('.reset-measurement-workspace').trigger('click')
+
+    expect(wrapper.findAll('.measurement-view-card')).toHaveLength(0)
+    expect(wrapper.find('.measurement-preview').exists()).toBe(false)
+    expect(wrapper.vm.runName).toBe('')
   })
 
   it('blocks thickness on TOP_FACE with plain pose guidance', async () => {
@@ -317,7 +370,7 @@ describe('MeasurementStudio', () => {
     expect(wrapper.text()).toContain('LE1')
   })
 
-  it('scales processed calibration references when image dimensions change', async () => {
+  it('renders processed calibration coordinates directly without display rescaling', async () => {
     mocks.processMeasurement.mockResolvedValue({
       ...processed(),
       width: 320,
@@ -341,8 +394,8 @@ describe('MeasurementStudio', () => {
     expect(wrapper.findAll('.calibration-reference line').map((line) => [
       line.attributes('x1'), line.attributes('y1'), line.attributes('x2'), line.attributes('y2'),
     ])).toEqual([
-      ['40', '60', '280', '60'],
-      ['40', '60', '40', '180'],
+      ['20', '30', '140', '30'],
+      ['20', '30', '20', '90'],
     ])
   })
 
@@ -598,6 +651,7 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.mobile-camera-panel').exists()).toBe(true)
     expect(wrapper.find('.open-mobile-camera').exists()).toBe(true)
     expect(wrapper.find('.capture-mobile').exists()).toBe(true)
+    expect(wrapper.find('.mobile-camera-guide').exists()).toBe(true)
   })
 
   it('stages a Mobile Camera capture before processing', async () => {

@@ -97,6 +97,68 @@ def _calibration_from_payload(payload: dict):
     return {**result, "point_a": point_a, "point_b": point_b}
 
 
+def _normalize_calibration_coordinates(payload: dict, width: int, height: int):
+    """Map browser preview points into the decoded frame coordinate space."""
+    try:
+        coordinate_width = float(payload.get("coordinate_width") or width)
+        coordinate_height = float(payload.get("coordinate_height") or height)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, "invalid calibration coordinate size") from exc
+    if coordinate_width <= 0 or coordinate_height <= 0:
+        raise HTTPException(400, "invalid calibration coordinate size")
+    scale_x = width / coordinate_width
+    scale_y = height / coordinate_height
+
+    def point(value):
+        return [float(value[0]) * scale_x, float(value[1]) * scale_y]
+
+    try:
+        normalized = dict(payload)
+        if payload.get("mode") == "manual_axes":
+            normalized["x"] = {**payload.get("x", {}), "point_a": point(payload["x"]["point_a"]), "point_b": point(payload["x"]["point_b"])}
+            normalized["y"] = {**payload.get("y", {}), "point_a": point(payload["y"]["point_a"]), "point_b": point(payload["y"]["point_b"])}
+        else:
+            normalized["point_a"] = point(payload["point_a"])
+            normalized["point_b"] = point(payload["point_b"])
+    except (IndexError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(400, f"invalid calibration: {exc}") from exc
+    return normalized
+
+
+def _detect_green_jig(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, np.array([35, 70, 70]), np.array([95, 255, 255]))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    minimum_area = max(12.0, frame.shape[0] * frame.shape[1] * 0.00001)
+    points = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < minimum_area:
+            continue
+        moment = cv2.moments(contour)
+        if moment["m00"]:
+            points.append((moment["m10"] / moment["m00"], moment["m01"] / moment["m00"], area))
+    if len(points) != 4:
+        raise HTTPException(422, "could not detect exactly four green jig points")
+    points.sort(key=lambda item: item[1])
+    top = sorted(points[:2], key=lambda item: item[0])
+    bottom = sorted(points[2:], key=lambda item: item[0])
+    top_left, top_right = top
+    bottom_left, bottom_right = bottom
+    horizontal = abs(top_right[0] - top_left[0])
+    vertical = abs(bottom_left[1] - top_left[1])
+    if horizontal < 10 or vertical < 10:
+        raise HTTPException(422, "green jig points are too close")
+    confidence = min(1.0, min(item[2] for item in points) / max(item[2] for item in points))
+    return {
+        "x": {"point_a": [float(top_left[0]), float(top_left[1])], "point_b": [float(top_right[0]), float(top_right[1])]},
+        "y": {"point_a": [float(top_left[0]), float(top_left[1])], "point_b": [float(bottom_left[0]), float(bottom_left[1])]},
+        "points": [[float(item[0]), float(item[1])] for item in (top_left, top_right, bottom_left, bottom_right)],
+        "confidence": confidence,
+    }
+
+
 def _decode_frame(raw: bytes):
     frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
@@ -556,7 +618,10 @@ async def process_measurement(
             int(frame.shape[0]),
             source_camera_id,
         )
-    calibration_data = _calibration_from_payload(_json_form(calibration, "calibration"))
+    calibration_payload = _normalize_calibration_coordinates(
+        _json_form(calibration, "calibration"), int(frame.shape[1]), int(frame.shape[0])
+    )
+    calibration_data = _calibration_from_payload(calibration_payload)
     if profile_validation["valid"] and profile:
         calibration_data = profile.calibration
     try:
@@ -641,6 +706,24 @@ async def process_measurement(
         "scale_profile_id": profile_id,
         **processed,
     }
+
+
+@router.post("/detect-jig")
+async def detect_measurement_jig(
+    file: UploadFile | None = File(default=None),
+    source_key: str | None = Form(default=None),
+):
+    if bool(file) == bool(source_key):
+        raise HTTPException(400, "file or source_key required")
+    if source_key:
+        if not source_key.startswith("tmp-"):
+            raise HTTPException(400, "invalid source_key")
+        frame = cv2.imread(str(_file_path(source_key, "frame.jpg")))
+        if frame is None:
+            raise HTTPException(400, "invalid measurement frame")
+    else:
+        frame = _decode_frame(await file.read())
+    return _detect_green_jig(frame)
 
 
 @router.get("/files/{owner}/{filename}")

@@ -116,6 +116,10 @@ Pixel hanya dapat diubah menjadi mm jika ada skala. Flow baru memakai dua refere
 4. Reference independen pada measurement plane menghasilkan PASS-eligible calibration.
 5. Komponen boleh dipakai sebagai reference untuk demo, tetapi hasil tetap `REVIEW`.
 
+Untuk jig development empat titik hijau, tombol `Deteksi 4 titik jig` hanya menemukan centroid dan membuat garis X/Y. Inspector tetap memasukkan panjang fisik X dan Y manual; pixel tidak dapat menentukan mm tanpa nilai fisik tersebut. Bila deteksi gagal, inspector kembali memakai `Gambar horizontal (X)` dan `Gambar vertical (Y)`.
+
+Titik calibration membawa ukuran coordinate-space preview ke backend. Backend menormalisasi titik ke frame OpenCV sebelum menghitung scale dan mengembalikan titik frame final; canvas tidak melakukan rescale kedua kali setelah process.
+
 Jika reference tidak tersedia atau scale error melewati batas validasi, sistem menampilkan ukuran dalam status `REVIEW`, bukan memberi `PASS`.
 
 Legacy saved run dengan `mm_per_pixel` tetap dapat dibuka. Kalibrasi per-image cukup untuk improvement ini. Versi proper menambah station profile, intrinsic camera calibration, lens distortion correction, ChArUco/marker, dan homography desk plane.
@@ -184,7 +188,7 @@ Flow UI:
 1. Upload image, pilih Live Camera, atau pilih Mobile Camera; lalu isi nama run.
 2. Jika Live Camera, buka preview dan klik `Trigger capture`.
 3. Jika Mobile Camera, izinkan akses browser, buka preview, lalu klik `Capture`.
-4. Gambar reference horizontal X dan vertical Y pada image/frame yang dipilih.
+4. Gambar reference horizontal X dan vertical Y, atau gunakan `Deteksi 4 titik jig`; isi panjang fisik X dan Y manual.
 5. Pilih satu atau beberapa check: dimensi sisi, radius corner, dan sudut bending.
 6. Klik `Process measurement`.
 7. Sistem menampilkan logical geometry.
@@ -194,7 +198,9 @@ Flow UI:
 11. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
 12. Klik `Save measurement`.
 
-Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Candidate edge memakai outline/halo kontras, endpoint marker, dan selected measurement label yang lebih besar agar terbaca di atas komponen.
+Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Kontrol ini tersedia sebelum process agar calibration presisi. Saat menggambar, crosshair dash opacity rendah membantu alignment. Mobile Camera menampilkan crosshair tengah sebagai guide positioning dan tidak menulis overlay ke capture. `Reset workspace` membersihkan media staged dan state lokal tanpa menghapus History/Audit. Candidate edge memakai outline/halo kontras, endpoint marker, dan selected measurement label yang lebih besar agar terbaca di atas komponen.
+
+`Tambah edge manual` tidak tersedia: implementasi lama membuat garis dummy dan bukan memperbaiki LSD. Fallback click-start/click-end untuk edge `REVIEW` ditunda sampai contour fallback otomatis tervalidasi.
 
 UI harus mencegah evaluate sebelum image processed, calibration valid, geometry valid, dan nominal/tolerance lengkap.
 
