@@ -11,6 +11,21 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-13 - Inspect Measurement Accuracy Feedback Slice
+
+### Changed
+
+- Logical edge endpoints now use fitted LSD/Canny support projections instead of unrelated global contour extrema; overlays no longer intentionally span outside the selected edge.
+- Rounded-corner detection has a configurable `corner_min_radius_mm`, defaulting to `1.5 mm` for the prototype.
+- Measurement Studio exposes calibration source explicitly. Component-edge calibration defaults to `component_demo` and remains `REVIEW`; independent ruler/card calibration can be selected for verdict-eligible processing.
+
+### Verification
+
+- Backend focused measurement suite: `41 passed`, 2 existing deprecation warnings.
+- Measurement Studio unit suite: `31 passed`.
+- Frontend production build passed.
+- Camera working distance remains metadata-only; intrinsic calibration, distortion correction, and homography are future station work.
+
 ## [Unreleased] - 2026-08-12 - Inspect Measurement 2D Geometry Design
 
 ### Added

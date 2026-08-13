@@ -22,7 +22,7 @@ One component may contain multiple captured views. Camera remains top-down; insp
 - Manual two-axis calibration: horizontal X and vertical Y.
 - Merge fragmented line candidates into one logical edge.
 - Fit one stable line from supporting edge pixels.
-- Measure outer-to-outer projected dimension by default.
+- Measure the supported logical edge span by default; full outer-envelope dimensions remain a separate future mode.
 - Hide calibration/helper overlays after processing; allow independent show/hide.
 - Preserve legacy one-line calibration for saved history.
 
@@ -142,16 +142,16 @@ One group returns:
 
 ### 6.4 Measurement semantics
 
-Default inspector result is `outer_span`:
+Current prototype inspector result is a support-bounded logical edge span:
 
 1. Inspector clicks a logical edge to choose measurement direction.
-2. Project external component contour onto that direction.
-3. Use minimum and maximum projections as outer endpoints.
+2. Collect Canny/LSD support pixels in the fitted edge corridor.
+3. Use robust minimum and maximum support projections as endpoints.
 4. Convert vector using X/Y calibration.
 
-Rounded corners therefore contribute to full outer length/width. Inspector no longer adds E2 + E3 manually.
+Global contour extrema are not used for endpoints because unrelated corners can extend the visible line beyond the selected edge. Rounded-corner contribution is measured separately by `corner_radius`. Inspector no longer adds fragmented E2 + E3 manually.
 
-Optional Advanced result `straight_run` may expose the fitted straight section between tangent/support limits. It is diagnostic only in Slice 1–2 and must not replace default H/W.
+Future `outer_envelope` mode may include tangent/rounded-corner extents when a drawing dimension explicitly requires full outside-to-outside H/W.
 
 ## 7. Rounded-corner algorithm
 
@@ -161,7 +161,7 @@ When `Radius corner` is checked:
 2. Inspector clicks or brushes the intended corner arc.
 3. Select contour points around that arc.
 4. Fit circle first; fit ellipse only as diagnostic fallback for perspective/segmentation warning.
-5. Report outer radius, fit residual, arc coverage, and confidence.
+5. Reject candidate radius below the configured minimum (`1.5 mm` prototype default), then report outer radius, fit residual, arc coverage, and confidence.
 
 Reject or mark `REVIEW` when arc coverage is too short, residual is high, or corner is occluded. Inner radius remains future drawing/recipe work.
 

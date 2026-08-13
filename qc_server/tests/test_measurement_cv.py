@@ -7,6 +7,7 @@ from app.services.measurement import (
     detect_component_contour,
     detect_corner_arcs,
     fit_circle,
+    fit_logical_edges,
     detect_hole_candidates,
     group_line_candidates,
     process_image,
@@ -57,6 +58,22 @@ def test_detect_corner_arcs_returns_calibrated_rounded_rectangle_corners():
     assert nearest["confidence"] >= 0.5
 
 
+def test_detect_corner_arcs_rejects_radius_below_configured_minimum():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    mask = np.zeros((240, 320), dtype=np.uint8)
+    radius = 24
+    cv2.rectangle(mask, (60 + radius, 40), (260 - radius, 200), 255, -1)
+    cv2.rectangle(mask, (60, 40 + radius), (260, 200 - radius), 255, -1)
+    for center in ((84, 64), (236, 64), (84, 176), (236, 176)):
+        cv2.circle(mask, center, radius, 255, -1)
+    frame[mask > 0] = (255, 255, 255)
+    contour = detect_component_contour(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+
+    candidates = detect_corner_arcs(contour, _axes_calibration(), {"corner_min_radius_mm": 13})
+
+    assert candidates == []
+
+
 def test_group_line_candidates_merges_fragmented_collinear_segments():
     candidates = [
         {"id": "R1", "points": [[10, 20], [40, 20]], "angle": 0, "length_px": 30},
@@ -75,7 +92,21 @@ def test_group_line_candidates_keeps_parallel_boundaries_separate():
     assert len(group_line_candidates(candidates)) == 2
 
 
-def test_process_image_returns_logical_outer_edges_for_rounded_component():
+def test_fit_logical_edges_does_not_extend_segment_to_unrelated_contour_extrema():
+    edge_map = np.zeros((120, 140), dtype=np.uint8)
+    edge_map[49:52, 20:81] = 255
+    contour = np.asarray([[[0, 0]], [[100, 0]], [[100, 100]], [[0, 100]]], dtype=np.float32)
+    groups = [[{"id": "R1", "points": [[20, 50], [80, 50]], "length_px": 60}]]
+
+    result = fit_logical_edges(edge_map, contour, groups)
+
+    assert len(result) == 1
+    points = result[0]["points"]
+    assert min(point[0] for point in points) >= 19
+    assert max(point[0] for point in points) <= 81
+
+
+def test_process_image_returns_logical_edge_spans_for_rounded_component():
     frame = np.zeros((240, 320, 3), dtype=np.uint8)
     mask = np.zeros((240, 320), dtype=np.uint8)
     radius = 20
@@ -89,7 +120,9 @@ def test_process_image_returns_logical_outer_edges_for_rounded_component():
 
     assert result["logical_edges"]
     assert len(result["logical_edges"]) <= len(result["candidates"])
-    assert max(edge["length_px"] for edge in result["logical_edges"]) >= 195
+    lengths = [edge["length_px"] for edge in result["logical_edges"]]
+    assert max(lengths) >= 155
+    assert max(lengths) <= 185
     assert all(
         0 <= point[0] <= 320 and 0 <= point[1] <= 240
         for edge in result["logical_edges"]

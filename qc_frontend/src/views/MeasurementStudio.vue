@@ -56,6 +56,7 @@ const sessionStarting = ref(false)
 const selectedCameraId = ref('')
 const knownMm = ref(50)
 const knownMmY = ref(50)
+const calibrationSource = ref('component_demo')
 const taskType = ref('linear_dimension')
 const selectedTaskTypes = ref(['linear_dimension'])
 const viewType = ref('top')
@@ -158,18 +159,28 @@ const selectionGuidance = computed(() => [
   taskTypesForProcess.value.includes('corner_radius') ? t('measurement.selectCornerHint') : '',
   taskTypesForProcess.value.includes('bend_angle') ? t('measurement.selectBendHint') : '',
 ].filter(Boolean).join(' · '))
+
+function processedCalibrationPoint(point) {
+  const targetWidth = Number(processed.value?.width) || 0
+  const targetHeight = Number(processed.value?.height) || 0
+  const sourceWidth = Number(previewWidth.value) || targetWidth
+  const sourceHeight = Number(previewHeight.value) || targetHeight
+  if (!targetWidth || !targetHeight || !sourceWidth || !sourceHeight) return point
+  return [point[0] * targetWidth / sourceWidth, point[1] * targetHeight / sourceHeight]
+}
+
 const calibrationReferences = computed(() => {
   const calibration = processed.value?.calibration || {}
   if (calibration.mode === 'manual_axes') {
     return ['x', 'y'].filter((axis) => calibration[axis]?.point_a && calibration[axis]?.point_b).map((axis) => ({
       axis: axis.toUpperCase(),
-      point_a: calibration[axis].point_a,
-      point_b: calibration[axis].point_b,
+      point_a: processedCalibrationPoint(calibration[axis].point_a),
+      point_b: processedCalibrationPoint(calibration[axis].point_b),
       known_mm: calibration[axis].known_mm,
     }))
   }
   return calibration.point_a && calibration.point_b
-    ? [{ axis: 'REF', point_a: calibration.point_a, point_b: calibration.point_b, known_mm: calibration.known_mm }]
+    ? [{ axis: 'REF', point_a: processedCalibrationPoint(calibration.point_a), point_b: processedCalibrationPoint(calibration.point_b), known_mm: calibration.known_mm }]
     : []
 })
 
@@ -180,7 +191,7 @@ function calibrationInput() {
   const yPoints = calibrationAxes.value.y.length === 2 ? calibrationAxes.value.y : [[20, 20], [20, 120]]
   return {
     mode: 'manual_axes',
-    source: calibrationReady.value ? 'independent_artifact' : 'component_demo',
+    source: calibrationSource.value,
     x: { point_a: xPoints[0], point_b: xPoints[1], known_mm: Number(knownMm.value) },
     y: { point_a: yPoints[0], point_b: yPoints[1], known_mm: Number(knownMmY.value) },
   }
@@ -206,6 +217,7 @@ function resetStagedMeasurement() {
   calibrationAxes.value = { x: [], y: [] }
   calibrationMode.value = false
   calibrationAxis.value = 'x'
+  calibrationSource.value = 'component_demo'
   showCalibrationReference.value = true
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
@@ -226,6 +238,7 @@ function syncActiveView() {
     poseType: poseType.value,
     scaleProfileId: scaleProfileId.value || null,
     knownMm: knownMm.value,
+    calibrationSource: calibrationSource.value,
     calibrationPoints: calibrationPoints.value,
     knownMmY: knownMmY.value,
     calibrationAxes: calibrationAxes.value,
@@ -273,6 +286,7 @@ function loadActiveView(view = selectedView.value) {
   scaleProfileId.value = view.scaleProfileId || ''
   knownMm.value = view.knownMm || 50
   knownMmY.value = view.knownMmY || 50
+  calibrationSource.value = view.calibrationSource || view.processed?.calibration?.source || 'component_demo'
   const persistedAxes = view.calibrationAxes || (view.processed?.calibration?.mode === 'manual_axes'
     ? { x: view.processed.calibration.x?.point_a ? [view.processed.calibration.x.point_a, view.processed.calibration.x.point_b] : [], y: view.processed.calibration.y?.point_a ? [view.processed.calibration.y.point_a, view.processed.calibration.y.point_b] : [] }
     : { x: view.calibrationPoints || [], y: [] })
@@ -1159,6 +1173,12 @@ onBeforeUnmount(() => {
         <section class="rail-section">
           <div class="panel-section-title">{{ t('measurement.calibration') }}</div>
           <p class="section-help">{{ t('measurement.calibrationHelp') }}</p>
+          <label class="field-label" for="calibration-source">{{ t('measurement.calibrationSource') }}
+            <select id="calibration-source" v-model="calibrationSource" class="camera-select">
+              <option value="component_demo">{{ t('measurement.calibrationSourceComponent') }}</option>
+              <option value="independent_artifact">{{ t('measurement.calibrationSourceArtifact') }}</option>
+            </select>
+          </label>
           <div class="calibration-axis-actions">
             <button type="button" class="btn btn-secondary calibration-draw-button" :class="{ active: calibrationAxis === 'x' && calibrationMode }" :disabled="!previewUrl || readOnly" @click="startCalibration('x')">
               {{ calibrationMode && calibrationAxis === 'x' ? t('measurement.calibrationDrawing') : t('measurement.drawHorizontal') }}

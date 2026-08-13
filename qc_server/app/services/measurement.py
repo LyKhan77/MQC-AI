@@ -633,6 +633,7 @@ def detect_corner_arcs(contour, calibration, options=None):
         "corner_window_points": 8,
         "corner_min_points": 8,
         "corner_min_coverage_deg": 30.0,
+        "corner_min_radius_mm": 1.5,
         "corner_max_residual_mm": 0.5,
         "corner_turning_threshold_deg": 8.0,
         **(options or {}),
@@ -657,7 +658,7 @@ def detect_corner_arcs(contour, calibration, options=None):
             metric_center, radius_mm, residual_mm = fit_circle(metric_points)
         except ValueError:
             continue
-        if radius_mm <= 0:
+        if radius_mm < float(options["corner_min_radius_mm"]):
             continue
         coverage_deg = _arc_coverage_degrees(metric_points, metric_center)
         center_px = np.array([metric_center[0] / scale_x, metric_center[1] / scale_y])
@@ -729,14 +730,17 @@ def fit_logical_edges(edge_map, contour, groups, options=None):
         if float(np.dot(fitted_direction, direction)) < 0:
             fitted_direction *= -1
         origin = np.array([float(x0), float(y0)], dtype=np.float32)
+        support_values = np.dot(fit_points - origin, fitted_direction)
+        # Use actual edge support for segment endpoints. Global contour extrema
+        # can belong to unrelated corners and extend a fitted line beyond its edge.
+        low, high = float(support_values.min()), float(support_values.max())
         if contour_points is not None and len(contour_points) >= 3:
             values = np.dot(contour_points - origin, fitted_direction)
         else:
             group_points = np.asarray([point for member in group for point in member["points"]], dtype=np.float32)
             values = np.dot(group_points - origin, fitted_direction)
-        low, high = float(values.min()), float(values.max())
-        support_values = np.dot(fit_points - origin, fitted_direction)
-        coverage_ratio = min(1.0, max(0.0, (float(support_values.max()) - float(support_values.min())) / max(high - low, 1e-6)))
+        contour_low, contour_high = float(values.min()), float(values.max())
+        coverage_ratio = min(1.0, max(0.0, (float(support_values.max()) - float(support_values.min())) / max(contour_high - contour_low, 1e-6)))
         if contour_points is not None and coverage_ratio < float(options["min_coverage_ratio"]):
             continue
         point_a = origin + fitted_direction * low

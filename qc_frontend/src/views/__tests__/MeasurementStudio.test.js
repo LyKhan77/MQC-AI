@@ -169,6 +169,18 @@ describe('MeasurementStudio', () => {
     }))
   })
 
+  it('marks component calibration as review-only by default', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await calibrate(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      calibration: expect.objectContaining({ source: 'component_demo' }),
+    }))
+  })
+
   it('blocks thickness on TOP_FACE with plain pose guidance', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)
@@ -296,7 +308,42 @@ describe('MeasurementStudio', () => {
 
     expect(wrapper.findAll('.measurement-logical-edge')).toHaveLength(1)
     expect(wrapper.findAll('.measurement-candidate')).toHaveLength(1)
+    expect(wrapper.findAll('.calibration-reference line').map((line) => [
+      line.attributes('x1'), line.attributes('y1'), line.attributes('x2'), line.attributes('y2'),
+    ])).toEqual([
+      ['20', '30', '140', '30'],
+      ['20', '30', '20', '90'],
+    ])
     expect(wrapper.text()).toContain('LE1')
+  })
+
+  it('scales processed calibration references when image dimensions change', async () => {
+    mocks.processMeasurement.mockResolvedValue({
+      ...processed(),
+      width: 320,
+      height: 240,
+      calibration: {
+        mode: 'manual_axes',
+        valid: true,
+        x: { point_a: [20, 30], point_b: [140, 30], known_mm: 60 },
+        y: { point_a: [20, 30], point_b: [20, 90], known_mm: 30 },
+        scale_x_mm_per_px: 0.5,
+        scale_y_mm_per_px: 0.5,
+      },
+      logical_edges: [{ id: 'LE1', points: [[20, 30], [140, 30]], length_px: 120, confidence: 0.98 }],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await calibrate(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('.calibration-reference line').map((line) => [
+      line.attributes('x1'), line.attributes('y1'), line.attributes('x2'), line.attributes('y2'),
+    ])).toEqual([
+      ['40', '60', '280', '60'],
+      ['40', '60', '40', '180'],
+    ])
   })
 
   it('lets an inspector select dimension and corner checks in one process', async () => {

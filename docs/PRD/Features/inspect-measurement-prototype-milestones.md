@@ -125,7 +125,7 @@ Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f01
 | ID | Checkpoint | Documentation | Implementation | Exit checkpoint |
 |---|---|---|---|---|
 | I1 | Approved 2D geometry design | `DONE` | — | Scope, algorithms, API migration, UX, and verification contract approved. |
-| I2 | Logical edge + calibration v2 | `DONE` | `DONE` | Dual-axis calibration, merged/fitted/deduplicated logical edges, outer-span measurement, calibration quality gate, and overlay layers pass focused tests. |
+| I2 | Logical edge + calibration v2 | `DONE` | `DONE` | Dual-axis calibration, merged/fitted/deduplicated support-bounded logical edges, calibration quality gate, and overlay layers pass focused tests. |
 | I3 | Corner + bend geometry | `DONE` | `DONE` | Multi-select task flow, selected outer-radius fit, bend candidate filtering, selected flange-pair angle, and `REVIEW` reasons pass focused tests. |
 | I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
 
@@ -138,14 +138,14 @@ Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`]
 - [x] LSD `LSD_REFINE_ADV` metadata and Hough fallback remain available.
 - [x] Fragmented collinear candidates merge into fitted logical edges.
 - [x] Thick-stroke duplicates collapse to one logical edge per boundary.
-- [x] Outer-span measurement uses anisotropic X/Y scale.
+- [x] Support-bounded logical-edge measurement uses anisotropic X/Y scale; global contour extrema no longer extend line overlays.
 - [x] Calibration quality and non-independent demo calibration gate verdicts to `REVIEW`.
 
 Evidence: commit `5c607c0`; backend focused measurement suite `62 passed`; full backend suite `244 passed`.
 
 ### I3 — Corner + bend geometry
 
-- [x] `corner_radius` fits circular arcs from contour turning-point clusters.
+- [x] `corner_radius` fits circular arcs from contour turning-point clusters and rejects candidates below prototype minimum radius `1.5 mm`.
 - [x] Corner candidates expose radius, coverage, residual, confidence, and review reason.
 - [x] `bend_angle` derives angle from two finite logical flange edges.
 - [x] Bend intersections outside edge endpoints are rejected.

@@ -208,7 +208,7 @@ test('stages Live Camera capture before calibration and processing', async ({ pa
   await page.goto('/measurement')
 
   await page.getByRole('button', { name: 'Live Camera' }).click()
-  await page.locator('.camera-select').selectOption('cam-1')
+  await page.locator('#measurement-camera').selectOption('cam-1')
   await page.locator('.trigger-capture').click()
 
   await expect(page.locator('.measurement-preview')).toBeVisible()
