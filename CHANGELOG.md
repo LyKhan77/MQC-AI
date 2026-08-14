@@ -11,6 +11,16 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-14 - Inspect Measurement Raw Staged Download
+
+### Added
+
+- Icon-only download control on every Measurement Studio Staged View card. The browser downloads the original upload, Mobile Camera capture, or Live Camera frame without overlay and without a server-side filesystem write.
+
+### Verification
+
+- Frontend `208 passed`; production build passed.
+
 ## [Unreleased] - 2026-08-14 - Inspect Measurement Stage 00 Detector Plan
 
 ### Added

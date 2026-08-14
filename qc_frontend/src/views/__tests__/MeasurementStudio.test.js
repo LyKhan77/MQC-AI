@@ -154,6 +154,17 @@ describe('MeasurementStudio', () => {
     expect(mocks.processMeasurement).not.toHaveBeenCalled()
   })
 
+  it('downloads the raw staged image without processing overlay', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper, [file('top.jpg')])
+
+    await wrapper.find('.view-card-download').trigger('click')
+
+    expect(click).toHaveBeenCalled()
+    click.mockRestore()
+  })
+
   it('blocks processing until both calibration axes are valid', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)

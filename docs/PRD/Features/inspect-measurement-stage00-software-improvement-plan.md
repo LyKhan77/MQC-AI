@@ -49,7 +49,7 @@
 
 **Interface:** `downloadStagedOriginal(view)` consumes `{ previewUrl, sourceFilename }` and triggers browser download.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```js
 it('downloads raw staged image without overlay', async () => {
@@ -62,13 +62,13 @@ it('downloads raw staged image without overlay', async () => {
 })
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `npm test -- --run src/views/__tests__/MeasurementStudio.test.js`.
 
 Expected: FAIL because `.view-card-download` does not exist.
 
-- [ ] **Step 3: Implement minimum behavior**
+- [x] **Step 3: Implement minimum behavior**
 
 ```js
 function downloadStagedOriginal(view) {
@@ -82,7 +82,7 @@ function downloadStagedOriginal(view) {
 
 Add an icon-only `.view-card-download` card button. Its handler uses `@click.stop`; `title` and `aria-label` use `t('measurement.downloadOriginal')`.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run `npm test -- --run src/views/__tests__/MeasurementStudio.test.js`; expected PASS. Commit with `feat: download staged measurement originals`.
 

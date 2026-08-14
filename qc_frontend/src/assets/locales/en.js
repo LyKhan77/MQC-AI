@@ -528,6 +528,7 @@ export default {
     completeSession: 'Complete session',
     sessionCompleted: 'Measurement session completed',
     deleteView: 'Delete measurement view',
+    downloadOriginal: 'Download original image',
     confirmDeleteView: 'Delete this saved measurement view?',
     deleteSession: 'Delete measurement session',
     confirmDeleteSession: 'Delete this measurement session and all saved views?',

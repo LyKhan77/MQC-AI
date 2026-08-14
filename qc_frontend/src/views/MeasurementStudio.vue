@@ -491,6 +491,16 @@ function onFileChange(event) {
   stageFile(event.target.files)
 }
 
+function downloadStagedOriginal(view) {
+  if (!view?.previewUrl) return
+  const anchor = document.createElement('a')
+  anchor.href = view.previewUrl
+  anchor.download = view.sourceFilename || 'measurement-capture.jpg'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
 function stageCapturedFrame(capture) {
   const staged = stageServerCapture(capture)
   if (!runName.value.trim()) runName.value = capture.source_filename?.replace(/\.[^.]+$/, '') || ''
@@ -1193,6 +1203,7 @@ onBeforeUnmount(() => {
               <span class="view-card-name">{{ view.sourceFilename }}</span>
               <span class="view-card-meta">{{ view.sourceType }} · {{ view.status }}</span>
               <span class="view-card-pose">{{ view.poseType }}</span>
+              <button type="button" class="view-card-download" :aria-label="t('measurement.downloadOriginal')" :title="t('measurement.downloadOriginal')" @click.stop="downloadStagedOriginal(view)">↓</button>
               <button type="button" class="view-card-remove" :aria-label="t('measurement.deleteView')" @click.stop="removeView(view.id)">×</button>
             </div>
           </div>
@@ -1630,11 +1641,12 @@ onBeforeUnmount(() => {
 .session-start { width: 100%; margin-top: 10px; }
 .measurement-view-list { display: grid; gap: 6px; margin-top: 16px; }
 .measurement-view-list .panel-section-title { margin-bottom: 4px; }
-.measurement-view-card { position: relative; display: grid; gap: 3px; width: 100%; padding: 10px 28px 10px 10px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); color: var(--color-ink); text-align: left; cursor: pointer; font: inherit; }
+.measurement-view-card { position: relative; display: grid; gap: 3px; width: 100%; padding: 10px 52px 10px 10px; border: 1px solid var(--color-hairline); background: var(--color-surface-1); color: var(--color-ink); text-align: left; cursor: pointer; font: inherit; }
 .measurement-view-card.active { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, var(--color-canvas)); }
 .view-card-name { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .view-card-meta, .view-card-pose, .profile-capability { color: var(--color-ink-muted); font-family: var(--font-mono); font-size: 10px; }
 .view-card-remove { position: absolute; top: 7px; right: 9px; border: 0; padding: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font: inherit; font-size: 17px; line-height: 1; }
+.view-card-download { position: absolute; top: 7px; right: 29px; border: 0; padding: 0; background: transparent; color: var(--color-ink-muted); cursor: pointer; font: var(--font-mono); font-size: 16px; line-height: 1; }
 
 .panel-section-title {
   margin: 0 0 14px;

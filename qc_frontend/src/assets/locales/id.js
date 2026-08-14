@@ -538,6 +538,7 @@ export default {
     completeSession: 'Selesaikan sesi',
     sessionCompleted: 'Sesi measurement selesai',
     deleteView: 'Hapus view measurement',
+    downloadOriginal: 'Download gambar asli',
     confirmDeleteView: 'Hapus view measurement yang tersimpan ini?',
     deleteSession: 'Hapus sesi measurement',
     confirmDeleteSession: 'Hapus sesi measurement ini beserta semua view?',
