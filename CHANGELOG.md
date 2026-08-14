@@ -11,6 +11,17 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-14 - Inspect Measurement Contour Fallback Edges
+
+### Added
+
+- When LSD and Hough miss a component boundary, a simplified component contour may return source-labelled `contour_fallback` candidates and logical edges.
+- Contour fallback is fixed at confidence `0.45`, therefore it remains `REVIEW` and cannot independently create a `PASS` result or corner-radius evidence.
+
+### Verification
+
+- Backend CV detector suite `15 passed`; backend full suite `252 passed` with two existing FastAPI deprecation warnings.
+
 ## [Unreleased] - 2026-08-14 - Inspect Measurement Adaptive Multi-Detector
 
 ### Changed

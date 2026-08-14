@@ -570,6 +570,58 @@ def detect_component_contour(gray):
     return best[1] if best else None
 
 
+def contour_straight_candidates(contour, min_length):
+    if contour is None or len(contour) < 3:
+        return []
+    perimeter = cv2.arcLength(contour, True)
+    polygon = cv2.approxPolyDP(contour, 0.005 * perimeter, True).reshape(-1, 2)
+    candidates = []
+    for index, (point_a, point_b) in enumerate(zip(polygon, np.roll(polygon, -1, axis=0)), start=1):
+        candidate = _line_candidate([*point_a, *point_b], 1, 1, "contour_fallback", f"CF{index}")
+        if candidate and candidate["length_px"] >= min_length:
+            candidates.append({**candidate, "confidence": 0.45, "fallback": True})
+    return candidates
+
+
+def _matches_logical_edge(candidate, logical_edges):
+    midpoint = [
+        (candidate["points"][0][0] + candidate["points"][1][0]) / 2,
+        (candidate["points"][0][1] + candidate["points"][1][1]) / 2,
+    ]
+    return any(
+        _angle_delta(_candidate_angle(candidate), _candidate_angle(edge)) <= 4
+        and _line_distance(midpoint, edge["points"][0], edge["points"][1]) <= 8
+        for edge in logical_edges
+    )
+
+
+def contour_fallback_logical_edges(candidates, logical_edges):
+    fallback_edges = []
+    for candidate in candidates:
+        if _matches_logical_edge(candidate, logical_edges):
+            continue
+        point_a, point_b = candidate["points"]
+        direction = _line_direction(point_a, point_b)
+        fallback_edges.append({
+            "id": "",
+            "points": candidate["points"],
+            "support_points": candidate["points"],
+            "direction": [round(float(direction[0]), 6), round(float(direction[1]), 6)],
+            "length_px": candidate["length_px"],
+            "angle": candidate["angle"],
+            "residual_px": None,
+            "coverage_ratio": 0.0,
+            "confidence": 0.45,
+            "source": "contour_fallback",
+            "fallback": True,
+            "source_candidate_ids": [candidate["id"]],
+            "geometry": {"kind": "contour_fallback", "points": candidate["points"]},
+        })
+    for index, edge in enumerate([*logical_edges, *fallback_edges], start=1):
+        edge["id"] = f"LE{index}"
+    return fallback_edges
+
+
 def fit_circle(points):
     values = np.asarray(points, dtype=np.float64).reshape(-1, 2)
     values = np.unique(values, axis=0)
@@ -936,6 +988,12 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     contour = detect_component_contour(gray)
     groups = group_line_candidates(candidates, options)
     logical_edges = fit_logical_edges(edge_map, contour, groups, options)
+    contour_candidates = contour_straight_candidates(contour, min_length)
+    fallback_edges = contour_fallback_logical_edges(contour_candidates, logical_edges)
+    logical_edges.extend(fallback_edges)
+    candidates.extend(candidate for candidate in contour_candidates if any(
+        edge["source_candidate_ids"] == [candidate["id"]] for edge in fallback_edges
+    ))
     corner_arcs = detect_corner_arcs(contour, calibration, options)
     requested_task_types = normalize_task_types(task_types, task_type)
     holes = detect_hole_candidates(frame, options) if any(value.startswith("hole_") for value in requested_task_types) else []

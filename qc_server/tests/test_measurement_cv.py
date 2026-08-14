@@ -162,6 +162,23 @@ def test_process_keeps_hough_candidates_when_lsd_has_candidates():
     assert any(item["source"].startswith("hough_") for item in result["candidates"])
 
 
+def test_process_adds_low_confidence_contour_fallback_when_line_detection_misses_boundary(monkeypatch):
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.rectangle(frame, (40, 50), (280, 190), (255, 255, 255), 4)
+    monkeypatch.setattr(
+        measurement,
+        "line_candidates_from_variants",
+        lambda gray, min_length: ([], np.zeros_like(gray)),
+    )
+
+    result = process_image(frame, _calibration())
+
+    fallback = [item for item in result["candidates"] if item["source"] == "contour_fallback"]
+    assert fallback
+    assert all(item["confidence"] <= 0.45 for item in fallback)
+    assert any(item.get("source") == "contour_fallback" for item in result["logical_edges"])
+
+
 def test_process_image_collapses_thick_stroke_duplicates_to_outer_edges():
     frame = np.zeros((240, 320, 3), dtype=np.uint8)
     cv2.rectangle(frame, (40, 50), (280, 190), (255, 255, 255), 8)

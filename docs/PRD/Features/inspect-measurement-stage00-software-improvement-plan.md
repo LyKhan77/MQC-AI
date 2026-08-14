@@ -140,24 +140,24 @@ Run `.\.venv\Scripts\python.exe -m pytest tests/test_measurement_cv.py -q`; expe
 
 **Interface:** Add `contour_straight_candidates(contour, min_length) -> list[dict]`; every result has `source="contour_fallback"`, `confidence=0.45`, and `fallback=True`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```python
 def test_process_adds_low_confidence_contour_fallback_when_line_detection_misses_boundary(monkeypatch):
-    monkeypatch.setattr(cv2, "createLineSegmentDetector", lambda *_: _no_line_detector())
+    monkeypatch.setattr(measurement, "line_candidates_from_variants", lambda gray, min_length: ([], np.zeros_like(gray)))
     result = process_image(_rectangle_frame(), _calibration())
     fallback = [item for item in result["candidates"] if item["source"] == "contour_fallback"]
     assert fallback
     assert all(item["confidence"] <= 0.45 for item in fallback)
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `.\.venv\Scripts\python.exe -m pytest tests/test_measurement_cv.py::test_process_adds_low_confidence_contour_fallback_when_line_detection_misses_boundary -q`.
 
 Expected: FAIL because no fallback exists.
 
-- [ ] **Step 3: Implement minimum behavior**
+- [x] **Step 3: Implement minimum behavior**
 
 ```python
 def contour_straight_candidates(contour, min_length):
@@ -173,7 +173,7 @@ def make_contour_candidate(point_a, point_b, index):
 
 Append only if no normal logical edge is within 4 degrees and 8 pixels. Fallback cannot become corner-radius evidence; selecting it stays `REVIEW`.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run `.\.venv\Scripts\python.exe -m pytest tests/test_measurement_cv.py -q`; expected PASS. Commit with `feat: add contour fallback edge candidates`.
 
