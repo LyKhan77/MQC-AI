@@ -11,6 +11,17 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-14 - Inspect Measurement Evaluated Overlay Mode
+
+### Changed
+
+- Measurement canvas now has `Detected`, `Results`, and `Calibration` overlay toggles. Evaluate hides detector geometry by default and preserves evaluated evidence as the focused canvas layer.
+- Evaluated labels are 15px and status-coloured, use a leader line to the measured geometry, and apply a small deterministic offset to reduce label collisions.
+
+### Verification
+
+- Measurement Studio focused suite `38 passed`; frontend full suite `209 passed`; production build passed.
+
 ## [Unreleased] - 2026-08-14 - Inspect Measurement Contour Fallback Edges
 
 ### Added

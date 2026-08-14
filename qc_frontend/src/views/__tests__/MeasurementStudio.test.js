@@ -728,6 +728,26 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.measurement-summary').text()).toContain('PASS')
   })
 
+  it('switches to evaluated-only edge overlay after evaluation and can reveal detector edges', async () => {
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await calibrate(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+    await wrapper.find('.measurement-candidate').trigger('click')
+    await wrapper.find('.item-nominal').setValue('60')
+    await wrapper.find('.item-tolerance').setValue('2')
+    await wrapper.find('.evaluate-measurement').trigger('click')
+
+    expect(wrapper.findAll('.measurement-candidate')).toHaveLength(0)
+    expect(wrapper.findAll('.measurement-label-leader')).toHaveLength(1)
+    expect(wrapper.find('.measurement-label').text()).toContain('E1')
+
+    await wrapper.find('.overlay-toggle-detected').trigger('click')
+
+    expect(wrapper.findAll('.measurement-candidate')).toHaveLength(1)
+  })
+
   it('saves the evaluated measurement run', async () => {
     const wrapper = mount(MeasurementStudio)
     await stage(wrapper)

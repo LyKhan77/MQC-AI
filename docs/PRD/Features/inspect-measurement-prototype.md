@@ -202,7 +202,7 @@ Flow UI:
 11. Sistem menampilkan summary `PASS/FAIL/REVIEW` dan alasan non-pass.
 12. Klik `Save measurement`.
 
-Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Kontrol ini tersedia sebelum process agar calibration presisi. Saat menggambar, crosshair dash opacity rendah membantu alignment. Mobile Camera menampilkan crosshair tengah sebagai guide positioning dan tidak menulis overlay ke capture. `Reset workspace` membersihkan media staged dan state lokal tanpa menghapus History/Audit. Candidate edge memakai outline/halo kontras, endpoint marker, dan selected measurement label yang lebih besar agar terbaca di atas komponen.
+Canvas controls mengikuti QC Studio: wheel atau tombol zoom pada range `50%–500%`, drag untuk pan, dan `Reset` untuk kembali ke fit awal. Kontrol ini tersedia sebelum process agar calibration presisi. Saat menggambar, crosshair dash opacity rendah membantu alignment. Mobile Camera menampilkan crosshair tengah sebagai guide positioning dan tidak menulis overlay ke capture. `Reset workspace` membersihkan media staged dan state lokal tanpa menghapus History/Audit. Toolbar overlay menyediakan toggle `Deteksi`, `Hasil`, dan `Kalibrasi`; setelah Evaluate, detector disembunyikan default sehingga hanya evidence measurement yang terlihat. Label hasil memakai text 15px dengan leader line ke midpoint/center geometry dan status `PASS`/`FAIL`/`REVIEW`.
 
 `Tambah edge manual` tidak tersedia: implementasi lama membuat garis dummy dan bukan memperbaiki LSD. Fallback click-start/click-end untuk edge `REVIEW` ditunda sampai contour fallback otomatis tervalidasi.
 

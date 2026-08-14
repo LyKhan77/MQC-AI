@@ -74,6 +74,8 @@ const calibrationMode = ref(false)
 const calibrationDragging = ref(false)
 const calibrationCursor = ref(null)
 const showCalibrationReference = ref(true)
+const showDetectedEdges = ref(true)
+const showEvaluatedMeasurements = ref(true)
 const jigDetecting = ref(false)
 const processed = ref(null)
 const items = ref([])
@@ -157,6 +159,22 @@ const logicalEdges = computed(() => processed.value?.logical_edges || [])
 const visibleCandidates = computed(() => logicalEdges.value.length ? logicalEdges.value : (processed.value?.candidates || []))
 const cornerCandidates = computed(() => processed.value?.corner_arcs || [])
 const bendCandidates = computed(() => processed.value?.bend_candidates || [])
+const evaluatedOverlayItems = computed(() => {
+  const width = Number(processed.value?.width) || 0
+  const height = Number(processed.value?.height) || 0
+  const labels = []
+  return items.value.map((item, index) => {
+    const anchor = measurementAnchor(item)
+    const side = anchor[0] > width / 2 ? -1 : 1
+    const x = Math.max(8, Math.min(width - 8, anchor[0] + side * 24))
+    let y = Math.max(12, Math.min(height - 8, anchor[1] + (index % 2 ? 16 : -16)))
+    const conflict = labels.find((label) => label.side === side && Math.abs(label.x - x) < 84 && Math.abs(label.y - y) < 18)
+    if (conflict) y = Math.max(12, Math.min(height - 8, conflict.y + 18))
+    const overlay = { item, anchor, side, x, y, textAnchor: side > 0 ? 'start' : 'end' }
+    labels.push(overlay)
+    return overlay
+  })
+})
 const selectionGuidance = computed(() => [
   taskTypesForProcess.value.includes('linear_dimension') ? t('measurement.selectEdgeHint') : '',
   taskTypesForProcess.value.includes('corner_radius') ? t('measurement.selectCornerHint') : '',
@@ -216,6 +234,8 @@ function resetStagedMeasurement() {
   calibrationAxis.value = 'x'
   calibrationSource.value = 'component_demo'
   showCalibrationReference.value = true
+  showDetectedEdges.value = true
+  showEvaluatedMeasurements.value = true
   selectedHoleIndexes.value = []
   selectedAngleIndexes.value = []
   selectedTaskTypes.value = ['linear_dimension']
@@ -531,6 +551,8 @@ async function runMeasurement(input) {
     })
     items.value = []
     evaluated.value = false
+    showDetectedEdges.value = true
+    showEvaluatedMeasurements.value = true
     selectedCandidate.value = -1
     selectedHoleIndexes.value = []
     selectedAngleIndexes.value = []
@@ -917,7 +939,32 @@ function evaluate() {
     : 'invalid_calibration'
   items.value = items.value.map((item) => evaluateMeasurementItem(item, calibrationValid, calibrationReason))
   evaluated.value = true
+  showDetectedEdges.value = false
+  showEvaluatedMeasurements.value = true
   log('MEASUREMENT_EVALUATED', `${runName.value || processed.value.source_filename}:${summaryStatus.value}`)
+}
+
+function measurementAnchor(item) {
+  if (item.geometry?.kind === 'circle') return item.geometry.center
+  if (item.geometry?.kind === 'circle_pair') {
+    return [
+      (item.geometry.center_a[0] + item.geometry.center_b[0]) / 2,
+      (item.geometry.center_a[1] + item.geometry.center_b[1]) / 2,
+    ]
+  }
+  if (item.geometry?.kind === 'circle_to_edge') return item.geometry.center
+  if (item.geometry?.kind === 'corner_arc') return item.geometry.center
+  if (item.geometry?.kind === 'bend_angle') return item.geometry.vertex
+  return [
+    (item.points[0][0] + item.points[1][0]) / 2,
+    (item.points[0][1] + item.points[1][1]) / 2,
+  ]
+}
+
+function measurementLabel(item) {
+  const value = Number(item.measured).toFixed(1)
+  const unit = item.geometry?.kind === 'corner_arc' ? `R ${value} ${item.unit}` : item.geometry?.kind === 'bend_angle' ? `${value}°` : `${value} ${item.unit}`
+  return `${item.id} · ${unit} · ${item.status || 'REVIEW'}`
 }
 
 function reasonLabel(reason) {
@@ -1291,6 +1338,11 @@ onBeforeUnmount(() => {
               <strong>{{ selectedSourceName }}</strong>
             </div>
             <div class="measurement-canvas-actions">
+              <div v-if="processed" class="measurement-overlay-toggles" role="group" :aria-label="t('measurement.overlayControls')">
+                <button type="button" class="overlay-toggle-detected" :class="{ active: showDetectedEdges }" :aria-pressed="showDetectedEdges" @click.stop="showDetectedEdges = !showDetectedEdges">{{ t('measurement.showDetectedEdges') }}</button>
+                <button type="button" class="overlay-toggle-evaluated" :class="{ active: showEvaluatedMeasurements }" :aria-pressed="showEvaluatedMeasurements" @click.stop="showEvaluatedMeasurements = !showEvaluatedMeasurements">{{ t('measurement.showEvaluatedMeasurements') }}</button>
+                <button type="button" class="overlay-toggle-calibration" :class="{ active: showCalibrationReference }" :aria-pressed="showCalibrationReference" @click.stop="showCalibrationReference = !showCalibrationReference">{{ t('measurement.showCalibrationReference') }}</button>
+              </div>
               <span class="canvas-status mono" :class="`status-${summaryStatus.toLowerCase()}`">{{ summaryStatus }}</span>
               <button type="button" class="btn btn-primary process-measurement" :disabled="!canProcess" @click="processCurrent">
                 {{ processing ? t('measurement.processing') : t('measurement.process') }}
@@ -1345,6 +1397,7 @@ onBeforeUnmount(() => {
               <img class="measurement-image" :src="displayUrl" :alt="processed.source_filename" draggable="false">
               <svg class="measurement-overlay" :viewBox="`0 0 ${processed.width} ${processed.height}`" preserveAspectRatio="none" role="img" :aria-label="t('measurement.edgeOverlay')">
               <g
+                v-if="showDetectedEdges"
                 v-for="(candidate, index) in visibleCandidates"
                 :key="candidateKey(candidate, index)"
                 class="measurement-candidate"
@@ -1360,7 +1413,7 @@ onBeforeUnmount(() => {
                 </g>
               <g
                 v-for="(corner, index) in cornerCandidates"
-                v-if="cornerTaskSelected"
+                v-if="showDetectedEdges && cornerTaskSelected"
                 :key="`corner-${candidateKey(corner, index)}`"
                 class="measurement-corner-candidate"
                 @click.stop="selectCorner(corner)"
@@ -1371,7 +1424,7 @@ onBeforeUnmount(() => {
               </g>
               <g
                 v-for="(bend, index) in bendCandidates"
-                v-if="bendTaskSelected"
+                v-if="showDetectedEdges && bendTaskSelected"
                 :key="`bend-${candidateKey(bend, index)}`"
                 class="measurement-bend-candidate"
                 @click.stop="selectBend(bend)"
@@ -1383,6 +1436,7 @@ onBeforeUnmount(() => {
                 <circle class="measurement-bend-vertex" :cx="bend.geometry.vertex[0]" :cy="bend.geometry.vertex[1]" r="5"></circle>
               </g>
               <g
+                v-if="showDetectedEdges"
                 v-for="(hole, index) in (processed.holes || [])"
                 :key="`hole-${index}-${hole.center.join('-')}`"
                 class="measurement-hole-candidate"
@@ -1410,7 +1464,7 @@ onBeforeUnmount(() => {
                   :y="reference.point_a[1] + 13"
                 >REF {{ reference.axis }} {{ reference.known_mm }} mm</text>
               </g>
-              <g v-for="item in items" :key="`item-${item.id}`" class="selected-measurement">
+              <g v-if="showEvaluatedMeasurements" v-for="item in items" :key="`item-${item.id}`" class="selected-measurement" :class="`status-${(item.status || 'review').toLowerCase()}`">
                 <template v-if="item.geometry?.kind === 'circle'">
                   <circle class="measurement-line-halo" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" :r="item.geometry.radius_px"></circle>
                   <circle class="measurement-line" :cx="item.geometry.center[0]" :cy="item.geometry.center[1]" :r="item.geometry.radius_px"></circle>
@@ -1441,12 +1495,10 @@ onBeforeUnmount(() => {
                   <line class="measurement-line-halo" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
                   <line class="measurement-line" :x1="item.points[0][0]" :y1="item.points[0][1]" :x2="item.points[1][0]" :y2="item.points[1][1]"></line>
                 </template>
-                <text v-if="item.geometry?.kind === 'circle'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - item.geometry.radius_px - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
-                <text v-else-if="item.geometry?.kind === 'circle_pair'" :x="item.geometry.center_a[0]" :y="item.geometry.center_a[1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
-                <text v-else-if="item.geometry?.kind === 'circle_to_edge'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - 9">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
-                <text v-else-if="item.geometry?.kind === 'corner_arc'" :x="item.geometry.center[0]" :y="item.geometry.center[1] - 9">{{ item.id }} · R {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
-                <text v-else-if="item.geometry?.kind === 'bend_angle'" :x="item.geometry.vertex[0]" :y="item.geometry.vertex[1] - 9">{{ item.id }} · {{ Number(item.measured).toFixed(1) }}°</text>
-                <text v-else :x="item.points[0][0]" :y="item.points[0][1] - 6">{{ item.id }} · {{ Number(item.measured).toFixed(1) }} {{ item.unit }}</text>
+              </g>
+              <g v-if="showEvaluatedMeasurements && evaluated" v-for="overlay in evaluatedOverlayItems" :key="`label-${overlay.item.id}`" class="measurement-label" :class="`status-${(overlay.item.status || 'review').toLowerCase()}`">
+                <line class="measurement-label-leader" :x1="overlay.anchor[0]" :y1="overlay.anchor[1]" :x2="overlay.x" :y2="overlay.y - 5"></line>
+                <text :x="overlay.x" :y="overlay.y" :text-anchor="overlay.textAnchor">{{ measurementLabel(overlay.item) }}</text>
               </g>
               </svg>
             </div>
@@ -1775,6 +1827,11 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-canvas-tools { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; max-width: calc(100% - 24px); padding: 9px 10px; border: 1px solid var(--color-hairline); background: var(--color-canvas); }
 .measurement-canvas-tools strong { display: block; max-width: 280px; overflow: hidden; color: var(--color-ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .measurement-canvas-actions { display: flex; align-items: center; gap: 10px; }
+.measurement-overlay-toggles { display: flex; border: 1px solid var(--color-hairline); }
+.measurement-overlay-toggles button { min-height: 28px; padding: 0 8px; border: 0; border-right: 1px solid var(--color-hairline); background: var(--color-canvas); color: var(--color-ink-muted); font: 600 11px/1 var(--font-sans); cursor: pointer; }
+.measurement-overlay-toggles button:last-child { border-right: 0; }
+.measurement-overlay-toggles button.active { background: var(--color-primary); color: var(--color-on-primary); }
+.measurement-overlay-toggles button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
 .canvas-status { color: var(--color-ink-muted); font-size: 11px; font-weight: 600; }
 .canvas-status.status-pass { color: var(--color-success); }
 .canvas-status.status-fail { color: var(--color-error); }
@@ -1807,7 +1864,13 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-bend-vertex { fill: var(--color-error); stroke: var(--color-canvas); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .selected-measurement { pointer-events: none; }
 .selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
-.selected-measurement text { fill: var(--color-success); font-family: var(--font-mono); font-size: 14px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
+.selected-measurement.status-fail .measurement-line { stroke: var(--color-error); }
+.selected-measurement.status-review .measurement-line { stroke: var(--color-warning); }
+.measurement-label { pointer-events: none; color: var(--color-success); }
+.measurement-label.status-fail { color: var(--color-error); }
+.measurement-label.status-review { color: var(--color-warning); }
+.measurement-label-leader { stroke: currentColor; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.measurement-label text { fill: currentColor; font-family: var(--font-mono); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
 .calibration-reference { pointer-events: none; }
 .calibration-reference line { stroke: var(--color-warning); stroke-width: 2.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
 .calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
