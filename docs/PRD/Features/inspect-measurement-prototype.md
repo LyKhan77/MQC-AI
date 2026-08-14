@@ -21,6 +21,8 @@ Prototype tidak mencoba menyelesaikan seluruh versi proper. Tujuannya membuktika
 
 Improvement Slice 1–2 mengganti raw LSD segment sebagai hasil utama dengan logical edge, dual-axis calibration, selected corner radius, dan selected bend angle. Desain approved: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
 
+Stage 00 software robustness plan: [`inspect-measurement-stage00-software-improvement-plan.md`](./inspect-measurement-stage00-software-improvement-plan.md). Fokusnya raw capture evidence, multi-detector adaptive, contour fallback, jig validation, dan diagnostics sebelum Controlled Bench tersedia.
+
 ## 2. Masalah
 
 Komponen berbeda-beda, jumlah sisi tidak tetap, dan belum ada aturan fixed dimension. Sistem perlu bekerja secara global dengan konfigurasi inspector, bukan dengan template model per part.

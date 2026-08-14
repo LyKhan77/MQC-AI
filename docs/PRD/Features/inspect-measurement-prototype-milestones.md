@@ -128,6 +128,7 @@ Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f01
 | I2 | Logical edge + calibration v2 | `DONE` | `DONE` | Dual-axis calibration, merged/fitted/deduplicated support-bounded logical edges, calibration quality gate, and overlay layers pass focused tests. |
 | I3 | Corner + bend geometry | `DONE` | `DONE` | Multi-select task flow, selected outer-radius fit, bend candidate filtering, selected flange-pair angle, and `REVIEW` reasons pass focused tests. |
 | I5 | Calibration coordinate + jig assistance | `DONE` | `DONE` | Preview coordinate dimensions normalize X/Y points in the OpenCV frame; four green jig points place X/Y lines while inspector enters physical lengths manually; dummy manual edge removed. |
+| I6 | Stage 00 detector robustness | `PLANNED` | `PLANNED` | Downloadable raw fixture, adaptive LSD/Hough candidates, contour fallback, jig quadrilateral validation, and diagnostics. Physical accuracy remains separate. |
 | I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
 
 Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).

@@ -11,6 +11,16 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-14 - Inspect Measurement Stage 00 Detector Plan
+
+### Added
+
+- Versioned Stage 00 software improvement plan covering staged raw download, adaptive multi-detector candidate generation, contour fallback, jig geometry validation, diagnostics, raw capture fixtures, and I6 evidence gates.
+
+### Changed
+
+- Measurement prototype PRD and milestone record now link I6 Stage 00 detector robustness while keeping physical accuracy separate and planned.
+
 ## [Unreleased] - 2026-08-13 - Inspect Measurement Calibration Coordinate and Jig Assistance
 
 ### Added
