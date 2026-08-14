@@ -871,6 +871,57 @@ def detect_hole_candidates(frame, options=None):
     return candidates[:100]
 
 
+def adaptive_canny(gray):
+    median = float(np.median(gray))
+    low = int(max(0, round(median * 0.66)))
+    high = int(min(255, max(low + 20, round(median * 1.33))))
+    return cv2.Canny(gray, low, high), {"low": low, "high": high, "median": round(median, 2)}
+
+
+def preprocess_variants(gray):
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+    return {"raw": gray, "clahe": cv2.GaussianBlur(clahe, (3, 3), 0)}
+
+
+def line_candidates_from_variants(gray, min_length):
+    height, width = gray.shape[:2]
+    candidates = []
+    edge_map = np.zeros_like(gray)
+    for variant_name, variant in preprocess_variants(gray).items():
+        detector = cv2.createLineSegmentDetector(cv2.LSD_REFINE_ADV)
+        detected = detector.detect(variant)
+        detected_lines = detected[0] if detected else None
+        widths = detected[1] if len(detected) > 1 else None
+        precisions = detected[2] if len(detected) > 2 else None
+        nfas = detected[3] if len(detected) > 3 else None
+        if detected_lines is not None:
+            for index, line in enumerate(detected_lines, start=1):
+                metadata = {
+                    "width_px": float(widths[index - 1][0]) if widths is not None and len(widths) >= index else None,
+                    "precision": float(precisions[index - 1][0]) if precisions is not None and len(precisions) >= index else None,
+                    "nfa": float(nfas[index - 1][0]) if nfas is not None and len(nfas) >= index else None,
+                }
+                candidate = _line_candidate(line[0], width, height, f"lsd_{variant_name}", f"L{variant_name[0].upper()}{index}", metadata)
+                if candidate and candidate["length_px"] >= min_length:
+                    candidates.append(candidate)
+        edges, _ = adaptive_canny(variant)
+        edge_map = cv2.bitwise_or(edge_map, edges)
+        lines = cv2.HoughLinesP(
+            edges,
+            1,
+            np.pi / 180,
+            threshold=max(15, int(min_length / 2)),
+            minLineLength=min_length,
+            maxLineGap=max(4, int(min_length / 4)),
+        )
+        if lines is not None:
+            for index, line in enumerate(lines[:, 0, :], start=1):
+                candidate = _line_candidate(line, width, height, f"hough_{variant_name}", f"H{variant_name[0].upper()}{index}")
+                if candidate and candidate["length_px"] >= min_length:
+                    candidates.append(candidate)
+    return candidates, edge_map
+
+
 def process_image(frame, calibration, options=None, task_type="linear_dimension", view_type="top", task_types=None):
     if frame is None or not hasattr(frame, "shape") or len(frame.shape) < 2:
         raise ValueError("invalid frame")
@@ -879,50 +930,11 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     min_length = float(options.get("min_length_px", max(12, min(width, height) * 0.05)))
     gray = frame if len(frame.shape) == 2 else cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (3, 3), 0)
-
-    raw_lines = []
-    detector = cv2.createLineSegmentDetector(cv2.LSD_REFINE_ADV)
-    detected = detector.detect(gray)
-    detected_lines = detected[0] if detected else None
-    widths = detected[1] if len(detected) > 1 else None
-    precisions = detected[2] if len(detected) > 2 else None
-    nfas = detected[3] if len(detected) > 3 else None
-    if detected_lines is not None:
-        for index, line in enumerate(detected_lines):
-            metadata = {
-                "width_px": float(widths[index][0]) if widths is not None and len(widths) > index else None,
-                "precision": float(precisions[index][0]) if precisions is not None and len(precisions) > index else None,
-                "nfa": float(nfas[index][0]) if nfas is not None and len(nfas) > index else None,
-            }
-            raw_lines.append((line[0], "lsd", metadata))
-
-    candidates = []
-    for index, (line, source, metadata) in enumerate(raw_lines, start=1):
-        candidate = _line_candidate(line, width, height, source, f"R{index}", metadata)
-        if candidate and candidate["length_px"] >= min_length:
-            candidates.append(candidate)
-
-    if not candidates:
-        edges = cv2.Canny(gray, 50, 150)
-        detected = cv2.HoughLinesP(
-            edges,
-            1,
-            np.pi / 180,
-            threshold=max(15, int(min_length / 2)),
-            minLineLength=min_length,
-            maxLineGap=max(4, int(min_length / 4)),
-        )
-        if detected is not None:
-            for index, line in enumerate(detected[:, 0, :], start=len(candidates) + 1):
-                candidate = _line_candidate(line, width, height, "hough", f"R{index}")
-                if candidate and candidate["length_px"] >= min_length:
-                    candidates.append(candidate)
-
+    candidates, edge_map = line_candidates_from_variants(gray, min_length)
     candidates.sort(key=lambda item: item["length_px"], reverse=True)
     candidates = candidates[:100]
     contour = detect_component_contour(gray)
     groups = group_line_candidates(candidates, options)
-    edge_map = cv2.Canny(gray, 50, 150)
     logical_edges = fit_logical_edges(edge_map, contour, groups, options)
     corner_arcs = detect_corner_arcs(contour, calibration, options)
     requested_task_types = normalize_task_types(task_types, task_type)

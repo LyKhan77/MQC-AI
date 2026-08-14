@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+import app.services.measurement as measurement
+
 from app.services.measurement import (
     calibrate_axes,
     calibrate_reference,
@@ -138,9 +140,26 @@ def test_process_image_returns_line_candidates_for_clear_rectangle():
 
     assert result["readiness"] == "ready"
     assert result["candidates"]
-    assert all(candidate["source"] in {"lsd", "hough"} for candidate in result["candidates"])
+    assert all(candidate["source"].split("_")[0] in {"lsd", "hough"} for candidate in result["candidates"])
     assert all(candidate["confidence"] > 0 for candidate in result["candidates"])
     assert any(candidate["length_px"] > 100 for candidate in result["candidates"])
+
+
+def test_adaptive_canny_uses_frame_intensity_not_fixed_thresholds():
+    _, dark = measurement.adaptive_canny(np.full((120, 160), 35, dtype=np.uint8))
+    _, bright = measurement.adaptive_canny(np.full((120, 160), 220, dtype=np.uint8))
+
+    assert dark["low"] != bright["low"]
+
+
+def test_process_keeps_hough_candidates_when_lsd_has_candidates():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    cv2.rectangle(frame, (40, 50), (280, 190), (255, 255, 255), 4)
+
+    result = process_image(frame, _calibration())
+
+    assert any(item["source"].startswith("lsd_") for item in result["candidates"])
+    assert any(item["source"].startswith("hough_") for item in result["candidates"])
 
 
 def test_process_image_collapses_thick_stroke_duplicates_to_outer_edges():

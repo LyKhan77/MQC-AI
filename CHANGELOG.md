@@ -11,6 +11,17 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-14 - Inspect Measurement Adaptive Multi-Detector
+
+### Changed
+
+- Measurement process now runs refined LSD and Hough on both raw grayscale and CLAHE contrast variants. Hough candidates no longer wait for empty LSD output.
+- Canny thresholds derive from current frame median intensity instead of fixed `50/150` values; existing collinear grouping, robust fit, and deduplication remain shared downstream.
+
+### Verification
+
+- Backend focused detector suite `14 passed`; backend full suite `251 passed` with two existing FastAPI deprecation warnings.
+
 ## [Unreleased] - 2026-08-14 - Inspect Measurement Raw Staged Download
 
 ### Added

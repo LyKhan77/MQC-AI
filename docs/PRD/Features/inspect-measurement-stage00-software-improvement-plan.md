@@ -92,7 +92,7 @@ Run `npm test -- --run src/views/__tests__/MeasurementStudio.test.js`; expected 
 
 **Interfaces:** Add `adaptive_canny(gray) -> tuple[np.ndarray, dict]`, `preprocess_variants(gray) -> dict[str, np.ndarray]`, and `line_candidates_from_variants(gray, min_length) -> tuple[list[dict], dict]`. `process_image()` preserves `candidates` and `logical_edges` response keys.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_adaptive_canny_uses_frame_intensity_not_fixed_thresholds():
@@ -107,13 +107,13 @@ def test_process_keeps_hough_candidates_when_lsd_has_candidates():
     assert any(item["source"].startswith("hough_") for item in result["candidates"])
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `.\.venv\Scripts\python.exe -m pytest tests/test_measurement_cv.py -q`.
 
 Expected: FAIL because helpers and always-on Hough do not exist.
 
-- [ ] **Step 3: Implement minimum behavior**
+- [x] **Step 3: Implement minimum behavior**
 
 ```python
 def adaptive_canny(gray):
@@ -125,12 +125,12 @@ def adaptive_canny(gray):
 
 def preprocess_variants(gray):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    return {"raw": gray, "clahe": clahe}
+    return {"raw": gray, "clahe": cv2.GaussianBlur(clahe, (3, 3), 0)}
 ```
 
 Run `LSD_REFINE_ADV` and `HoughLinesP` for each variant. Source labels: `lsd_raw`, `lsd_clahe`, `hough_raw`, `hough_clahe`. Reuse existing `_line_candidate`, grouping, `cv2.fitLine`, and deduplication.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Run `.\.venv\Scripts\python.exe -m pytest tests/test_measurement_cv.py -q`; expected PASS. Commit with `feat: combine adaptive line detector candidates`.
 

@@ -23,6 +23,8 @@ Improvement Slice 1–2 mengganti raw LSD segment sebagai hasil utama dengan log
 
 Stage 00 software robustness plan: [`inspect-measurement-stage00-software-improvement-plan.md`](./inspect-measurement-stage00-software-improvement-plan.md). Fokusnya raw capture evidence, multi-detector adaptive, contour fallback, jig validation, dan diagnostics sebelum Controlled Bench tersedia.
 
+Task Stage 00 yang sudah diimplementasikan: raw staged download serta adaptive multi-detector. Process menjalankan LSD dan Hough pada grayscale raw dan CLAHE contrast variant; Canny threshold dihitung dari median intensitas frame. Contour fallback, jig geometry validation, diagnostics, dan raw component fixture masih checkpoint berikutnya.
+
 ## 2. Masalah
 
 Komponen berbeda-beda, jumlah sisi tidak tetap, dan belum ada aturan fixed dimension. Sistem perlu bekerja secara global dengan konfigurasi inspector, bukan dengan template model per part.
