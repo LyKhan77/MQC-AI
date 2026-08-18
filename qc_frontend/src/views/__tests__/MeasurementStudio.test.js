@@ -338,6 +338,7 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('.calibration-draw-button').exists()).toBe(true)
     expect(wrapper.find('#task-type').exists()).toBe(true)
     expect(wrapper.find('#view-type').exists()).toBe(true)
+    expect(wrapper.find('.calibration-overlay').attributes('preserveAspectRatio')).toBe('xMidYMid meet')
   })
 
   it('shows dual-axis calibration and prefers merged logical edges', async () => {

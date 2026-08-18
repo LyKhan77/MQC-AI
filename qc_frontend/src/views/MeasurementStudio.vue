@@ -1355,7 +1355,7 @@ onBeforeUnmount(() => {
               <svg
                 class="measurement-overlay calibration-overlay"
                 :viewBox="`0 0 ${previewWidth} ${previewHeight}`"
-                preserveAspectRatio="none"
+                preserveAspectRatio="xMidYMid meet"
                 :class="{ active: calibrationMode }"
                 @mousedown.stop="onCalibrationPointerDown"
                 @mousemove.stop="onCalibrationPointerMove"

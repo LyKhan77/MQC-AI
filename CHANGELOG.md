@@ -11,6 +11,16 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-18 - Inspect Measurement Jig Preview Alignment
+
+### Fixed
+
+- Auto-detected four-point jig preview now preserves the captured image aspect ratio instead of stretching SVG coordinates to its display box. Preview and processed jig references use the same visual coordinate mapping.
+
+### Verification
+
+- Measurement Studio focused suite `38 passed`; frontend full suite `209 passed`; production build passed.
+
 ## [Unreleased] - 2026-08-14 - Inspect Measurement Evaluated Overlay Mode
 
 ### Changed
