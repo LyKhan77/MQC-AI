@@ -11,11 +11,11 @@ Each entry contains:
 
 ---
 
-## [Unreleased] - 2026-08-18 - Inspect Measurement Jig Preview Alignment
+## [Unreleased] - 2026-08-18 - Inspect Measurement Unified Canvas Frame
 
 ### Fixed
 
-- Auto-detected four-point jig preview now preserves the captured image aspect ratio instead of stretching SVG coordinates to its display box. Preview and processed jig references use the same visual coordinate mapping.
+- Staged calibration and processed measurement now use one explicit, viewport-fitted image frame. Image and SVG overlay share the same aspect ratio and transform, so four-point jig axes remain at their source-frame coordinates instead of being clipped or independently fitted.
 
 ### Verification
 

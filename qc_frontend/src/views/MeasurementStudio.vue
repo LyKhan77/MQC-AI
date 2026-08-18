@@ -116,6 +116,14 @@ const calibrationValidation = computed(() => validateManualCalibration({
 }))
 const calibrationReady = computed(() => calibrationValidation.value.valid)
 const frameTransform = computed(() => `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`)
+const frameStyle = computed(() => {
+  const width = processed.value?.width || previewWidth.value || 1
+  const height = processed.value?.height || previewHeight.value || 1
+  return {
+    transform: frameTransform.value,
+    '--image-ratio': width / height,
+  }
+})
 const readiness = computed(() => processed.value?.readiness || 'idle')
 const summaryStatus = computed(() => evaluated.value
   ? summarizeMeasurement(items.value, readiness.value)
@@ -1350,12 +1358,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-if="!processed && previewUrl" class="measurement-preview">
-            <div class="measurement-image-frame preview-frame" :style="{ transform: frameTransform }">
+            <div class="measurement-image-frame preview-frame" :style="frameStyle">
               <img class="measurement-image" :src="previewUrl" :alt="localFileName" @load="onPreviewLoad" draggable="false">
               <svg
                 class="measurement-overlay calibration-overlay"
                 :viewBox="`0 0 ${previewWidth} ${previewHeight}`"
-                preserveAspectRatio="xMidYMid meet"
+                preserveAspectRatio="none"
                 :class="{ active: calibrationMode }"
                 @mousedown.stop="onCalibrationPointerDown"
                 @mousemove.stop="onCalibrationPointerMove"
@@ -1393,7 +1401,7 @@ onBeforeUnmount(() => {
             <span>{{ t('measurement.viewportHint') }}</span>
           </div>
           <template v-else>
-            <div class="measurement-image-frame" :style="{ transform: frameTransform }">
+            <div class="measurement-image-frame" :style="frameStyle">
               <img class="measurement-image" :src="displayUrl" :alt="processed.source_filename" draggable="false">
               <svg class="measurement-overlay" :viewBox="`0 0 ${processed.width} ${processed.height}`" preserveAspectRatio="none" role="img" :aria-label="t('measurement.edgeOverlay')">
               <g
@@ -1816,9 +1824,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-canvas-panel { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--color-surface-1); }
 .measurement-viewport { position: relative; display: grid; flex: 1 1 auto; min-height: 0; place-items: center; padding: 28px; overflow: hidden; cursor: grab; background: var(--color-surface-1); }
 .measurement-viewport.is-dragging { cursor: grabbing; }
-.measurement-preview { display: grid; max-width: 100%; max-height: 100%; place-items: center; gap: 12px; }
-.preview-frame { max-width: min(100%, 920px); max-height: calc(100% - 32px); }
-.preview-frame .measurement-image { max-height: calc(100vh - 260px); }
+.measurement-preview { display: grid; width: 100%; height: 100%; place-items: center; gap: 12px; }
+.preview-frame { max-width: 100%; }
 .calibration-overlay.active { cursor: crosshair; }
 .calibration-drawn-line { stroke: var(--color-warning); stroke-width: 3; vector-effect: non-scaling-stroke; stroke-dasharray: 8 4; }
 .calibration-drawn-point { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 3; vector-effect: non-scaling-stroke; }
@@ -1836,8 +1843,8 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .canvas-status.status-pass { color: var(--color-success); }
 .canvas-status.status-fail { color: var(--color-error); }
 .canvas-status.status-review { color: var(--color-warning); }
-.measurement-image-frame { position: relative; transform-origin: center; transition: transform 0.05s linear; }
-.measurement-image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
+.measurement-image-frame { position: relative; width: min(100%, 920px, calc((100vh - 260px) * var(--image-ratio))); aspect-ratio: var(--image-ratio); transform-origin: center; transition: transform 0.05s linear; }
+.measurement-image { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .measurement-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; }
 .measurement-candidate { pointer-events: all; cursor: pointer; opacity: 0.9; }
 .measurement-line-halo { stroke: var(--color-canvas); stroke-width: 4; vector-effect: non-scaling-stroke; }

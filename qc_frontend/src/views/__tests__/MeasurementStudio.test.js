@@ -329,16 +329,20 @@ describe('MeasurementStudio', () => {
     expect(wrapper.find('#pose-type').element.value).toBe('TOP_FACE')
   })
 
-  it('shows staged image calibration guidance before processing', async () => {
+  it('fits staged calibration overlay into the raw image coordinate frame', async () => {
     const wrapper = mount(MeasurementStudio)
 
     await stage(wrapper)
+    wrapper.vm.previewWidth = 1920
+    wrapper.vm.previewHeight = 1080
+    await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.measurement-preview').exists()).toBe(true)
     expect(wrapper.find('.calibration-draw-button').exists()).toBe(true)
     expect(wrapper.find('#task-type').exists()).toBe(true)
     expect(wrapper.find('#view-type').exists()).toBe(true)
-    expect(wrapper.find('.calibration-overlay').attributes('preserveAspectRatio')).toBe('xMidYMid meet')
+    expect(wrapper.find('.preview-frame').attributes('style')).toContain('--image-ratio: 1.7777777777777777')
+    expect(wrapper.find('.calibration-overlay').attributes('preserveAspectRatio')).toBe('none')
   })
 
   it('shows dual-axis calibration and prefers merged logical edges', async () => {
