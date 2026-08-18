@@ -386,7 +386,7 @@ describe('MeasurementStudio', () => {
     expect(wrapper.text()).toContain('LE1')
   })
 
-  it('renders processed calibration coordinates directly without display rescaling', async () => {
+  it('renders processed calibration axes with centered offset labels', async () => {
     mocks.processMeasurement.mockResolvedValue({
       ...processed(),
       width: 320,
@@ -412,6 +412,12 @@ describe('MeasurementStudio', () => {
     ])).toEqual([
       ['20', '30', '140', '30'],
       ['20', '30', '20', '90'],
+    ])
+    expect(wrapper.findAll('.calibration-reference text').map((label) => [
+      label.attributes('x'), label.attributes('y'), label.attributes('text-anchor'), label.attributes('dominant-baseline'),
+    ])).toEqual([
+      ['80', '18', 'middle', 'middle'],
+      ['32', '60', 'middle', 'middle'],
     ])
   })
 

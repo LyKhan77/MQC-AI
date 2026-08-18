@@ -11,6 +11,16 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-08-18 - Inspect Measurement Calibration Labels
+
+### Fixed
+
+- Processed calibration reference labels now sit at the center of their X/Y axes with a readable canvas halo, instead of stacking at the first calibration point.
+
+### Verification
+
+- Measurement Studio focused suite `38 passed`; frontend full suite `209 passed`; production build passed.
+
 ## [Unreleased] - 2026-08-18 - Inspect Measurement Unified Canvas Frame
 
 ### Fixed

@@ -189,19 +189,28 @@ const selectionGuidance = computed(() => [
   taskTypesForProcess.value.includes('bend_angle') ? t('measurement.selectBendHint') : '',
 ].filter(Boolean).join(' · '))
 
+function calibrationReferenceLabel(reference) {
+  const midpointX = (reference.point_a[0] + reference.point_b[0]) / 2
+  const midpointY = (reference.point_a[1] + reference.point_b[1]) / 2
+  return reference.axis === 'Y'
+    ? { label_x: midpointX + 12, label_y: midpointY }
+    : { label_x: midpointX, label_y: midpointY - 12 }
+}
+
 const calibrationReferences = computed(() => {
   const calibration = processed.value?.calibration || {}
+  let references = []
   if (calibration.mode === 'manual_axes') {
-    return ['x', 'y'].filter((axis) => calibration[axis]?.point_a && calibration[axis]?.point_b).map((axis) => ({
+    references = ['x', 'y'].filter((axis) => calibration[axis]?.point_a && calibration[axis]?.point_b).map((axis) => ({
       axis: axis.toUpperCase(),
       point_a: calibration[axis].point_a,
       point_b: calibration[axis].point_b,
       known_mm: calibration[axis].known_mm,
     }))
+  } else if (calibration.point_a && calibration.point_b) {
+    references = [{ axis: 'REF', point_a: calibration.point_a, point_b: calibration.point_b, known_mm: calibration.known_mm }]
   }
-  return calibration.point_a && calibration.point_b
-    ? [{ axis: 'REF', point_a: calibration.point_a, point_b: calibration.point_b, known_mm: calibration.known_mm }]
-    : []
+  return references.map((reference) => ({ ...reference, ...calibrationReferenceLabel(reference) }))
 })
 
 const selectedSourceName = computed(() => selectedView.value?.sourceFilename || localFileName.value || t('measurement.noInput'))
@@ -1468,8 +1477,10 @@ onBeforeUnmount(() => {
                 <text
                   v-for="reference in calibrationReferences"
                   :key="`reference-label-${reference.axis}`"
-                  :x="reference.point_a[0]"
-                  :y="reference.point_a[1] + 13"
+                  :x="reference.label_x"
+                  :y="reference.label_y"
+                  text-anchor="middle"
+                  dominant-baseline="middle"
                 >REF {{ reference.axis }} {{ reference.known_mm }} mm</text>
               </g>
               <g v-if="showEvaluatedMeasurements" v-for="item in items" :key="`item-${item.id}`" class="selected-measurement" :class="`status-${(item.status || 'review').toLowerCase()}`">
@@ -1880,7 +1891,7 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-label text { fill: currentColor; font-family: var(--font-mono); font-size: 15px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
 .calibration-reference { pointer-events: none; }
 .calibration-reference line { stroke: var(--color-warning); stroke-width: 2.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
-.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-surface-1); stroke-width: 5px; }
+.calibration-reference text { fill: var(--color-warning); font-family: var(--font-mono); font-size: 13px; font-weight: 600; paint-order: stroke; stroke: var(--color-canvas); stroke-linejoin: round; stroke-width: 6px; }
 .viewport-empty { display: grid; place-items: center; gap: 8px; color: var(--color-ink-muted); text-align: center; }
 .viewport-empty span { max-width: 250px; font-size: 12px; }
 .empty-crosshair { color: var(--color-primary); font-family: var(--font-mono); font-size: 42px; font-weight: 300; }
