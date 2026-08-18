@@ -15,7 +15,7 @@ Each entry contains:
 
 ### Fixed
 
-- Processed calibration reference labels now sit at the center of their X/Y axes with a readable canvas halo, instead of stacking at the first calibration point.
+- Processed calibration reference labels now sit at their X/Y axis midpoint with a readable canvas halo; `REF Y` is offset to the left of its vertical line, instead of stacking at the first calibration point or covering the line.
 
 ### Verification
 

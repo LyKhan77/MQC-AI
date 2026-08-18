@@ -193,8 +193,8 @@ function calibrationReferenceLabel(reference) {
   const midpointX = (reference.point_a[0] + reference.point_b[0]) / 2
   const midpointY = (reference.point_a[1] + reference.point_b[1]) / 2
   return reference.axis === 'Y'
-    ? { label_x: midpointX + 12, label_y: midpointY }
-    : { label_x: midpointX, label_y: midpointY - 12 }
+    ? { label_x: midpointX - 12, label_y: midpointY, label_anchor: 'end' }
+    : { label_x: midpointX, label_y: midpointY - 12, label_anchor: 'middle' }
 }
 
 const calibrationReferences = computed(() => {
@@ -1479,7 +1479,7 @@ onBeforeUnmount(() => {
                   :key="`reference-label-${reference.axis}`"
                   :x="reference.label_x"
                   :y="reference.label_y"
-                  text-anchor="middle"
+                  :text-anchor="reference.label_anchor"
                   dominant-baseline="middle"
                 >REF {{ reference.axis }} {{ reference.known_mm }} mm</text>
               </g>

@@ -417,7 +417,7 @@ describe('MeasurementStudio', () => {
       label.attributes('x'), label.attributes('y'), label.attributes('text-anchor'), label.attributes('dominant-baseline'),
     ])).toEqual([
       ['80', '18', 'middle', 'middle'],
-      ['32', '60', 'middle', 'middle'],
+      ['8', '60', 'end', 'middle'],
     ])
   })
 
