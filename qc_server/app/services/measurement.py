@@ -627,16 +627,48 @@ def fit_circle(points):
     values = np.unique(values, axis=0)
     if len(values) < 5:
         raise ValueError("circle fit requires at least five unique points")
-    matrix = np.column_stack((2 * values[:, 0], 2 * values[:, 1], np.ones(len(values))))
-    target = values[:, 0] ** 2 + values[:, 1] ** 2
-    solution, _, _, _ = np.linalg.lstsq(matrix, target, rcond=None)
-    center = solution[:2]
-    radius_squared = float(solution[2] + np.dot(center, center))
-    if not np.all(np.isfinite(center)) or not np.isfinite(radius_squared) or radius_squared <= 0:
-        raise ValueError("circle fit is invalid")
-    radius = float(np.sqrt(radius_squared))
-    residual = float(np.mean(np.abs(np.linalg.norm(values - center, axis=1) - radius)))
-    return (float(center[0]), float(center[1])), radius, residual
+    # Taubin fit (1991): gradient-weighted algebraic circle fit. Its radius
+    # bias on short arcs is far smaller than the Kasa fit (Chernov 2009).
+    # Reduced form in centered coordinates: minimize (A*z0 + B*u + C*v)^2
+    # subject to the gradient-norm constraint 4*A^2*<z> + B^2 + C^2 = 1,
+    # solved as the generalized eigenproblem M*w = lambda*K*w.
+    centroid = values.mean(axis=0)
+    u = values[:, 0] - centroid[0]
+    v = values[:, 1] - centroid[1]
+    z = u * u + v * v
+    z_mean = float(z.mean())
+    z0 = z - z_mean
+    m00 = float(np.mean(z0 * z0))
+    m01 = float(np.mean(z0 * u))
+    m02 = float(np.mean(z0 * v))
+    m11 = float(np.mean(u * u))
+    m12 = float(np.mean(u * v))
+    m22 = float(np.mean(v * v))
+    k1 = 4.0 * z_mean
+    moment = np.array([
+        [m00, m01, m02],
+        [m01, m11, m12],
+        [m02, m12, m22],
+    ])
+    constraint = np.diag([k1, 1.0, 1.0])
+    # K is invertible (z_mean > 0), so solve the generalized eigenproblem
+    # M*w = lambda*K*w as a standard eigenproblem K^-1*M*w = lambda*w.
+    eigenvalues = np.linalg.eigvals(np.linalg.inv(constraint) @ moment)
+    real_values = eigenvalues[np.abs(eigenvalues.imag) < 1e-9 * np.maximum(1.0, np.abs(eigenvalues.real))].real
+    for lam in np.sort(np.maximum(real_values, 0.0)):
+        _, _, vt = np.linalg.svd(moment - float(lam) * constraint)
+        a_coef, b_coef, c_coef = vt[-1]
+        if abs(a_coef) < 1e-12:
+            continue
+        offset_x = -b_coef / (2 * a_coef)
+        offset_y = -c_coef / (2 * a_coef)
+        radius_squared = offset_x * offset_x + offset_y * offset_y + z_mean
+        if np.all(np.isfinite([offset_x, offset_y, radius_squared])) and radius_squared > 0:
+            radius = float(np.sqrt(radius_squared))
+            center = (float(centroid[0] + offset_x), float(centroid[1] + offset_y))
+            residual = float(np.mean(np.abs(np.linalg.norm(values - center, axis=1) - radius)))
+            return center, radius, residual
+    raise ValueError("circle fit is invalid")
 
 
 def _corner_turning_angles(points, window):

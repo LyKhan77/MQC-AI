@@ -39,6 +39,27 @@ def test_fit_circle_returns_radius_and_low_residual():
     assert residual <= 0.1
 
 
+def _kasa_radius(points):
+    matrix = np.column_stack((2 * points[:, 0], 2 * points[:, 1], np.ones(len(points))))
+    target = points[:, 0] ** 2 + points[:, 1] ** 2
+    solution, *_ = np.linalg.lstsq(matrix, target, rcond=None)
+    return float(np.sqrt(max(solution[2] + solution[0] ** 2 + solution[1] ** 2, 0)))
+
+
+def test_fit_circle_taubin_accurate_on_short_arc():
+    rng = np.random.default_rng(7)
+    radians = np.linspace(0, np.radians(45), 60)
+    points = np.column_stack((100 * np.cos(radians), 100 * np.sin(radians)))
+    points = points + rng.normal(0, 0.8, points.shape)
+
+    center, radius, residual = fit_circle(points)
+
+    taubin_error = abs(radius - 100)
+    kasa_error = abs(_kasa_radius(points) - 100)
+    assert taubin_error <= 4.0
+    assert taubin_error < kasa_error
+
+
 def test_detect_corner_arcs_returns_calibrated_rounded_rectangle_corners():
     frame = np.zeros((240, 320, 3), dtype=np.uint8)
     mask = np.zeros((240, 320), dtype=np.uint8)
