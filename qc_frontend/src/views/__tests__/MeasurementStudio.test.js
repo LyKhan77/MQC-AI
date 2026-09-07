@@ -457,6 +457,47 @@ describe('MeasurementStudio', () => {
     expect(wrapper.vm.items[0].tolerance).toBe(2)
   })
 
+  it('lets an inspector select an overall X/Y extent in one process', async () => {
+    mocks.processMeasurement.mockResolvedValue({
+      ...processed(),
+      task_types: ['outer_dimension'],
+      overall_candidates: [{
+        id: 'OX1',
+        axis: 'x',
+        value_mm: 100,
+        axis_angle_deg: 0,
+        axis_source: 'edges',
+        points: [[20, 30], [220, 30]],
+        confidence: 0.85,
+        geometry: { kind: 'outer_extent', axis: 'x', value_mm: 100, points: [[20, 30], [220, 30]] },
+      }, {
+        id: 'OY1',
+        axis: 'y',
+        value_mm: 80,
+        axis_angle_deg: 0,
+        axis_source: 'edges',
+        points: [[20, 30], [20, 180]],
+        confidence: 0.85,
+        geometry: { kind: 'outer_extent', axis: 'y', value_mm: 80, points: [[20, 30], [20, 180]] },
+      }],
+    })
+    const wrapper = mount(MeasurementStudio)
+    await stage(wrapper)
+    await wrapper.find('#task-overall').setValue(true)
+    await calibrate(wrapper)
+    await wrapper.find('.process-measurement').trigger('click')
+    await flushPromises()
+
+    expect(mocks.processMeasurement).toHaveBeenCalledWith(expect.objectContaining({
+      taskTypes: ['linear_dimension', 'outer_dimension'],
+    }))
+    await wrapper.find('.measurement-overall-candidate').trigger('click')
+
+    expect(wrapper.vm.items[0].type).toBe('outer_dimension')
+    expect(wrapper.vm.items[0].measured).toBe(100)
+    expect(wrapper.vm.items[0].label).toBe('measurement.overallX')
+  })
+
   it('selects a backend bend candidate with the 0.5 degree default tolerance', async () => {
     mocks.processMeasurement.mockResolvedValue({
       ...processed(),

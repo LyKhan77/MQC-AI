@@ -98,6 +98,11 @@ export function measureGeometry(type, points, calibration = {}, geometry = null)
     if (!(value >= 0 && value <= 180)) throw new Error('bend angle must be between 0 and 180 degrees')
     return { value, unit: 'deg', pixel_value: null, geometry }
   }
+  if (type === 'outer_dimension' && geometry?.kind === 'outer_extent') {
+    const value = Number(geometry.value_mm)
+    if (!(value > 0)) throw new Error('outer dimension must be positive')
+    return { value, unit: 'mm', pixel_value: null, geometry }
+  }
   if (type === 'angle' || type === 'bend_angle') {
     if (points.length !== 4) throw new Error('angle requires four points')
     return { value: angle(points), unit: 'deg', pixel_value: null }

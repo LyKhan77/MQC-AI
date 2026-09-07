@@ -18,6 +18,13 @@ describe('measurement helpers', () => {
     expect(measureGeometry('corner_radius', [], {}, geometry).value).toBe(12)
   })
 
+  it('uses backend metric value for an overall extent', () => {
+    const geometry = { kind: 'outer_extent', axis: 'x', value_mm: 100, points: [] }
+    const calibration = { scale_x_mm_per_px: 0.5, scale_y_mm_per_px: 0.5 }
+
+    expect(measureGeometry('outer_dimension', [], calibration, geometry).value).toBe(100)
+  })
+
   it('builds an obtuse bend from selected support rays', () => {
     const geometry = buildBendGeometry(
       { id: 'LE1', support_points: [[0, 0], [100, 0]] },

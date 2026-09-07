@@ -140,6 +140,7 @@ const taskIsHole = computed(() => taskType.value.startsWith('hole_'))
 const taskTypesForProcess = computed(() => selectedTaskTypes.value.length ? selectedTaskTypes.value : ['linear_dimension'])
 const cornerTaskSelected = computed(() => taskTypesForProcess.value.includes('corner_radius'))
 const bendTaskSelected = computed(() => taskTypesForProcess.value.includes('bend_angle'))
+const overallTaskSelected = computed(() => taskTypesForProcess.value.includes('outer_dimension'))
 const taskSelectionRequiresProfile = computed(() => taskTypesForProcess.value.some((type) => ['thickness_profile', 'bend_angle'].includes(type)))
 const taskSelectionSupported = computed(() => !taskSelectionRequiresProfile.value || (viewType.value !== 'top' && poseType.value === 'PROFILE_FACE'))
 const taskNeedsEdgeCandidate = computed(() => taskType.value === 'hole_center_to_edge')
@@ -167,6 +168,7 @@ const logicalEdges = computed(() => processed.value?.logical_edges || [])
 const visibleCandidates = computed(() => logicalEdges.value.length ? logicalEdges.value : (processed.value?.candidates || []))
 const cornerCandidates = computed(() => processed.value?.corner_arcs || [])
 const bendCandidates = computed(() => processed.value?.bend_candidates || [])
+const overallCandidates = computed(() => processed.value?.overall_candidates || [])
 const evaluatedOverlayItems = computed(() => {
   const width = Number(processed.value?.width) || 0
   const height = Number(processed.value?.height) || 0
@@ -185,6 +187,7 @@ const evaluatedOverlayItems = computed(() => {
 })
 const selectionGuidance = computed(() => [
   taskTypesForProcess.value.includes('linear_dimension') ? t('measurement.selectEdgeHint') : '',
+  taskTypesForProcess.value.includes('outer_dimension') ? t('measurement.selectOverallHint') : '',
   taskTypesForProcess.value.includes('corner_radius') ? t('measurement.selectCornerHint') : '',
   taskTypesForProcess.value.includes('bend_angle') ? t('measurement.selectBendHint') : '',
 ].filter(Boolean).join(' · '))
@@ -867,6 +870,20 @@ function selectBend(candidate) {
   })
 }
 
+function selectOverall(candidate) {
+  if (readOnly.value || !processed.value) return
+  const measured = measureGeometry('outer_dimension', [], processed.value.calibration, candidate.geometry)
+  addMeasurementItem({
+    id: 'O',
+    type: 'outer_dimension',
+    label: candidate.axis === 'y' ? t('measurement.overallY') : t('measurement.overallX'),
+    measured: measured.value,
+    geometry: measured.geometry,
+    points: candidate.points,
+    confidence: candidate.confidence,
+  })
+}
+
 function selectHole(candidate, index) {
   if (readOnly.value || !processed.value) return
   if (taskType.value === 'hole_center_distance' || taskType.value === 'hole_edge_distance') {
@@ -1071,6 +1088,7 @@ function openRun(run) {
     logical_edges: [],
     corner_arcs: [],
     bend_candidates: [],
+    overall_candidates: [],
     task_types: selectedTaskTypes.value,
     task_readiness: {},
     calibration_quality: {},
@@ -1163,6 +1181,7 @@ onBeforeUnmount(() => {
             <span class="field-label">{{ t('measurement.checksInProcess') }}</span>
             <label class="task-check"><input id="task-linear" type="checkbox" :checked="taskTypesForProcess.includes('linear_dimension')" @change="toggleTaskType('linear_dimension', $event.target.checked)"> <span>{{ t('measurement.taskLinear') }}</span></label>
             <label class="task-check"><input id="task-corner" type="checkbox" :checked="taskTypesForProcess.includes('corner_radius')" @change="toggleTaskType('corner_radius', $event.target.checked)"> <span>{{ t('measurement.taskCorner') }}</span></label>
+            <label class="task-check"><input id="task-overall" type="checkbox" :checked="taskTypesForProcess.includes('outer_dimension')" @change="toggleTaskType('outer_dimension', $event.target.checked)"> <span>{{ t('measurement.taskOverall') }}</span></label>
             <label class="task-check"><input id="task-bend" type="checkbox" :checked="taskTypesForProcess.includes('bend_angle')" @change="toggleTaskType('bend_angle', $event.target.checked)"> <span>{{ t('measurement.taskBend') }}</span></label>
           </div>
           <details class="measurement-advanced">
@@ -1171,6 +1190,7 @@ onBeforeUnmount(() => {
               {{ t('measurement.taskType') }}
               <select id="task-type" v-model="taskType" @change="onTaskTypeChange">
                 <option value="linear_dimension">{{ t('measurement.taskLinear') }}</option>
+                <option value="outer_dimension">{{ t('measurement.taskOverall') }}</option>
                 <option value="corner_radius">{{ t('measurement.taskCorner') }}</option>
                 <option value="thickness_profile">{{ t('measurement.taskThickness') }}</option>
                 <option value="bend_angle">{{ t('measurement.taskBend') }}</option>
@@ -1453,6 +1473,20 @@ onBeforeUnmount(() => {
                 <circle class="measurement-bend-vertex" :cx="bend.geometry.vertex[0]" :cy="bend.geometry.vertex[1]" r="5"></circle>
               </g>
               <g
+                v-for="(overall, index) in overallCandidates"
+                v-if="showDetectedEdges && overallTaskSelected"
+                :key="`overall-${candidateKey(overall, index)}`"
+                class="measurement-overall-candidate"
+                @click.stop="selectOverall(overall)"
+              >
+                <line class="measurement-overall-halo" :x1="overall.points[0][0]" :y1="overall.points[0][1]" :x2="overall.points[1][0]" :y2="overall.points[1][1]"></line>
+                <line class="measurement-overall-line" :x1="overall.points[0][0]" :y1="overall.points[0][1]" :x2="overall.points[1][0]" :y2="overall.points[1][1]"></line>
+                <circle class="measurement-point-halo" :cx="overall.points[0][0]" :cy="overall.points[0][1]" r="7"></circle>
+                <circle class="measurement-point-halo" :cx="overall.points[1][0]" :cy="overall.points[1][1]" r="7"></circle>
+                <circle class="measurement-point" :cx="overall.points[0][0]" :cy="overall.points[0][1]" r="4"></circle>
+                <circle class="measurement-point" :cx="overall.points[1][0]" :cy="overall.points[1][1]" r="4"></circle>
+              </g>
+              <g
                 v-if="showDetectedEdges"
                 v-for="(hole, index) in (processed.holes || [])"
                 :key="`hole-${index}-${hole.center.join('-')}`"
@@ -1554,6 +1588,12 @@ onBeforeUnmount(() => {
               <strong>{{ bend.id || `B${index + 1}` }}</strong>
               <span>{{ Number(bend.angle_deg).toFixed(2) }}°</span>
               <small>{{ bend.confidence.toFixed(2) }}</small>
+            </button>
+            <button v-if="overallTaskSelected" v-for="(overall, index) in overallCandidates" :key="`overall-card-${candidateKey(overall, index)}`" type="button" class="candidate-card overall-card measurement-overall-candidate" @click="selectOverall(overall)">
+              <span class="candidate-line"></span>
+              <strong>{{ overall.axis === 'y' ? t('measurement.overallY') : t('measurement.overallX') }}</strong>
+              <span>{{ Number(overall.value_mm).toFixed(2) }} mm</span>
+              <small>{{ overall.axis_source }} · {{ overall.confidence.toFixed(2) }}</small>
             </button>
           </template>
           <template v-else>
@@ -1873,13 +1913,16 @@ button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 
 .measurement-logical-edge { opacity: 1; }
 .measurement-logical-edge .measurement-line { stroke: var(--color-primary); stroke-width: 2.5; }
 .measurement-corner-candidate,
-.measurement-bend-candidate { cursor: pointer; }
+.measurement-bend-candidate,
+.measurement-overall-candidate { cursor: pointer; }
 .measurement-corner-halo { fill: none; stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
 .measurement-corner-line { fill: none; stroke: var(--color-warning); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .measurement-corner-center { fill: var(--color-warning); stroke: var(--color-canvas); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .measurement-bend-halo { stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
 .measurement-bend-line { stroke: var(--color-error); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-dasharray: 6 4; }
 .measurement-bend-vertex { fill: var(--color-error); stroke: var(--color-canvas); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.measurement-overall-halo { stroke: var(--color-canvas); stroke-width: 6; vector-effect: non-scaling-stroke; }
+.measurement-overall-line { stroke: var(--color-info); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-dasharray: 6 4; }
 .selected-measurement { pointer-events: none; }
 .selected-measurement .measurement-line { stroke: var(--color-success); stroke-width: 4; stroke-dasharray: 7 4; }
 .selected-measurement.status-fail .measurement-line { stroke: var(--color-error); }
