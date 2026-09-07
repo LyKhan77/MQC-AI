@@ -332,6 +332,7 @@ class MeasurementProcessOut(BaseModel):
     logical_edges: list = Field(default_factory=list)
     corner_arcs: list = Field(default_factory=list)
     bend_candidates: list = Field(default_factory=list)
+    overall_candidates: list = Field(default_factory=list)
     task_readiness: dict = Field(default_factory=dict)
     calibration_quality: dict = Field(default_factory=dict)
 

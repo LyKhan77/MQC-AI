@@ -104,6 +104,27 @@ def test_process_accepts_dual_axes_and_returns_logical_edges(client):
     assert body["calibration_quality"]["verdict_eligible"] is True
 
 
+def test_process_outer_dimension_returns_overall_candidates(client):
+    response = client.post(
+        "/api/measurements/process",
+        files={"file": ("rounded.png", _rounded_component_png_bytes(), "image/png")},
+        data={
+            "task_types": json.dumps(["outer_dimension"]),
+            "calibration": _axes_calibration(),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["readiness"] == "ready"
+    assert body["task_readiness"]["outer_dimension"]["status"] == "ready"
+    by_axis = {item["axis"]: item for item in body["overall_candidates"]}
+    assert set(by_axis) == {"x", "y"}
+    assert abs(by_axis["x"]["value_mm"] - 100.0) <= 1.0
+    assert abs(by_axis["y"]["value_mm"] - 80.0) <= 1.0
+    assert by_axis["x"]["geometry"]["kind"] == "outer_extent"
+
+
 def test_process_normalizes_calibration_points_to_processed_frame(client):
     calibration = json.loads(_axes_calibration())
     calibration["coordinate_width"] = 80

@@ -17,6 +17,7 @@ SUPPORTED_TASK_TYPES = {
     "hole_center_distance",
     "hole_edge_distance",
     "hole_center_to_edge",
+    "outer_dimension",
 }
 SUPPORTED_VIEW_TYPES = {"top", "profile", "side"}
 PROFILE_TASK_TYPES = {"thickness_profile", "bend_angle"}
@@ -378,6 +379,11 @@ def measure_geometry(item_type, points, calibration, geometry=None):
         }
 
     scale = _calibration_scale(calibration)
+    if item_type == "outer_dimension" and geometry and geometry.get("kind") == "outer_extent":
+        value_mm = float(geometry.get("value_mm", 0))
+        if value_mm <= 0:
+            raise ValueError("outer dimension must be positive")
+        return {"value": value_mm, "unit": "mm", "pixel_value": None, "geometry": geometry}
     if geometry and geometry.get("kind") == "circle":
         center = _point(geometry.get("center"))
         radius_px = float(geometry.get("radius_px", 0))
@@ -850,6 +856,81 @@ def refine_virtual_corners(edges, options=None):
     return edges
 
 
+def _supported_extreme_value(values, from_low, min_support, tolerance):
+    ordered = np.sort(values)
+    if from_low:
+        extreme = float(ordered[0])
+        if np.count_nonzero(ordered <= extreme + tolerance) >= min_support:
+            return extreme
+        higher = ordered[ordered > extreme + tolerance]
+        return float(higher[0]) if len(higher) else None
+    extreme = float(ordered[-1])
+    if np.count_nonzero(ordered >= extreme - tolerance) >= min_support:
+        return extreme
+    lower = ordered[ordered < extreme - tolerance]
+    return float(lower[-1]) if len(lower) else None
+
+
+def detect_overall_candidates(logical_edges, contour, calibration, options=None):
+    # Overall outside extent along the component's own X/Y axes: the drawing
+    # reports bounding-box dimensions, which include rounded-corner arcs and
+    # therefore exceed any single straight edge span.
+    options = {
+        "outer_axis_alignment_deg": 6.0,
+        "outer_min_axis_support_ratio": 0.6,
+        "outer_min_support_points": 3,
+        "outer_extreme_tolerance_px": 1.5,
+        **(options or {}),
+    }
+    if contour is None or not logical_edges:
+        return []
+    scale_x, scale_y = calibration_scales(calibration)
+    contour_points = contour.reshape(-1, 2).astype(np.float64)
+    metric = contour_points * np.array([scale_x, scale_y])
+    longest = max(logical_edges, key=lambda edge: float(edge.get("length_px", 0)))
+    axis_angle = degrees(np.arctan2(float(longest["direction"][1]), float(longest["direction"][0]))) % 180
+    total_length = sum(float(edge.get("length_px", 0)) for edge in logical_edges)
+    aligned_length = 0.0
+    for edge in logical_edges:
+        angle = degrees(np.arctan2(float(edge["direction"][1]), float(edge["direction"][0]))) % 180
+        delta = min(abs(angle - axis_angle), 180 - abs(angle - axis_angle))
+        delta = min(delta, abs(delta - 90))
+        if delta <= float(options["outer_axis_alignment_deg"]):
+            aligned_length += float(edge.get("length_px", 0))
+    axis_source = "edges" if total_length and aligned_length / total_length >= float(options["outer_min_axis_support_ratio"]) else "image"
+    if axis_source == "image":
+        axis_angle = 0.0
+    radians = np.deg2rad(axis_angle)
+    rotation = np.array([[np.cos(radians), np.sin(radians)], [-np.sin(radians), np.cos(radians)]])
+    rotated = metric @ rotation.T
+    mean_scale = (scale_x + scale_y) / 2
+    candidates = []
+    for axis_index, axis in enumerate(("x", "y")):
+        values = rotated[:, axis_index]
+        low = _supported_extreme_value(values, True, int(options["outer_min_support_points"]), float(options["outer_extreme_tolerance_px"]) * mean_scale)
+        high = _supported_extreme_value(values, False, int(options["outer_min_support_points"]), float(options["outer_extreme_tolerance_px"]) * mean_scale)
+        if low is None or high is None or high <= low:
+            continue
+        value_mm = float(high - low)
+        low_index = int(np.argmin(np.abs(values - low)))
+        high_index = int(np.argmin(np.abs(values - high)))
+        points = [
+            [round(float(contour_points[low_index][0]), 2), round(float(contour_points[low_index][1]), 2)],
+            [round(float(contour_points[high_index][0]), 2), round(float(contour_points[high_index][1]), 2)],
+        ]
+        candidates.append({
+            "id": f"O{axis.upper()}{len(candidates) + 1}",
+            "axis": axis,
+            "value_mm": round(value_mm, 3),
+            "axis_angle_deg": round(axis_angle, 2),
+            "axis_source": axis_source,
+            "points": points,
+            "confidence": 0.85 if axis_source == "edges" else 0.6,
+            "geometry": {"kind": "outer_extent", "axis": axis, "value_mm": round(value_mm, 3), "points": points},
+        })
+    return candidates
+
+
 def fit_logical_edges(edge_map, contour, groups, options=None):
     options = {
         "support_band_px": 3.0,
@@ -1099,6 +1180,7 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     requested_task_types = normalize_task_types(task_types, task_type)
     holes = detect_hole_candidates(frame, options) if any(value.startswith("hole_") for value in requested_task_types) else []
     bend_candidates = detect_bend_candidates(logical_edges, options)
+    overall_candidates = detect_overall_candidates(logical_edges, contour, calibration) if "outer_dimension" in requested_task_types else []
     calibration_valid = bool(calibration and calibration.get("valid"))
     task_readiness = {}
     for requested in requested_task_types:
@@ -1112,6 +1194,8 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
             task_readiness[requested] = {"status": "review", "reason": "no_usable_corner"}
         elif requested == "bend_angle" and not bend_candidates:
             task_readiness[requested] = {"status": "review", "reason": "no_usable_bend"}
+        elif requested == "outer_dimension" and not overall_candidates:
+            task_readiness[requested] = {"status": "review", "reason": "no_usable_edge"}
         elif requested in LINEAR_TYPES or requested in PROFILE_TASK_TYPES or requested in {"inclination", "corner_radius"}:
             usable = logical_edges if requested != "corner_radius" else corner_arcs
             task_readiness[requested] = {"status": "ready", "reason": ""} if usable else {"status": "review", "reason": "no_usable_edge" if requested != "corner_radius" else "no_usable_corner"}
@@ -1127,6 +1211,7 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
         "logical_edges": logical_edges,
         "corner_arcs": corner_arcs,
         "bend_candidates": bend_candidates,
+        "overall_candidates": overall_candidates,
         "task_readiness": task_readiness,
         "holes": holes,
         "task_type": task_type,

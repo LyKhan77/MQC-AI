@@ -12,6 +12,7 @@ from app.services.measurement import (
     fit_logical_edges,
     detect_hole_candidates,
     group_line_candidates,
+    measure_geometry,
     process_image,
 )
 
@@ -136,6 +137,27 @@ def test_logical_edge_endpoints_snap_to_virtual_corner():
     assert abs(xs[0] - 100) <= 3
     assert abs(xs[1] - 300) <= 3
     assert "virtual_intersection" in top["endpoint_sources"]
+
+
+def test_process_returns_overall_outer_extents():
+    result = process_image(_rounded_rect_frame(), _axes_calibration(), task_types=["outer_dimension"])
+
+    candidates = result["overall_candidates"]
+    assert {item["axis"] for item in candidates} == {"x", "y"}
+    by_axis = {item["axis"]: item for item in candidates}
+    assert abs(by_axis["x"]["value_mm"] - 100.0) <= 1.0
+    assert abs(by_axis["y"]["value_mm"] - 80.0) <= 1.0
+    assert by_axis["x"]["confidence"] >= 0.5
+    assert by_axis["x"]["geometry"]["kind"] == "outer_extent"
+
+
+def test_measure_geometry_outer_extent_uses_backend_metric_value():
+    calibration = _axes_calibration()
+    geometry = {"kind": "outer_extent", "axis": "x", "value_mm": 100.0, "points": [[0, 0], [200, 0]]}
+
+    measured = measure_geometry("outer_dimension", [], calibration, geometry)
+
+    assert measured == {"value": 100.0, "unit": "mm", "pixel_value": None, "geometry": geometry}
 
 
 def test_group_line_candidates_merges_fragmented_collinear_segments():
