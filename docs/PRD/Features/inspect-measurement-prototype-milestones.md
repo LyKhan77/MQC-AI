@@ -129,6 +129,7 @@ Evidence: commits `edb2cfd`, `573a745`, `784f218`, `c728f0b`, `995017f`, `663f01
 | I3 | Corner + bend geometry | `DONE` | `DONE` | Multi-select task flow, selected outer-radius fit, bend candidate filtering, selected flange-pair angle, and `REVIEW` reasons pass focused tests. |
 | I5 | Calibration coordinate + jig assistance | `DONE` | `DONE` | Preview coordinate dimensions normalize X/Y points in the OpenCV frame; four green jig points place X/Y lines while inspector enters physical lengths manually; dummy manual edge removed. |
 | I6 | Stage 00 detector robustness | `PLANNED` | `PLANNED` | Downloadable raw fixture, adaptive LSD/Hough candidates, contour fallback, jig quadrilateral validation, and diagnostics. Physical accuracy remains separate. |
+| I7 | Geometry kernel v2 | `DONE` | `DONE` | Taubin corner fit, arclength segmentation with tangent exclusion, virtual-corner endpoints, and `outer_dimension` overall X/Y extents pass focused tests; rotation-invariance synthetic spread ≤ 1.0 mm. Real-dummy-part evidence pending. |
 | I4 | Physical accuracy gate | `DONE` | `PLANNED` | Stage 1 station, traceable artifact, repeated captures, error report, and drift limits available. |
 
 Implementation source: [`inspect-measurement-2d-geometry-improvement-design.md`](./inspect-measurement-2d-geometry-improvement-design.md).
@@ -168,6 +169,18 @@ Evidence: commit `b314fb6`; frontend `198 passed`, production build passed, Meas
 
 Evidence: backend `249 passed`; frontend `207 passed`; production build passed.
 
+### I7 — Geometry kernel v2
+
+- [x] `fit_circle` uses a Taubin fit (numpy closed form) instead of Kåsa; synthetic short-arc error 3.2 px vs Kåsa 10.5 px and matches the geometric gold-standard fit within 0.02 px.
+- [x] Corner cluster window follows physical arclength (`corner_window_mm` 2.0) with one-window tangent exclusion from each cluster end before the circle fit.
+- [x] Corner coverage ladder: below 30° dropped, 30–60° labelled `arc_coverage_low`, 60°+ clean.
+- [x] Logical-edge endpoints snap to perpendicular fitted-line intersections (`virtual_intersection`, mold-line semantics) with `endpoint_sources` diagnostics.
+- [x] `outer_dimension` task returns `overall_candidates` Overall X/Y outside extents in the component axis frame with support-validated contour extremes and `axis_source` labelling.
+- [x] Measurement Studio exposes the Overall dimension (X/Y) check, Overall X/Y candidate cards, dashed extent overlays, and bilingual labels.
+- [ ] Real dummy-part (drawing: line, corner, bend, circle) captured at 0°/90°/180°; bias + repeatability vs drawing recorded below.
+
+Evidence: branch `feat/inspect-measurement-geometry-v2`; backend `258 passed`, frontend `211 passed`, production build passed. Design: [`inspect-measurement-geometry-v2-design.md`](./inspect-measurement-geometry-v2-design.md).
+
 ## Update protocol
 
 Setelah milestone berubah:
@@ -192,3 +205,4 @@ Setelah milestone berubah:
 | 2026-08-10 | Measurement shell redesign | Frontend `162 passed`, build passed, Playwright `9 passed`; TopBar/full-height shell assertion | Title moved to application TopBar; outer padding/border removed; desktop workspace now matches QC Studio's fixed `280px / flex / 320px` layout; source/process/status controls float over the canvas. |
 | 2026-08-12 | I2 logical edge + calibration v2 | Commit `5c607c0`; backend focused `62 passed`; full backend `244 passed` | Dual-axis calibration, logical-edge merge/fit/dedup, outer-span geometry, calibration quality gate, and object-detection cache regression fix implemented. |
 | 2026-08-12 | I3 corner + bend geometry | Commit `b314fb6`; frontend `198 passed`; build passed; Measurement Studio E2E `10 passed` | Rounded-corner radius, bend-angle candidates, multi-task selection, selection guidance, tolerance defaults, and geometry overlays implemented. Physical accuracy remains pending. |
+| 2026-09-07 | I7 geometry kernel v2 | Commits `9925765`..`29fc454`; backend `258 passed`, frontend `211 passed`, build passed | Taubin corner fit, arclength segmentation + tangent exclusion, virtual-corner endpoints, and overall X/Y outer extents implemented; synthetic rotation-invariance spread ≤ 1.0 mm. Real dummy-part evidence pending. |

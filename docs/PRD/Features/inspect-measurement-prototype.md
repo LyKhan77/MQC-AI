@@ -25,6 +25,8 @@ Stage 00 software robustness plan: [`inspect-measurement-stage00-software-improv
 
 Task Stage 00 yang sudah diimplementasikan: raw staged download, adaptive multi-detector, serta contour fallback. Process menjalankan LSD dan Hough pada grayscale raw dan CLAHE contrast variant; Canny threshold dihitung dari median intensitas frame. Jika seluruh detector line tidak menemukan boundary, polygon contour dapat menghasilkan fallback source-labelled dengan confidence `0.45`; item tersebut tetap `REVIEW`, bukan `PASS`. Jig geometry validation, diagnostics, dan raw component fixture masih checkpoint berikutnya.
 
+Geometry kernel v2 (design: [`inspect-measurement-geometry-v2-design.md`](./inspect-measurement-geometry-v2-design.md), milestone I7): `fit_circle` memakai Taubin fit bukan Kåsa, window corner mengikuti arclength fisik dengan tangent exclusion, coverage corner 30–60° tetap `arc_coverage_low` dan ≥60° bersih, endpoint edge lurus snap ke virtual corner (mold line), dan task baru `outer_dimension` mengembalikan kandidat Overall X/Y sebagai ukuran bounding-box luar-ke-luar dalam frame sumbu komponen — sesuai definisi ukuran X/Y drawing yang memuat radius corner.
+
 ## 2. Masalah
 
 Komponen berbeda-beda, jumlah sisi tidak tetap, dan belum ada aturan fixed dimension. Sistem perlu bekerja secara global dengan konfigurasi inspector, bukan dengan template model per part.

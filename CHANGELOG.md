@@ -11,6 +11,26 @@ Each entry contains:
 
 ---
 
+## [Unreleased] - 2026-09-07 - Inspect Measurement Geometry Kernel v2
+
+### Added
+
+- New `outer_dimension` task type returns `overall_candidates` (Overall X / Overall Y) as overall outside extents measured in the component's own axis frame — matching bounding-box drawing dimensions instead of single straight edge spans. Axis frame derives from the dominant fitted edge (fallback: image axes, labelled `axis_source`), extents use support-validated contour extremes in metric space, and contour fallback keeps confidence `0.6` vs `0.85` for edge-derived axes. Studio gains an "Overall dimension (X/Y)" check, Overall X/Y candidate cards, dashed extent overlays, and bilingual labels (`taskOverall`, `selectOverallHint`, `overallX`, `overallY`).
+- Logical-edge endpoints now snap to virtual corners: endpoints intersect with perpendicular fitted lines (±15°, ≤40px reach, neighbour must reach the point) following sheet-metal mold-line semantics, with `endpoint_sources` diagnostics replacing arc-bleed support-pixel endpoints.
+
+### Changed
+
+- `fit_circle` replaced Kåsa least squares with a Taubin fit (closed-form generalized eigenproblem via numpy), removing the well-documented radius underestimate on short arcs (Kåsa error 11.9 vs Taubin 3.2 on a 45° arc fixture; Taubin matches the geometric gold-standard fit within 0.02 px).
+- Corner detection window now follows physical arclength (`corner_window_mm` 2.0) instead of contour point counts, trims one turning window from each cluster end so straight-segment points cannot bias the radius, and applies a coverage ladder: below 30° dropped, 30–60° labelled `arc_coverage_low`, 60°+ clean. Synthetic rounded-rectangle corner radius is now rotation-stable (0°/45°/90° spread ≤ 1.0 mm; previously 5.04 vs 2.02 mm on the real rotated capture).
+
+### Fixed
+
+- Rounded-component straight-span regression updated to the new mold-line semantics (200 px part now measures ≈ 200 px between virtual corners instead of ≤ 185 px support span).
+
+### Verification
+
+- Backend full suite `258 passed`; frontend full suite `211 passed` (30 files); production build passed. Rotation-invariance, Taubin-vs-Kåsa, virtual-corner snap, and outer-extent CV/API tests added.
+
 ## [Unreleased] - 2026-08-18 - Inspect Measurement Calibration Labels
 
 ### Fixed
