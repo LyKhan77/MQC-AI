@@ -97,6 +97,35 @@ def test_detect_corner_arcs_rejects_radius_below_configured_minimum():
     assert candidates == []
 
 
+def _rounded_rect_frame():
+    frame = np.zeros((400, 400, 3), dtype=np.uint8)
+    mask = np.zeros((400, 400), dtype=np.uint8)
+    radius = 24
+    cv2.rectangle(mask, (100 + radius, 130), (300 - radius, 290), 255, -1)
+    cv2.rectangle(mask, (100, 130 + radius), (300, 290 - radius), 255, -1)
+    for center in ((124, 154), (276, 154), (124, 266), (276, 266)):
+        cv2.circle(mask, center, radius, 255, -1)
+    frame[mask > 0] = (255, 255, 255)
+    return frame
+
+
+def test_corner_radius_stable_under_rotation():
+    base = _rounded_rect_frame()
+    estimates = []
+    for angle in (0, 45, 90):
+        frame = base if angle == 0 else cv2.warpAffine(
+            base, cv2.getRotationMatrix2D((200, 200), angle, 1.0), (400, 400),
+            flags=cv2.INTER_LINEAR)
+        contour = detect_component_contour(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+        candidates = detect_corner_arcs(contour, _axes_calibration())
+        assert candidates, f"no corner candidate at {angle} degrees"
+        nearest = min(candidates, key=lambda item: np.linalg.norm(
+            np.asarray(item["center"]) - np.asarray([124, 154])))
+        estimates.append(nearest["radius_mm"])
+    assert all(10.0 <= value <= 14.0 for value in estimates)
+    assert max(estimates) - min(estimates) <= 1.0
+
+
 def test_group_line_candidates_merges_fragmented_collinear_segments():
     candidates = [
         {"id": "R1", "points": [[10, 20], [40, 20]], "angle": 0, "length_px": 30},

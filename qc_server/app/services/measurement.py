@@ -714,9 +714,10 @@ def detect_corner_arcs(contour, calibration, options=None):
     if contour is None:
         return []
     options = {
-        "corner_window_points": 8,
+        "corner_window_mm": 2.0,
         "corner_min_points": 8,
-        "corner_min_coverage_deg": 30.0,
+        "corner_min_coverage_hard_deg": 30.0,
+        "corner_min_coverage_deg": 60.0,
         "corner_min_radius_mm": 1.5,
         "corner_max_residual_mm": 0.5,
         "corner_turning_threshold_deg": 8.0,
@@ -726,7 +727,11 @@ def detect_corner_arcs(contour, calibration, options=None):
     if len(contour_points) < max(12, int(options["corner_min_points"]) * 2):
         return []
     scale_x, scale_y = calibration_scales(calibration)
-    window = max(2, min(int(options["corner_window_points"]), len(contour_points) // 4))
+    steps = np.linalg.norm(np.diff(contour_points, axis=0, append=contour_points[:1]), axis=1)
+    positive_steps = steps[steps > 0]
+    mean_step = float(np.mean(positive_steps)) if len(positive_steps) else 1.0
+    window_px = float(options["corner_window_mm"]) * ((scale_x + scale_y) / 2.0)
+    window = max(4, min(int(round(window_px / mean_step)), len(contour_points) // 4))
     turns = _corner_turning_angles(contour_points, window)
     clusters = _cluster_circular_indexes(
         np.flatnonzero(turns >= float(options["corner_turning_threshold_deg"])),
@@ -736,7 +741,13 @@ def detect_corner_arcs(contour, calibration, options=None):
     for index, cluster in enumerate(clusters, start=1):
         if len(cluster) < int(options["corner_min_points"]):
             continue
-        source_points = contour_points[cluster]
+        # Trim one turning-window of points from each cluster end so
+        # straight-segment points near the tangent points do not bias the
+        # circle fit; fall back to the raw cluster when nothing survives.
+        fit_indexes = cluster[window:len(cluster) - window]
+        if len(fit_indexes) < 5:
+            fit_indexes = cluster
+        source_points = contour_points[fit_indexes]
         metric_points = source_points * np.array([scale_x, scale_y], dtype=np.float64)
         try:
             metric_center, radius_mm, residual_mm = fit_circle(metric_points)
@@ -745,11 +756,13 @@ def detect_corner_arcs(contour, calibration, options=None):
         if radius_mm < float(options["corner_min_radius_mm"]):
             continue
         coverage_deg = _arc_coverage_degrees(metric_points, metric_center)
+        if coverage_deg < float(options["corner_min_coverage_hard_deg"]):
+            continue
         center_px = np.array([metric_center[0] / scale_x, metric_center[1] / scale_y])
         confidence = min(0.99, max(0.1,
             0.45 * min(1.0, coverage_deg / 90.0)
             + 0.35 * max(0.0, 1.0 - residual_mm / max(float(options["corner_max_residual_mm"]), 1e-6))
-            + 0.2 * min(1.0, len(cluster) / 24.0),
+            + 0.2 * min(1.0, len(fit_indexes) / 24.0),
         ))
         displayed_points = source_points[::max(1, len(source_points) // 64)]
         candidate = {
