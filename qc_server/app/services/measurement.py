@@ -795,6 +795,61 @@ def detect_corner_arcs(contour, calibration, options=None):
     return deduplicated[:100]
 
 
+def _line_intersection_on_first_edge(edge, neighbor):
+    origin_a = np.asarray(edge["points"][0], dtype=np.float64)
+    direction = _line_direction(edge["points"][0], edge["points"][1]).astype(np.float64)
+    origin_b = np.asarray(neighbor["points"][0], dtype=np.float64)
+    dir_b = _line_direction(neighbor["points"][0], neighbor["points"][1]).astype(np.float64)
+    determinant = float(direction[0] * dir_b[1] - direction[1] * dir_b[0])
+    if abs(determinant) < 1e-6:
+        return None
+    offset = origin_b - origin_a
+    t_value = float((offset[0] * dir_b[1] - offset[1] * dir_b[0]) / determinant)
+    return origin_a + t_value * direction
+
+
+def refine_virtual_corners(edges, options=None):
+    # Snap logical-edge endpoints to intersections with perpendicular fitted
+    # lines (virtual corner / mold line). Support-pixel endpoints bleed into
+    # rounded-corner arcs; line intersections land on the geometric corner.
+    options = {
+        "virtual_corner_gap_px": 40.0,
+        "virtual_corner_angle_deg": 15.0,
+        **(options or {}),
+    }
+    perpendicular_limit = float(np.cos(np.radians(options["virtual_corner_angle_deg"])))
+    max_gap = float(options["virtual_corner_gap_px"])
+    for edge in edges:
+        edge["endpoint_sources"] = ["support", "support"]
+    for edge in edges:
+        direction = _line_direction(edge["points"][0], edge["points"][1])
+        for neighbor in edges:
+            if neighbor is edge:
+                continue
+            if abs(float(np.dot(_line_direction(neighbor["points"][0], neighbor["points"][1]), direction))) > perpendicular_limit:
+                continue
+            intersection = _line_intersection_on_first_edge(edge, neighbor)
+            if intersection is None:
+                continue
+            t_value = float(np.dot(intersection - np.asarray(edge["points"][0], dtype=np.float64), direction))
+            edge_length = float(edge["length_px"])
+            end_index = 0 if t_value < 0.0 else 1 if t_value > edge_length else None
+            if end_index is None:
+                continue
+            gap = -t_value if end_index == 0 else t_value - edge_length
+            if gap > max_gap:
+                continue
+            neighbor_direction = _line_direction(neighbor["points"][0], neighbor["points"][1])
+            t_neighbor = float(np.dot(intersection - np.asarray(neighbor["points"][0], dtype=np.float64), neighbor_direction))
+            if t_neighbor < -max_gap / 2 or t_neighbor > float(neighbor["length_px"]) + max_gap / 2:
+                continue
+            edge["points"][end_index] = [round(float(intersection[0]), 2), round(float(intersection[1]), 2)]
+            edge["support_points"] = list(edge["points"])
+            edge["endpoint_sources"][end_index] = "virtual_intersection"
+            edge["length_px"] = round(float(np.linalg.norm(np.asarray(edge["points"][1]) - np.asarray(edge["points"][0]))), 3)
+    return edges
+
+
 def fit_logical_edges(edge_map, contour, groups, options=None):
     options = {
         "support_band_px": 3.0,
@@ -1033,6 +1088,7 @@ def process_image(frame, calibration, options=None, task_type="linear_dimension"
     contour = detect_component_contour(gray)
     groups = group_line_candidates(candidates, options)
     logical_edges = fit_logical_edges(edge_map, contour, groups, options)
+    logical_edges = refine_virtual_corners(logical_edges, options)
     contour_candidates = contour_straight_candidates(contour, min_length)
     fallback_edges = contour_fallback_logical_edges(contour_candidates, logical_edges)
     logical_edges.extend(fallback_edges)

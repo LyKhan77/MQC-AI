@@ -126,6 +126,18 @@ def test_corner_radius_stable_under_rotation():
     assert max(estimates) - min(estimates) <= 1.0
 
 
+def test_logical_edge_endpoints_snap_to_virtual_corner():
+    result = process_image(_rounded_rect_frame(), _axes_calibration(), task_types=["linear_dimension"])
+    top = min(
+        (edge for edge in result["logical_edges"] if abs(edge["angle"]) < 3),
+        key=lambda edge: abs(edge["points"][0][1] - 130),
+    )
+    xs = sorted([top["points"][0][0], top["points"][1][0]])
+    assert abs(xs[0] - 100) <= 3
+    assert abs(xs[1] - 300) <= 3
+    assert "virtual_intersection" in top["endpoint_sources"]
+
+
 def test_group_line_candidates_merges_fragmented_collinear_segments():
     candidates = [
         {"id": "R1", "points": [[10, 20], [40, 20]], "angle": 0, "length_px": 30},
@@ -174,7 +186,8 @@ def test_process_image_returns_logical_edge_spans_for_rounded_component():
     assert len(result["logical_edges"]) <= len(result["candidates"])
     lengths = [edge["length_px"] for edge in result["logical_edges"]]
     assert max(lengths) >= 155
-    assert max(lengths) <= 185
+    # Virtual-corner endpoints span the full 200 px mold-line width.
+    assert max(lengths) <= 205
     assert all(
         0 <= point[0] <= 320 and 0 <= point[1] <= 240
         for edge in result["logical_edges"]
